@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Custom ignore
+inputs/
+outputs/
+*.raw
+*.tiff
