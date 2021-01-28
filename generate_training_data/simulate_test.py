@@ -1,6 +1,7 @@
 import time
 from matplotlib import patches
 import matplotlib.pyplot as plt
+from scipy.stats import norm
 
 import simulate
 import numpy as _np
@@ -27,29 +28,14 @@ logger = get_logger()
 class Simulate:
     def __init__(self):
         self.loadSettings()
-        self.otherSettings()
-        self.simulate_single()
-
-    def otherSettings(self):
         self.exchangeroundsEdit = "1"
         self.concatExchangeEdit = False
         self.conroundsEdit = 1
         self.currentround = 0
+        self.simulate()
 
     def simulate(self):
-        rows, cols = TOTAL_HEIGHT // self.camerasizeEdit, TOTAL_WIDTH // self.camerasizeEdit
-        final_movie = _np.zeros((self.framesEdit, TOTAL_HEIGHT, TOTAL_WIDTH))
-        for row in range(rows):
-            for col in range(cols):
-                row_index, col_index = row * self.camerasizeEdit, col * self.camerasizeEdit
-                final_movie[:, row_index: row_index + self.camerasizeEdit, col_index: col_index + self.camerasizeEdit]\
-                    = self.simulate_single()
-            # print(row)
-
-        simulate.saveMovie("simulation_noise_5_500frame.raw", final_movie, {})
-
-    def simulate_single(self):
-        ## Additional settings
+        # Additional settings
         noise = NOISE
         # Exchange round to be simulated
         # default value is 1
@@ -331,9 +317,53 @@ class Simulate:
             self.backgroundframesimpleEdit = int(bgmodel)
 
     def loadSettings(self):  # TODO: re-write exceptions, check key
-        path = "/Users/golammortuza/PycharmProjects/picasso/simulate.yaml"
+        # Default\
+        STDFACTOR = 1.82
+        path = "/Users/golammortuza/workspace/nam/dissertation/generate_training_data/simulate.yaml"
+        config = _io.load_info(path)[0]
+        # calculate taud
+        config["taud"] = round(1 / (config["PAINT.k_on"] * config["PAINT.imager"] * 1 / 10 ** 9) * 1000)
+        # Calculate photon parameter
+
+        config["Imager.PhotonslopeStd"] = config["Imager.Photonslope"] / STDFACTOR
+        config["Imager.Photonrate"] = config["Imager.Photonslope"] * config["Imager.Laserpower"]
+        config["Imager.Photonrate Std"] = config["Imager.PhotonslopeStd"] * config["Imager.Laserpower"]
+
+        # Calculating the handle
+        # handle x
+        gridpos = simulate.generatePositions(
+            int(config["Structure.Number"]), int(config["Camera.Image Size"]), int(config["Structure.Frame"]), int(config["Structure.Arrangement"])
+        )
+        structurexx, structureyy, structureex, structure3d = self.readStructure(config)
+        structure = simulate.defineStructure(
+            structurexx,
+            structureyy,
+            structureex,
+            structure3d,
+            config["Camera.Pixelsize"],
+            mean=False,
+        )
+        newstruct = simulate.prepareStructures(
+            structure,
+            gridpos,
+            int(config["Structure.Orientation"]),
+            int(config["Structure.Number"]),
+            int(config["Structure.Incorporation"]),
+            exchange=0
+        )
+        config["Structure.HandleX"] = self.vectorToString(newstruct[0])
+        config["Structure.HandleY"] = self.vectorToString(newstruct[1])
+        config["Structure.Handle3d"] = self.vectorToString(newstruct[4])
+        config["Structure.HandleEx"] = self.vectorToString(newstruct[2])
+        config["Structure.HandleStruct"] = self.vectorToString(newstruct[3])
+        config["noexchangecolors"] = len(set(newstruct[2]))
+
+
+        self.config = config
+
         if path:
-            info = _io.load_info(path)
+            # info = _io.load_info(path)
+            info = [config]
             self.info = info
             self.framesEdit = (info[0]["Frames"])
 
@@ -433,13 +463,13 @@ class Simulate:
             # 2 -> custom
             self.structurecombo = 2
             self.newstruct = structure
-            self.plotPositions()
+            # self.plotPositions()
             print("Settings loaded from: " + path)
         self.changePaint()
 
     def plotPositions(self):
         structurexx, structureyy, structureex, structure3d = (
-            self.readStructure()
+            self.readStructure(self.config)
         )
         pixelsize = self.pixelsizeEdit
         structure = simulate.defineStructure(
@@ -450,6 +480,8 @@ class Simulate:
         imageSize = self.camerasizeEdit
         frame = self.structureframeEdit
         arrangement = int(self.structurerandomEdit)
+        # Get the position of each individual origami not the position of the blinking event of an origami
+        # This is the position where each of the origami will be placed
         gridpos = simulate.generatePositions(
             number, imageSize, frame, arrangement
         )
@@ -523,11 +555,11 @@ class Simulate:
         # self.canvas2.draw()
         self.figure2.show()
 
-    def readStructure(self):
-        structurexx = self.readLine(self.structurexxEdit)
-        structureyy = self.readLine(self.structureyyEdit)
-        structureex = self.readLine(self.structureexEdit, "int")
-        structure3d = self.readLine(self.structure3DEdit)
+    def readStructure(self, config):
+        structurexx = self.readLine(config["Structure.StructureX"])
+        structureyy = self.readLine(config["Structure.StructureY"])
+        structureex = self.readLine(config["Structure.StructureEx"], "int")
+        structure3d = self.readLine(config["Structure.Structure3D"])
 
         minlen = min(
             len(structureex),
