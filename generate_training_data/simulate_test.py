@@ -15,6 +15,7 @@ filename = "new_test_data.raw"
 ADVANCED_MODE = 0  # 1 is with calibration of noise model
 # IMAGER
 POWER_DENSITY_CONVERSION = 20
+POWERDENSITY_CONVERSION = 20
 # NOISE MODEL
 LASERC_DEFAULT = 0.012063
 IMAGERC_DEFAULT = 0.003195
@@ -323,6 +324,7 @@ class Simulate:
         config = _io.load_info(path)[0]
         # calculate taud
         config["taud"] = round(1 / (config["PAINT.k_on"] * config["PAINT.imager"] * 1 / 10 ** 9) * 1000)
+        self.taudEdit = config["taud"]
         # Calculate photon parameter
 
         config["Imager.PhotonslopeStd"] = config["Imager.Photonslope"] / STDFACTOR
@@ -357,8 +359,14 @@ class Simulate:
         config["Structure.HandleEx"] = self.vectorToString(newstruct[2])
         config["Structure.HandleStruct"] = self.vectorToString(newstruct[3])
         config["noexchangecolors"] = len(set(newstruct[2]))
-
-
+        bgmodel = (
+                (LASERC_DEFAULT + IMAGERC_DEFAULT * config["PAINT.imager"])
+                * config["Imager.Laserpower"] * POWERDENSITY_CONVERSION
+                * config["Camera.Integration Time"]
+                * config["Imager.BackgroundLevel"]
+        )
+        config["bgmodel"] = int(bgmodel)
+        self.backgroundframesimpleEdit = int(bgmodel)
         self.config = config
 
         if path:
@@ -463,97 +471,8 @@ class Simulate:
             # 2 -> custom
             self.structurecombo = 2
             self.newstruct = structure
-            # self.plotPositions()
-            print("Settings loaded from: " + path)
-        self.changePaint()
 
-    def plotPositions(self):
-        structurexx, structureyy, structureex, structure3d = (
-            self.readStructure(self.config)
-        )
-        pixelsize = self.pixelsizeEdit
-        structure = simulate.defineStructure(
-            structurexx, structureyy, structureex, structure3d, pixelsize
-        )
 
-        number = self.structurenoEdit
-        imageSize = self.camerasizeEdit
-        frame = self.structureframeEdit
-        arrangement = int(self.structurerandomEdit)
-        # Get the position of each individual origami not the position of the blinking event of an origami
-        # This is the position where each of the origami will be placed
-        gridpos = simulate.generatePositions(
-            number, imageSize, frame, arrangement
-        )
-
-        orientation = int(self.structurerandomOrientationEdit)
-        incorporation = self.structureIncorporationEdit / 100
-        exchange = 0
-
-        # self.figure1.suptitle('Positions [Px]')
-        self.figure1 = plt.figure()
-        self.figure2 = plt.figure()
-        ax1 = self.figure1.add_subplot(111)
-        ax1.cla()
-        #ax1.hold(True)
-        ax1.axis("equal")
-        ax1.plot(self.newstruct[0, :], self.newstruct[1, :], "+")
-        # PLOT FRAME
-        ax1.add_patch(
-            patches.Rectangle(
-                (frame, frame),
-                imageSize - 2 * frame,
-                imageSize - 2 * frame,
-                linestyle="dashed",
-                edgecolor="#000000",
-                fill=False,  # remove background
-            )
-        )
-
-        ax1.axes.set_xlim(0, imageSize)
-        ax1.axes.set_ylim(0, imageSize)
-
-        # PLOT first structure
-        struct1 = self.newstruct[:, self.newstruct[3, :] == 0]
-
-        noexchangecolors = len(set(struct1[2, :]))
-        exchangecolors = list(set(struct1[2, :]))
-        self.noexchangecolors = exchangecolors
-        # self.figure2.suptitle('Structure [nm]')
-        ax1 = self.figure2.add_subplot(111)
-        ax1.cla()
-        #ax1.hold(True)
-
-        structurexx = struct1[0, :]
-        structureyy = struct1[1, :]
-        structureex = struct1[2, :]
-        structurexx_nm = _np.multiply(
-            structurexx - min(structurexx), pixelsize
-        )
-        structureyy_nm = _np.multiply(
-            structureyy - min(structureyy), pixelsize
-        )
-
-        for i in range(0, noexchangecolors):
-            plotxx = []
-            plotyy = []
-            for j in range(0, len(structureex)):
-                if structureex[j] == exchangecolors[i]:
-                    plotxx.append(structurexx_nm[j])
-                    plotyy.append(structureyy_nm[j])
-            ax1.plot(plotxx, plotyy, "o")
-
-            distx = round(1 / 10 * (max(structurexx_nm) - min(structurexx_nm)))
-            disty = round(1 / 10 * (max(structureyy_nm) - min(structureyy_nm)))
-
-            ax1.axes.set_xlim(
-                (min(structurexx_nm) - distx, max(structurexx_nm) + distx)
-            )
-            ax1.axes.set_ylim(
-                (min(structureyy_nm) - disty, max(structureyy_nm) + disty)
-            )
-        # self.canvas2.draw()
-        self.figure2.show()
 
     def readStructure(self, config):
         structurexx = self.readLine(config["Structure.StructureX"])
