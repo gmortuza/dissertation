@@ -1,17 +1,12 @@
-import time
-from matplotlib import patches
-import matplotlib.pyplot as plt
-from scipy.stats import norm
+from collections import Counter
 
 import simulate
 import numpy as _np
 import io_modified as _io
-import os.path as _ospath
 from get_logger import get_logger
 from tqdm import tqdm
 
 # default variable
-filename = "new_test_data.raw"
 ADVANCED_MODE = 0  # 1 is with calibration of noise model
 # IMAGER
 POWER_DENSITY_CONVERSION = 20
@@ -19,135 +14,132 @@ POWERDENSITY_CONVERSION = 20
 # NOISE MODEL
 LASERC_DEFAULT = 0.012063
 IMAGERC_DEFAULT = 0.003195
-# STRUCTURE
-NOISE = 0.5
-TOTAL_HEIGHT = 16
-TOTAL_WIDTH = 16
+# Default\
+STD_FACTOR = 1.82
 logger = get_logger()
 
 
 class Simulate:
     def __init__(self):
-        self.loadSettings()
-        self.concatExchangeEdit = False
-        self.conroundsEdit = 1
-        self.current_round = 0
+        self.config = self.loadSettings()
         self.simulate()
 
+    def get_origami(self, config):
+        """
+        Generate the random origami
+        :return: origami_counter --> How many times each of the origami appeared
+        """
+        _np.random.seed(100)
+
+        x_distance, y_distance = config["Distance_x"], config["Distance_y"]
+        row, column = config["origami_row"], config["origami_column"]
+        num_total_origami, num_unique_origami = config["Structure.Number"], config["unique_origami"]
+
+        x = _np.arange(0, x_distance * column, x_distance)
+        y = _np.arange(0, y_distance * row, y_distance)
+        mesh_x, mesh_y = _np.meshgrid(x, y)
+        mesh_x, mesh_y = mesh_x.ravel(), mesh_y.ravel()
+        # adding seed for reproducibility
+        sample_origami = _np.random.randint(2, size=(num_unique_origami, 48)).astype(_np.bool)
+        unique_origami = {}
+        # create the unique origami
+        for origami_id, single_origami in enumerate(sample_origami):
+            single_origami_x, single_origami_y = mesh_x[single_origami], mesh_y[single_origami]
+            unique_origami[origami_id] = {}
+            unique_origami[origami_id]["x_cor"] = single_origami_x
+            unique_origami[origami_id]["y_cor"] = single_origami_y
+            unique_origami[origami_id]["labels"] = _np.ones_like(single_origami_x)
+            unique_origami[origami_id]["3d"] = _np.zeros_like(single_origami_x)
+
+        # Taking the random num_total_origamies here.
+        # but later decided to pick random origami later
+        # Keeping this Piece of code for future references
+        """
+        random_idx = _np.random.choice(_np.arange(num_unique_origami), num_total_origami)
+        origami_counter = Counter(random_idx)
+        unique_origami_x = _np.asarray(unique_origami_x, dtype=_np.object)
+        unique_origami_y = _np.asarray(unique_origami_y, dtype=_np.object)
+
+        total_origami_x = unique_origami_x[random_idx].ravel()
+        total_origami_y = unique_origami_y[random_idx].ravel()
+        """
+        return unique_origami
+
     def simulate(self):
-        # Additional settings
-        noise = NOISE
-        # Exchange round to be simulated
-        # default value is 1
-        exchange_round_to_simulate = self.config["exchange_round"]
-
-        no_exchange_color = len(set(exchange_round_to_simulate))
-        exchange_colors = list(set(exchange_round_to_simulate))
-
-        self.current_round += 1
-        # structre read from he file
-        struct = self.config["new_struct"]
         # Number of frames
         frames = self.config["Camera.Frames"]
 
-        base_file_name = "simulation_noise_5_origami_9_in_16_16.raw"
+        file_name = "test.raw"
         logger.info("Distributing photon")
-        # time
-        t0 = time.time()
-        for n_color in range(0, no_exchange_color):
-            # If we use multiple color then each colors blinking event will be on different file
-            # This will create different file for each color
-            # for now we are using only one color so this will run once
-            if no_exchange_color > 1:
-                # Update the file name according to that
-                file_name = _io.multiple_filenames(base_file_name, n_color)
-                # Don't take all the binding event. Only take the co-ordinate of binding event that is bound to this color
-                struct_partial = struct[:, struct[2, :] == exchange_colors[n_color]]
-            elif self.concatExchangeEdit:
-                file_name = base_file_name
-                struct_partial = struct[:, struct[2, :] == exchange_colors[self.current_round - 1], ]
-            else:  # There is only one color
-                file_name = base_file_name
-                # Structure that will be used for this colors
-                struct_partial = struct[:, struct[2, :] == exchange_colors[0]]
 
-            print("Distributing photons")
+        # Structure that will be used for this colors
+        struct_partial = self.config["new_struct"]
 
-            no_sites = len(
-                struct_partial[0, :]
-            )  # number of binding sites in image
-            # amount of photon for each of the binding sites on each frame
-            photon_dist = _np.zeros((no_sites, frames), dtype=_np.int)
-            spot_kinetics = _np.zeros((no_sites, 4), dtype=_np.float)
+        print("Distributing photons")
 
-            time_trace = {}
+        no_sites = len(
+            struct_partial[0, :]
+        )  # number of binding sites in image
+        # amount of photon for each of the binding sites on each frame
+        photon_dist = _np.zeros((no_sites, frames), dtype=_np.int)
+        spot_kinetics = _np.zeros((no_sites, 4), dtype=_np.float)
 
-            # This will populate the variable photon_dist
-            for n_site in range(0, no_sites):  # For each site will assign the number of photon
-                p_temp, t_temp, k_temp = simulate.distphotons(
-                    struct_partial,
-                    self.config["Camera.Integration Time"],
-                    self.config["Camera.Frames"],
-                    self.config["taud"],  # mean dark (ms)
-                    self.config["PAINT.taub"],  # mean bright (ms)
-                    self.config["Imager.Photonrate"],
-                    self.config["Imager.Photonrate Std"],
-                    self.config["Imager.Photonbudget"],
-                )
-                photon_dist[n_site, :] = p_temp
-                spot_kinetics[n_site, :] = k_temp
-                time_trace[n_site] = self.vectorToString(t_temp)
-                outputmsg = (
-                        "Distributing photons ... "
-                        + str(_np.round(n_site / no_sites * 1000) / 10)
-                        + " %"
-                )
-                print(outputmsg)
-            # Converting into movie
-            logger.info("Converting to image")
+        time_trace = {}
 
-            movie = _np.zeros(shape=(frames, self.config["Camera.Image Size"], self.config["Camera.Image Size"]))
-            for runner in range(0, frames):
-                movie[runner, :, :] = simulate.convertMovie(
-                    runner,
-                    photon_dist,
-                    struct_partial,
-                    self.config["Camera.Image Size"],
-                    frames,
-                    self.config["Imager.PSF"],
-                    self.config["Imager.Photonrate"],
-                    self.config["Imager.BackgroundLevel"],
-                    self.config["bgmodel"], # Noise
-                    int(self.config["Structure.3D"]),
-                    self.config["Structure.CX"],
-                    self.config["Structure.CY"],
-                )
-                # Add noise to this movie
-                outputmsg = (
-                        "Converting to Image ... "
-                        + str(_np.round(runner / frames * 1000) / 10)
-                        + " %"
-                )
+        # This will populate the variable photon_dist
+        for n_site in tqdm(range(0, no_sites), desc="Distributing photon"):
+            #  For each site will assign the number of photon
+            p_temp, t_temp, k_temp = simulate.distphotons(
+                struct_partial,
+                self.config["Camera.Integration Time"],
+                self.config["Camera.Frames"],
+                self.config["taud"],  # mean dark (ms)
+                self.config["PAINT.taub"],  # mean bright (ms)
+                self.config["Imager.Photonrate"],
+                self.config["Imager.Photonrate Std"],
+                self.config["Imager.Photonbudget"],
+            )
+            photon_dist[n_site, :] = p_temp
+            spot_kinetics[n_site, :] = k_temp
+            time_trace[n_site] = self.vectorToString(t_temp)
+        # Converting into movie
+        logger.info("Converting to image")
 
-                print(outputmsg)
-
-            movie = simulate.noisy_p(movie, self.config["bgmodel"])
-            # insert poisson noise
-            movie = simulate.check_type(movie)
-            print("saving movie")
-            simulate.saveMovie("simulation.raw", movie, self.config)
+        movie = _np.zeros(shape=(frames, self.config["Camera.Image Size"], self.config["Camera.Image Size"]))
+        for runner in tqdm(range(0, frames), desc="Converting into image"):
+            movie[runner, :, :] = simulate.convertMovie(
+                runner,
+                photon_dist,
+                struct_partial,
+                self.config["Camera.Image Size"],
+                frames,
+                self.config["Imager.PSF"],
+                self.config["Imager.Photonrate"],
+                self.config["Imager.BackgroundLevel"],
+                self.config["bgmodel"], # Noise
+                int(self.config["Structure.3D"]),
+                self.config["Structure.CX"],
+                self.config["Structure.CY"],
+            )
+            # Add noise to this movie
+        movie = simulate.noisy_p(movie, self.config["bgmodel"])
+        # insert poisson noise
+        movie = simulate.check_type(movie)
+        logger.info("saving movie")
+        # Convert newstruct and exhange_round to sring otherwise saving will have error
+        del self.config["new_struct"]
+        self.config["exchange_round"] = self.vectorToString(self.config["exchange_round"].tolist())
+        simulate.saveMovie(file_name, movie, self.config)
 
     def loadSettings(self):  # TODO: re-write exceptions, check key
-        # Default\
-        STDFACTOR = 1.82
+
         path = "/Users/golammortuza/workspace/nam/dissertation/generate_training_data/simulate.yaml"
         config = _io.load_info(path)[0]
         # calculate taud
         config["taud"] = round(1 / (config["PAINT.k_on"] * config["PAINT.imager"] * 1 / 10 ** 9) * 1000)
-        self.taudEdit = config["taud"]
         # Calculate photon parameter
 
-        config["Imager.PhotonslopeStd"] = config["Imager.Photonslope"] / STDFACTOR
+        config["Imager.PhotonslopeStd"] = config["Imager.Photonslope"] / STD_FACTOR
         config["Imager.Photonrate"] = config["Imager.Photonslope"] * config["Imager.Laserpower"]
         config["Imager.Photonrate Std"] = config["Imager.PhotonslopeStd"] * config["Imager.Laserpower"]
 
@@ -156,16 +148,16 @@ class Simulate:
         gridpos = simulate.generatePositions(
             int(config["Structure.Number"]), int(config["Camera.Image Size"]), int(config["Structure.Frame"]), int(config["Structure.Arrangement"])
         )
-        structurexx, structureyy, structureex, structure3d = self.readStructure(config)
+        structure_xx, structure_yy, structure_ex, structure_3d = self.readStructure(config)
         structure = simulate.defineStructure(
-            structurexx,
-            structureyy,
-            structureex,
-            structure3d,
+            structure_xx,
+            structure_yy,
+            structure_ex,
+            structure_3d,
             config["Camera.Pixelsize"],
             mean=False,
         )
-        newstruct = simulate.prepareStructures(
+        new_struct = simulate.prepareStructures(
             structure,
             gridpos,
             int(config["Structure.Orientation"]),
@@ -173,13 +165,13 @@ class Simulate:
             int(config["Structure.Incorporation"]),
             exchange=0
         )
-        config["new_struct"] = newstruct
-        config["Structure.HandleX"] = self.vectorToString(newstruct[0])
-        config["Structure.HandleY"] = self.vectorToString(newstruct[1])
-        config["Structure.Handle3d"] = self.vectorToString(newstruct[4])
-        config["Structure.HandleEx"] = self.vectorToString(newstruct[2])
-        config["Structure.HandleStruct"] = self.vectorToString(newstruct[3])
-        config["noexchangecolors"] = len(set(newstruct[2]))
+        config["new_struct"] = new_struct
+        config["Structure.HandleX"] = self.vectorToString(new_struct[0])
+        config["Structure.HandleY"] = self.vectorToString(new_struct[1])
+        config["Structure.Handle3d"] = self.vectorToString(new_struct[4])
+        config["Structure.HandleEx"] = self.vectorToString(new_struct[2])
+        config["Structure.HandleStruct"] = self.vectorToString(new_struct[3])
+        config["noexchangecolors"] = len(set(new_struct[2]))
         bgmodel = (
                 (LASERC_DEFAULT + IMAGERC_DEFAULT * config["PAINT.imager"])
                 * config["Imager.Laserpower"] * POWERDENSITY_CONVERSION
@@ -187,29 +179,35 @@ class Simulate:
                 * config["Imager.BackgroundLevel"]
         )
         config["bgmodel"] = int(bgmodel)
-        self.backgroundframesimpleEdit = int(bgmodel)
-        config["exchange_round"] = _np.asarray(list(set(newstruct[2])), dtype=_np.int)
-        self.config = config
+        config["exchange_round"] = _np.asarray(list(set(new_struct[2])), dtype=_np.int)
+        return config
 
     def readStructure(self, config):
-        structurexx = self.readLine(config["Structure.StructureX"])
-        structureyy = self.readLine(config["Structure.StructureY"])
-        structureex = self.readLine(config["Structure.StructureEx"], "int")
+        """
+        :param config:
+        :return: structure_xx, structure_yy, structure_ex, structure_3d
+        """
+        # Generate origami
+        # return self.get_origami(config)
+
+        structure_xx = self.readLine(config["Structure.StructureX"])
+        structure_yy = self.readLine(config["Structure.StructureY"])
+        structure_ex = self.readLine(config["Structure.StructureEx"], "int")
         structure3d = self.readLine(config["Structure.Structure3D"])
 
         minlen = min(
-            len(structureex),
-            len(structurexx),
-            len(structureyy),
+            len(structure_ex),
+            len(structure_xx),
+            len(structure_yy),
             len(structure3d),
         )
 
-        structurexx = structurexx[0:minlen]
-        structureyy = structureyy[0:minlen]
-        structureex = structureex[0:minlen]
+        structure_xx = structure_xx[0:minlen]
+        structure_yy = structure_yy[0:minlen]
+        structure_ex = structure_ex[0:minlen]
         structure3d = structure3d[0:minlen]
 
-        return structurexx, structureyy, structureex, structure3d
+        return structure_xx, structure_yy, structure_ex, structure3d
 
     def readLine(self, linetxt, type="float", textmode=True):
         if textmode:

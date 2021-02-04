@@ -1,6 +1,8 @@
-numpy
-matplotlib
-pyyaml
-h5py
-numba
-tqdm
+numpy~=1.19.2
+matplotlib~=3.3.2
+pyyaml~=5.3.1
+h5py~=2.10.0
+numba~=0.51.2
+tqdm~=4.55.0
+yaml~=0.2.5
+PyQT5==5.15.2

@@ -425,9 +425,7 @@ def prepareStructures(
     """
     prepareStructures:
     Input positions, the structure definitionconsider rotation etc.
-
     """
-    newpos = []
     oldstructure = _np.array(
         [structure[0, :], structure[1, :], structure[2, :], structure[3, :]]
     )
