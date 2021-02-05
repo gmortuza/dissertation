@@ -40,11 +40,21 @@ class Simulate:
         mesh_x, mesh_y = _np.meshgrid(x, y)
         mesh_x, mesh_y = mesh_x.ravel(), mesh_y.ravel()
         # adding seed for reproducibility
+        # TODO: enable this later this is for debuging purpose
         sample_origami = _np.random.randint(2, size=(num_unique_origami, 48)).astype(_np.bool)
+        # sample_origami = _np.ones_like(sample_origami, dtype=_np.int).astype(_np.bool)
         unique_origami = {}
         # create the unique origami
         for origami_id, single_origami in enumerate(sample_origami):
             single_origami_x, single_origami_y = mesh_x[single_origami], mesh_y[single_origami]
+            # Move center of the mass to the origin
+            if config["origami_mean"]:
+                single_origami_x = single_origami_x - _np.mean(single_origami_x)
+                single_origami_y = single_origami_y - _np.mean(single_origami_y)
+            # Convert pixel to nanometer
+            single_origami_x = single_origami_x / config["Camera.Pixelsize"]
+            single_origami_y = single_origami_y / config["Camera.Pixelsize"]
+
             unique_origami[origami_id] = {}
             unique_origami[origami_id]["x_cor"] = single_origami_x
             unique_origami[origami_id]["y_cor"] = single_origami_y
@@ -74,8 +84,6 @@ class Simulate:
 
         # Structure that will be used for this colors
         struct_partial = self.config["new_struct"]
-
-        print("Distributing photons")
 
         no_sites = len(
             struct_partial[0, :]
@@ -129,6 +137,7 @@ class Simulate:
         # Convert newstruct and exhange_round to sring otherwise saving will have error
         del self.config["new_struct"]
         self.config["exchange_round"] = self.vectorToString(self.config["exchange_round"].tolist())
+        logger.info("Saving image")
         simulate.saveMovie(file_name, movie, self.config)
 
     def loadSettings(self):  # TODO: re-write exceptions, check key
@@ -148,17 +157,19 @@ class Simulate:
         gridpos = simulate.generatePositions(
             int(config["Structure.Number"]), int(config["Camera.Image Size"]), int(config["Structure.Frame"]), int(config["Structure.Arrangement"])
         )
-        structure_xx, structure_yy, structure_ex, structure_3d = self.readStructure(config)
-        structure = simulate.defineStructure(
-            structure_xx,
-            structure_yy,
-            structure_ex,
-            structure_3d,
-            config["Camera.Pixelsize"],
-            mean=False,
-        )
+        origamies = self.get_origami(config)
+
+        # structure_xx, structure_yy, structure_ex, structure_3d = self.readStructure(config)
+        # structure = simulate.defineStructure(
+        #     structure_xx,
+        #     structure_yy,
+        #     structure_ex,
+        #     structure_3d,
+        #     config["Camera.Pixelsize"],
+        #     mean=False,
+        # )
         new_struct = simulate.prepareStructures(
-            structure,
+            origamies,
             gridpos,
             int(config["Structure.Orientation"]),
             int(config["Structure.Number"]),

@@ -420,21 +420,23 @@ def randomExchange(pos):
 
 
 def prepareStructures(
-    structure, gridpos, orientation, number, incorporation, exchange
+    origamies, gridpos, orientation, number, incorporation, exchange
 ):
     """
     prepareStructures:
     Input positions, the structure definitionconsider rotation etc.
     """
-    oldstructure = _np.array(
-        [structure[0, :], structure[1, :], structure[2, :], structure[3, :]]
-    )
-
     for i in range(0, len(gridpos)):
+        # for each grid position select a random origami and add that origami to that grid position
+        # Origami id for this particular grid position
+        origami = origamies[_np.random.randint(0, len(origamies))]
+        old_structure = _np.array(
+            [origami["x_cor"], origami["y_cor"], origami["labels"], origami["3d"]]
+        )
         if orientation == 0:
-            structure = oldstructure
+            structure = old_structure
         else:
-            structure = rotateStructure(oldstructure)
+            structure = rotateStructure(old_structure)
 
         if incorporation == 1:
             pass
