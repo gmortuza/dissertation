@@ -133,3 +133,4 @@ inputs/
 outputs/
 *.raw
 *.tiff
+generated_data/

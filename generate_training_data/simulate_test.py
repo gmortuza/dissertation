@@ -5,6 +5,7 @@ import numpy as _np
 import io_modified as _io
 from get_logger import get_logger
 from tqdm import tqdm
+import h5py
 
 # default variable
 ADVANCED_MODE = 0  # 1 is with calibration of noise model
@@ -23,6 +24,29 @@ class Simulate:
     def __init__(self):
         self.config = self.loadSettings()
         self.simulate()
+
+    def save_ground_truth(self, config):
+        x = config["new_struct"][0]
+        y = config["new_struct"][1]
+        photons = config["Imager.Photonbudget"] / config["Imager.Photonslope"]
+        ground_truth = _np.rec.array(
+            (
+                x,
+                y,
+                _np.full_like(x, photons),  # Photons
+                _np.zeros_like(x),  # background
+                _np.full_like(x, .009),  # lpx
+                _np.full_like(x, .009),  # lpy
+            ), dtype=[
+                ("x", "f4"),
+                ("y", "f4"),
+                ("photons", "f4"),
+                ("bg", "f4"),
+                ("lpx", "f4"),
+                ("lpy", "f4"),
+            ])
+        with h5py.File("test_locs_ground_truth.hdf5", "w") as locs_file:
+            locs_file.create_dataset("locs", data=ground_truth)
 
     def get_origami(self, config):
         """
@@ -140,7 +164,7 @@ class Simulate:
         logger.info("Saving image")
         simulate.saveMovie(file_name, movie, self.config)
 
-    def loadSettings(self):  # TODO: re-write exceptions, check key
+    def loadSettings(self):
 
         path = "/Users/golammortuza/workspace/nam/dissertation/generate_training_data/simulate.yaml"
         config = _io.load_info(path)[0]
@@ -176,6 +200,7 @@ class Simulate:
             int(config["Structure.Incorporation"]),
             exchange=0
         )
+
         config["new_struct"] = new_struct
         config["Structure.HandleX"] = self.vectorToString(new_struct[0])
         config["Structure.HandleY"] = self.vectorToString(new_struct[1])
@@ -191,6 +216,9 @@ class Simulate:
         )
         config["bgmodel"] = int(bgmodel)
         config["exchange_round"] = _np.asarray(list(set(new_struct[2])), dtype=_np.int)
+
+        self.save_ground_truth(config)
+
         return config
 
     def readStructure(self, config):
