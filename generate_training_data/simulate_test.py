@@ -45,7 +45,7 @@ class Simulate:
                 ("lpx", "f4"),
                 ("lpy", "f4"),
             ])
-        with h5py.File("test_locs_ground_truth.hdf5", "w") as locs_file:
+        with h5py.File("generated_data/test_locs_ground_truth.hdf5", "w") as locs_file:
             locs_file.create_dataset("locs", data=ground_truth)
 
     def get_origami(self, config):
@@ -103,7 +103,7 @@ class Simulate:
         # Number of frames
         frames = self.config["Camera.Frames"]
 
-        file_name = "test.raw"
+        file_name = "generated_data/test.raw"
         logger.info("Distributing photon")
 
         # Structure that will be used for this colors
