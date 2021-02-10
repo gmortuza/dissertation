@@ -45,7 +45,7 @@ class Simulate:
                 ("lpx", "f4"),
                 ("lpy", "f4"),
             ])
-        with h5py.File("generated_data/test_locs_ground_truth.hdf5", "w") as locs_file:
+        with h5py.File(config["output_file"]+"_ground_truth.hdf5", "w") as locs_file:
             locs_file.create_dataset("locs", data=ground_truth)
 
     def get_origami(self, config):
@@ -55,9 +55,9 @@ class Simulate:
         """
         _np.random.seed(100)
 
-        x_distance, y_distance = config["Distance_x"], config["Distance_y"]
+        x_distance, y_distance = config["distance_x"], config["distance_y"]
         row, column = config["origami_row"], config["origami_column"]
-        num_total_origami, num_unique_origami = config["Structure.Number"], config["unique_origami"]
+        num_total_origami, num_unique_origami = config["total_origami"], config["unique_origami"]
 
         x = _np.arange(0, x_distance * column, x_distance)
         y = _np.arange(0, y_distance * row, y_distance)
@@ -101,9 +101,9 @@ class Simulate:
 
     def simulate(self):
         # Number of frames
-        frames = self.config["Camera.Frames"]
+        frames = self.config["Frames"]
 
-        file_name = "generated_data/test.raw"
+        file_name = self.config["output_file"]+".raw"
         logger.info("Distributing photon")
 
         # Structure that will be used for this colors
@@ -124,7 +124,7 @@ class Simulate:
             p_temp, t_temp, k_temp = simulate.distphotons(
                 struct_partial,
                 self.config["Camera.Integration Time"],
-                self.config["Camera.Frames"],
+                self.config["Frames"],
                 self.config["taud"],  # mean dark (ms)
                 self.config["PAINT.taub"],  # mean bright (ms)
                 self.config["Imager.Photonrate"],
@@ -137,19 +137,19 @@ class Simulate:
         # Converting into movie
         logger.info("Converting to image")
 
-        movie = _np.zeros(shape=(frames, self.config["Camera.Image Size"], self.config["Camera.Image Size"]))
+        movie = _np.zeros(shape=(frames, self.config["Height"], self.config["Width"]))
         for runner in tqdm(range(0, frames), desc="Converting into image"):
             movie[runner, :, :] = simulate.convertMovie(
                 runner,
                 photon_dist,
                 struct_partial,
-                self.config["Camera.Image Size"],
+                self.config["Height"],
                 frames,
                 self.config["Imager.PSF"],
                 self.config["Imager.Photonrate"],
-                self.config["Imager.BackgroundLevel"],
+                self.config["noise_level"],
                 self.config["bgmodel"], # Noise
-                int(self.config["Structure.3D"]),
+                int(self.config["origami_3d"]),
                 self.config["Structure.CX"],
                 self.config["Structure.CY"],
             )
@@ -179,7 +179,7 @@ class Simulate:
         # Calculating the handle
         # handle x
         gridpos = simulate.generatePositions(
-            int(config["Structure.Number"]), int(config["Camera.Image Size"]), int(config["Structure.Frame"]), int(config["Structure.Arrangement"])
+            int(config["total_origami"]), int(config["Height"]), int(config["frame_padding"]), int(config["origami_arrangement"])
         )
         origamies = self.get_origami(config)
 
@@ -195,9 +195,9 @@ class Simulate:
         new_struct = simulate.prepareStructures(
             origamies,
             gridpos,
-            int(config["Structure.Orientation"]),
-            int(config["Structure.Number"]),
-            int(config["Structure.Incorporation"]),
+            int(config["origami_orientation"]),
+            int(config["total_origami"]),
+            int(config["binding_site_incorporation"]),
             exchange=0
         )
 
@@ -212,7 +212,7 @@ class Simulate:
                 (LASERC_DEFAULT + IMAGERC_DEFAULT * config["PAINT.imager"])
                 * config["Imager.Laserpower"] * POWERDENSITY_CONVERSION
                 * config["Camera.Integration Time"]
-                * config["Imager.BackgroundLevel"]
+                * config["noise_level"]
         )
         config["bgmodel"] = int(bgmodel)
         config["exchange_round"] = _np.asarray(list(set(new_struct[2])), dtype=_np.int)

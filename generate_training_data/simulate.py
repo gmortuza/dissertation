@@ -324,7 +324,10 @@ def convertMovie(
         x = photonposframe[:, 0]
         y = photonposframe[:, 1]
         simframe, xedges, yedges = _np.histogram2d(y, x, bins=(edges, edges))
-        simframe = _np.flipud(simframe)  # to be consistent with render
+        # Because of this flip ground truth doesn't match with the render text
+        # The origami might be fippled anyway. So this doesn't matter
+        # Disabling this to have the exact match of the ground truth vs simulated data
+        # simframe = _np.flipud(simframe)  # to be consistent with render
 
     return simframe
 
