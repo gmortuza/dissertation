@@ -265,71 +265,69 @@ def distphotons(
     return photonsinframe, timetrace, spotkinetics
 
 
-def distphotonsxy(runner, photondist, structures, psf, mode3Dstate, cx, cy):
+def dist_photons_xy(runner, photon_dist, structures, psf, mode3Dstate, cx, cy):
 
-    bindingsitesx = structures[0, :]
-    bindingsitesy = structures[1, :]
-    bindingsitesz = structures[4, :]
-    nosites = len(bindingsitesx)  # number of binding sites in image
+    binding_sites_x = structures[0, :]
+    binding_sites_y = structures[1, :]
+    binding_sites_z = structures[4, :]
+    no_sites = len(binding_sites_x)  # number of binding sites in image
 
-    tempphotons = _np.array(photondist[:, runner]).astype(int)
-    n_photons = _np.sum(tempphotons)
-    n_photons_step = _np.cumsum(tempphotons)
+    temp_photons = _np.array(photon_dist[:, runner]).astype(int)
+    n_photons = _np.sum(temp_photons)
+    n_photons_step = _np.cumsum(temp_photons)
     n_photons_step = _np.insert(n_photons_step, 0, 0)
 
     # Allocate memory
-    photonposframe = _np.zeros((n_photons, 2))
-    for i in range(0, nosites):
-        photoncount = int(photondist[i, runner])
+    photon_pos_frame = _np.zeros((n_photons, 2))
+    # Positions where are putting some photons
+    gt_position = []
+    for i in range(0, no_sites):
+        photon_count = int(photon_dist[i, runner])
         if mode3Dstate:
-            wx, wy = calculate_zpsf(bindingsitesz[i], cx, cy)
+            wx, wy = calculate_zpsf(binding_sites_z[i], cx, cy)
             cov = [[wx * wx, 0], [0, wy * wy]]
         else:
             # covariance matrix for the normal distribution
             cov = [[psf * psf, 0], [0, psf * psf]]
 
-        if photoncount > 0:
-            mu = [bindingsitesx[i], bindingsitesy[i]]
-            photonpos = _np.random.multivariate_normal(mu, cov, photoncount)
-            photonposframe[
+        if photon_count > 0:
+            gt_position.append(i)
+            mu = [binding_sites_x[i], binding_sites_y[i]]
+            photon_pos = _np.random.multivariate_normal(mu, cov, photon_count)
+            photon_pos_frame[
                 n_photons_step[i]: n_photons_step[i + 1], :
-            ] = photonpos
+            ] = photon_pos
 
-    return photonposframe
+    return photon_pos_frame, gt_position
 
 
 def convertMovie(
     runner,
-    photondist,
-    structures,
-    imagesize,
-    frames,
-    psf,
-    photonrate,
-    background,
-    noise,
-    mode3Dstate,
-    cx,
-    cy,
+    photon_dist,
+    config,
 ):
-    edges = range(0, imagesize + 1)
+    edges = range(0, config["Height"] + 1)
 
-    photonposframe = distphotonsxy(
-        runner, photondist, structures, psf, mode3Dstate, cx, cy
+    photon_pos_frame, gt_position = dist_photons_xy(
+        runner, photon_dist, config["new_struct"], config["Imager.PSF"], config["origami_3d"],
+        config["Structure.CX"], config["Structure.CY"]
     )
 
-    if len(photonposframe) == 0:
-        simframe = _np.zeros((imagesize, imagesize))
+    if len(photon_pos_frame) == 0:
+        # There is no photon allocated in this frame
+        # So we will return empty image
+        return _np.zeros((config["Height"], config["Width"])), gt_position
     else:
-        x = photonposframe[:, 0]
-        y = photonposframe[:, 1]
-        simframe, xedges, yedges = _np.histogram2d(y, x, bins=(edges, edges))
+        # Insert the drift in here
+        x = photon_pos_frame[:, 0] + config["drift_x"][runner]
+        y = photon_pos_frame[:, 1] + config["drift_y"][runner]
+        # TODO: Not sure why it is y, x need to check this
+        simulated_frame, _, _ = _np.histogram2d(y, x, bins=(edges, edges))
+        return simulated_frame, gt_position
         # Because of this flip ground truth doesn't match with the render text
         # The origami might be fippled anyway. So this doesn't matter
         # Disabling this to have the exact match of the ground truth vs simulated data
-        # simframe = _np.flipud(simframe)  # to be consistent with render
-
-    return simframe
+        # simulated_frame = _np.flipud(simulated_frame)  # to be consistent with render
 
 
 def saveMovie(filename, movie, info):
@@ -337,7 +335,7 @@ def saveMovie(filename, movie, info):
 
 
 # Function to store the coordinates of a structure in a container.
-# The coordinates wil be adjustet so that the center of mass is the origin
+# The coordinates wil be adjusted so that the center of mass is the origin
 def defineStructure(
     structurexxpx,
     structureyypx,
@@ -427,7 +425,7 @@ def prepareStructures(
 ):
     """
     prepareStructures:
-    Input positions, the structure definitionconsider rotation etc.
+    Input positions, the structure definition consider rotation etc.
     """
     for i in range(0, len(gridpos)):
         # for each grid position select a random origami and add that origami to that grid position

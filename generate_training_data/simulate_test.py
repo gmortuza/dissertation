@@ -1,3 +1,4 @@
+import sys
 from collections import Counter
 
 import simulate
@@ -45,7 +46,7 @@ class Simulate:
                 ("lpx", "f4"),
                 ("lpy", "f4"),
             ])
-        with h5py.File(config["output_file"]+"_ground_truth.hdf5", "w") as locs_file:
+        with h5py.File(config["output_file"]+"_ground_truth_without_frame.hdf5", "w") as locs_file:
             locs_file.create_dataset("locs", data=ground_truth)
 
     def get_origami(self, config):
@@ -53,7 +54,7 @@ class Simulate:
         Generate the random origami
         :return: origami_counter --> How many times each of the origami appeared
         """
-        _np.random.seed(100)
+        # _np.random.seed(100)
 
         x_distance, y_distance = config["distance_x"], config["distance_y"]
         row, column = config["origami_row"], config["origami_column"]
@@ -63,9 +64,9 @@ class Simulate:
         y = _np.arange(0, y_distance * row, y_distance)
         mesh_x, mesh_y = _np.meshgrid(x, y)
         mesh_x, mesh_y = mesh_x.ravel(), mesh_y.ravel()
-        # adding seed for reproducibility
-        # TODO: enable this later this is for debuging purpose
-        sample_origami = _np.random.randint(2, size=(num_unique_origami, 48)).astype(_np.bool)
+        sample_origami = _np.random.randint(2, size=(num_unique_origami, 48), dtype=_np.int)
+        _np.savetxt(config["output_file"] + "_gt-origami.txt", sample_origami, fmt='%i')
+        sample_origami = sample_origami.astype(_np.bool)
         # sample_origami = _np.ones_like(sample_origami, dtype=_np.int).astype(_np.bool)
         unique_origami = {}
         # create the unique origami
@@ -107,10 +108,9 @@ class Simulate:
         logger.info("Distributing photon")
 
         # Structure that will be used for this colors
-        struct_partial = self.config["new_struct"]
 
         no_sites = len(
-            struct_partial[0, :]
+            self.config["new_struct"][0, :]
         )  # number of binding sites in image
         # amount of photon for each of the binding sites on each frame
         photon_dist = _np.zeros((no_sites, frames), dtype=_np.int)
@@ -122,7 +122,7 @@ class Simulate:
         for n_site in tqdm(range(0, no_sites), desc="Distributing photon"):
             #  For each site will assign the number of photon
             p_temp, t_temp, k_temp = simulate.distphotons(
-                struct_partial,
+                self.config["new_struct"],
                 self.config["Camera.Integration Time"],
                 self.config["Frames"],
                 self.config["taud"],  # mean dark (ms)
@@ -136,37 +136,97 @@ class Simulate:
             time_trace[n_site] = self.vectorToString(t_temp)
         # Converting into movie
         logger.info("Converting to image")
+        ground_truth_frames = []
+        ground_truth_x = _np.asarray([])
+        ground_truth_y = _np.asarray([])
+        ground_truth_x_with_drift = _np.asarray([])
+        ground_truth_y_with_drift = _np.asarray([])
 
         movie = _np.zeros(shape=(frames, self.config["Height"], self.config["Width"]))
         for runner in tqdm(range(0, frames), desc="Converting into image"):
-            movie[runner, :, :] = simulate.convertMovie(
+            movie[runner, :, :], gt_pos = simulate.convertMovie(
                 runner,
                 photon_dist,
-                struct_partial,
-                self.config["Height"],
-                frames,
-                self.config["Imager.PSF"],
-                self.config["Imager.Photonrate"],
-                self.config["noise_level"],
-                self.config["bgmodel"], # Noise
-                int(self.config["origami_3d"]),
-                self.config["Structure.CX"],
-                self.config["Structure.CY"],
+                self.config
             )
+            # Generate the ground truth data
+            if gt_pos:
+                x_pos = self.config["new_struct"][0][gt_pos]
+                y_pos = self.config["new_struct"][1][gt_pos]
+                ground_truth_frames.extend([runner+1] * len(gt_pos))
+                ground_truth_x = _np.concatenate((ground_truth_x, x_pos))
+                ground_truth_y = _np.concatenate((ground_truth_y, y_pos))
+                ground_truth_x_with_drift = _np.concatenate((ground_truth_x_with_drift, x_pos + self.config["drift_x"][runner]))
+                ground_truth_y_with_drift = _np.concatenate((ground_truth_y_with_drift, y_pos + self.config["drift_y"][runner]))
             # Add noise to this movie
+        # Save the ground truth
+        # Photons on each blinking event in each frame
+        photons = self.config["Imager.Photonbudget"] / self.config["Imager.Photonslope"]
+        ground_truth_frames = _np.asarray(ground_truth_frames)
+        content_for_yaml_file = f"""Box Size: 7\nPixelsize: {self.config["Camera.Pixelsize"]}\nFrames: {self.config["Frames"]}\nHeight: {self.config["Height"]}\nWidth: {self.config["Width"]}"""
+        ground_truth_without_drift = _np.rec.array(
+            (
+                ground_truth_frames,
+                ground_truth_x,
+                ground_truth_y,
+                _np.full_like(ground_truth_x, photons),  # Photons
+                _np.zeros_like(ground_truth_x),  # background
+                _np.full_like(ground_truth_x, .009),  # lpx
+                _np.full_like(ground_truth_x, .009),  # lpy
+            ), dtype=[
+                ("frame", "u4"),
+                ("x", "f4"),
+                ("y", "f4"),
+                ("photons", "f4"),
+                ("bg", "f4"),
+                ("lpx", "f4"),
+                ("lpy", "f4"),
+            ])
+        with h5py.File(self.config["output_file"]+"_ground_truth_without_drift.hdf5", "w") as locs_file:
+            locs_file.create_dataset("locs", data=ground_truth_without_drift)
+            with open(self.config["output_file"] + "_ground_truth_without_drift.yaml", "w") as yaml_file:
+                yaml_file.write(content_for_yaml_file)
+
+        ground_truth_with_drift = _np.rec.array(
+            (
+                ground_truth_frames,
+                ground_truth_x_with_drift,
+                ground_truth_y_with_drift,
+                _np.full_like(ground_truth_x, photons),  # Photons
+                _np.zeros_like(ground_truth_x),  # background
+                _np.full_like(ground_truth_x, .009),  # lpx
+                _np.full_like(ground_truth_x, .009),  # lpy
+            ), dtype=[
+                ("frame", "u4"),
+                ("x", "f4"),
+                ("y", "f4"),
+                ("photons", "f4"),
+                ("bg", "f4"),
+                ("lpx", "f4"),
+                ("lpy", "f4"),
+            ])
+        with h5py.File(self.config["output_file"]+"_ground_truth_with_drift.hdf5", "w") as locs_file:
+            locs_file.create_dataset("locs", data=ground_truth_with_drift)
+            # Creating yaml file for render purpose
+            with open(self.config["output_file"] + "_ground_truth_with_drift.yaml", "w") as yaml_file:
+                yaml_file.write(content_for_yaml_file)
+
+        # Save the ground truth with drift
         movie = simulate.noisy_p(movie, self.config["bgmodel"])
         # insert poisson noise
         movie = simulate.check_type(movie)
         logger.info("saving movie")
         # Convert newstruct and exhange_round to sring otherwise saving will have error
         del self.config["new_struct"]
+        del self.config["drift_x"]
+        del self.config["drift_y"]
         self.config["exchange_round"] = self.vectorToString(self.config["exchange_round"].tolist())
         logger.info("Saving image")
         simulate.saveMovie(file_name, movie, self.config)
 
     def loadSettings(self):
 
-        path = "/Users/golammortuza/workspace/nam/dissertation/generate_training_data/simulate.yaml"
+        path = "simulate.yaml"
         config = _io.load_info(path)[0]
         # calculate taud
         config["taud"] = round(1 / (config["PAINT.k_on"] * config["PAINT.imager"] * 1 / 10 ** 9) * 1000)
@@ -178,23 +238,15 @@ class Simulate:
 
         # Calculating the handle
         # handle x
-        gridpos = simulate.generatePositions(
-            int(config["total_origami"]), int(config["Height"]), int(config["frame_padding"]), int(config["origami_arrangement"])
+        grid_pos = simulate.generatePositions(
+            int(config["total_origami"]), int(config["Height"]), int(config["frame_padding"]),
+            int(config["origami_arrangement"])
         )
         origamies = self.get_origami(config)
 
-        # structure_xx, structure_yy, structure_ex, structure_3d = self.readStructure(config)
-        # structure = simulate.defineStructure(
-        #     structure_xx,
-        #     structure_yy,
-        #     structure_ex,
-        #     structure_3d,
-        #     config["Camera.Pixelsize"],
-        #     mean=False,
-        # )
         new_struct = simulate.prepareStructures(
             origamies,
-            gridpos,
+            grid_pos,
             int(config["origami_orientation"]),
             int(config["total_origami"]),
             int(config["binding_site_incorporation"]),
@@ -216,10 +268,36 @@ class Simulate:
         )
         config["bgmodel"] = int(bgmodel)
         config["exchange_round"] = _np.asarray(list(set(new_struct[2])), dtype=_np.int)
+        config["drift_x"], config["drift_y"] = self.get_drift(config)
 
         self.save_ground_truth(config)
 
         return config
+
+    def get_drift(self, config):
+        drift_method = config["drift_method"]
+        drift_x = config["drift_x"]
+        drift_y = config["drift_y"]
+        single_drift_x = drift_x / 1000
+        single_drift_y = drift_y / 1000
+        if drift_method == "linear":
+            frame_drift_x, frame_drift_y = _np.full(config["Frames"], single_drift_x), _np.full(config["Frames"], single_drift_y)
+        else:
+            # Default value is random walk
+            frame_drift_x = _np.random.normal(0, single_drift_x, config["Frames"])
+            frame_drift_y = _np.random.normal(0, single_drift_y, config["Frames"])
+
+        with open(config["output_file"]+"_drift_frame_relative.csv", "w") as drift_file:
+            drift_file.write("dx, dy\n")
+            _np.savetxt(drift_file, _np.transpose(_np.vstack((frame_drift_x, frame_drift_y))), '%s', ',')
+
+        frame_drift_x = _np.cumsum(frame_drift_x)
+        frame_drift_y = _np.cumsum(frame_drift_y)
+        # Save drift
+        with open(config["output_file"]+"_drift.csv", "w") as drift_file:
+            drift_file.write("dx, dy\n")
+            _np.savetxt(drift_file, _np.transpose(_np.vstack((frame_drift_x, frame_drift_y))), '%s', ',')
+        return frame_drift_x, frame_drift_y
 
     def readStructure(self, config):
         """

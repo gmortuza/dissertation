@@ -10,7 +10,7 @@ Frames: 5000  # Total Number of frames
 Height: 32  # Frame height (px)
 Width: 32  # Frame width (px
 Camera.Integration Time: 300  # (ms)
-Camera.Pixelsize: 106  # (nm)
+Camera.Pixelsize: 130  # (nm)
 
 
 # ================ Origami Settings ===============
@@ -18,22 +18,29 @@ distance_x: 10  # Distance between each binding site. (nm)
 distance_y: 10  # (nm)
 origami_row: 6
 origami_column: 8
-unique_origami: 1
-total_origami: 10  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
+unique_origami: 3
+total_origami: 100  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
 # Float value ranging 0.0 - 100.0
 binding_site_incorporation: 100.0
 # 0 --> not randomly oriented, 1 --> Randomly oriented
-origami_orientation: 1
-origami_mean: False # Center of the mass of
+origami_orientation: 0
 # 0 --> The distance of each origami is evenly distributed
 # 1 --> The distance of each origami is randomly distributed ( Origami is placed randomly in the frame)
-origami_arrangement: 1
+origami_arrangement: 0
 origami_3d: 0
+origami_mean: False # Center of the mass of
+# Adding drift
+drift_x: 10  # Drift in nanometer in x direction for each 1000 frame
+drift_y: 10  # Drift in nanometer in y direction for each 1000 frame
+# Drift will be added in the whole frame
+# linear --> Evenly distribute the drift among 1000 frames
+# random_walk --> Randomly choose the drift from the normal distribution of mean 0 and SD 50/1000
+drift_method: random_walk  # we can also put random walk
 
 # ================ Noise Settings ===============
-noise_level: 1  # Noise level  # (Background Level in GUI)
+noise_level: 20  # Noise level  # (Background Level in GUI)
 # Noise.BackgroundOff: 0
 # Noise.BackgroundStdOff: 0
 # Noise.EquationA: -0.002866
