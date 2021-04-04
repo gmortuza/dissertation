@@ -120,6 +120,10 @@ class Simulate:
 
         # This will populate the variable photon_dist
         for n_site in tqdm(range(0, no_sites), desc="Distributing photon"):
+            always_on = float(self.config["photons_for_each_gold_nano_particle"]) \
+                if no_sites - n_site <= int(self.config["num_gold_nano_particle"]) else 0
+            if always_on > 0:
+                print("ALways on")
             #  For each site will assign the number of photon
             p_temp, t_temp, k_temp = simulate.distphotons(
                 self.config["new_struct"],
@@ -130,6 +134,7 @@ class Simulate:
                 self.config["Imager.Photonrate"],
                 self.config["Imager.Photonrate Std"],
                 self.config["Imager.Photonbudget"],
+                always_on=always_on
             )
             photon_dist[n_site, :] = p_temp
             spot_kinetics[n_site, :] = k_temp
@@ -141,6 +146,7 @@ class Simulate:
         ground_truth_y = _np.asarray([])
         ground_truth_x_with_drift = _np.asarray([])
         ground_truth_y_with_drift = _np.asarray([])
+        photons = []
 
         movie = _np.zeros(shape=(frames, self.config["Height"], self.config["Width"]))
         for runner in tqdm(range(0, frames), desc="Converting into image"):
@@ -153,6 +159,7 @@ class Simulate:
             if gt_pos:
                 x_pos = self.config["new_struct"][0][gt_pos]
                 y_pos = self.config["new_struct"][1][gt_pos]
+                photons.extend(photon_dist[gt_pos, runner])
                 ground_truth_frames.extend([runner+1] * len(gt_pos))
                 ground_truth_x = _np.concatenate((ground_truth_x, x_pos))
                 ground_truth_y = _np.concatenate((ground_truth_y, y_pos))
@@ -161,7 +168,6 @@ class Simulate:
             # Add noise to this movie
         # Save the ground truth
         # Photons on each blinking event in each frame
-        photons = self.config["Imager.Photonbudget"] / self.config["Imager.Photonslope"]
         ground_truth_frames = _np.asarray(ground_truth_frames)
         content_for_yaml_file = f"""Box Size: 7\nPixelsize: {self.config["Camera.Pixelsize"]}\nFrames: {self.config["Frames"]}\nHeight: {self.config["Height"]}\nWidth: {self.config["Width"]}"""
         ground_truth_without_drift = _np.rec.array(
@@ -169,7 +175,7 @@ class Simulate:
                 ground_truth_frames,
                 ground_truth_x,
                 ground_truth_y,
-                _np.full_like(ground_truth_x, photons),  # Photons
+                photons,
                 _np.zeros_like(ground_truth_x),  # background
                 _np.full_like(ground_truth_x, .009),  # lpx
                 _np.full_like(ground_truth_x, .009),  # lpy
@@ -192,7 +198,7 @@ class Simulate:
                 ground_truth_frames,
                 ground_truth_x_with_drift,
                 ground_truth_y_with_drift,
-                _np.full_like(ground_truth_x, photons),  # Photons
+                photons,
                 _np.zeros_like(ground_truth_x),  # background
                 _np.full_like(ground_truth_x, .009),  # lpx
                 _np.full_like(ground_truth_x, .009),  # lpy
@@ -250,7 +256,10 @@ class Simulate:
             int(config["origami_orientation"]),
             int(config["total_origami"]),
             int(config["binding_site_incorporation"]),
-            exchange=0
+            exchange=0,
+            frame_padding=int(config["frame_padding"]),
+            height=int(config["Height"]),
+            num_gold_nano_particle=int(config["num_gold_nano_particle"])
         )
 
         config["new_struct"] = new_struct

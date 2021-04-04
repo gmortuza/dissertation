@@ -89,21 +89,27 @@ def check_type(movie):
 
 
 def paintgen(
-    meandark, meanbright, frames, time, photonrate, photonratestd, photonbudget
+    meandark, meanbright, frames, time, photonrate, photonratestd, photonbudget, always_on
 ):
     """
     Paint-Generator:
     Generates on and off-traces for given parameters.
     Calculates the number of Photons in each frame for a binding site.
     """
-    meanlocs = 4 * int(
+    num_of_blinking_event = 4 * int(
         _np.ceil(frames * time / (meandark + meanbright))
     )  # This is an estimate for the total number of binding events
-    if meanlocs < 10:
-        meanlocs = meanlocs * 10
+    if num_of_blinking_event < 10:
+        num_of_blinking_event = num_of_blinking_event * 10
 
-    dark_times = _np.random.exponential(meandark, meanlocs)
-    bright_times = _np.random.exponential(meanbright, meanlocs)
+    if always_on > 0:
+        print("Insdie paintgen always on")
+        return _np.random.normal(always_on / frames, photonratestd, frames).clip(min=0), _np.zeros(frames,
+                                                                                                   dtype=_np.float64), [
+                   0] * 4
+
+    dark_times = _np.random.exponential(meandark, num_of_blinking_event)
+    bright_times = _np.random.exponential(meanbright, num_of_blinking_event)
 
     events = _np.vstack((dark_times, bright_times)).reshape(
         (-1,), order="F"
@@ -237,6 +243,7 @@ def distphotons(
     photonrate,
     photonratestd,
     photonbudget,
+    always_on=0,
 ):
     """
     Distrbute Photons
@@ -260,6 +267,7 @@ def distphotons(
         photonrate,
         photonratestd,
         photonbudget,
+        always_on
     )
 
     return photonsinframe, timetrace, spotkinetics
@@ -421,7 +429,7 @@ def randomExchange(pos):
 
 
 def prepareStructures(
-    origamies, gridpos, orientation, number, incorporation, exchange
+    origamies, gridpos, orientation, number, incorporation, exchange, frame_padding, height, num_gold_nano_particle=0
 ):
     """
     prepareStructures:
@@ -459,6 +467,20 @@ def prepareStructures(
             newpos = newstruct
         else:
             newpos = _np.concatenate((newpos, newstruct), axis=1)
+
+    # Choose some random position from the whole movie to put the always on event
+    if num_gold_nano_particle > 0:
+        fixed_structure = _np.array(
+            [
+                _np.random.uniform(low=frame_padding, high=height - frame_padding, size=num_gold_nano_particle),
+                # considering height and width the same
+                _np.random.uniform(low=frame_padding, high=height - frame_padding, size=num_gold_nano_particle),
+                _np.ones(num_gold_nano_particle),
+                _np.zeros(num_gold_nano_particle),
+                _np.zeros(num_gold_nano_particle)
+            ]
+        )
+        newpos = _np.concatenate((newpos, fixed_structure), axis=1)
 
     if exchange == 1:
         newpos = randomExchange(newpos)
