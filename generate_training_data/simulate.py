@@ -2,21 +2,21 @@
     picasso.simulate
     ~~~~~~~~~~~~~~~~
 
-    Simulate single molcule fluorescence data
+    Simulate single molecule fluorescence data
 
     :author: Maximilian Thomas Strauss, 2016-2018
     :copyright: Copyright (c) 2016-2018 Jungmann Lab, MPI of Biochemistry
 """
-import numpy as _np
+import numpy as np
 import io_modified as _io
 from numba import njit
 
-magfac = 0.79
+magnification_factor = 0.79
 
 
 @njit
 def calculate_zpsf(z, cx, cy):
-    z = z / magfac
+    z = z / magnification_factor
     z2 = z * z
     z3 = z * z2
     z4 = z * z3
@@ -40,13 +40,13 @@ def calculate_zpsf(z, cx, cy):
         + cy[5] * z
         + cy[6]
     )
-    return (wx, wy)
+    return wx, wy
 
 
 def test_calculate_zpsf():
-    cx = _np.array([1, 2, 3, 4, 5, 6, 7])
-    cy = _np.array([1, 2, 3, 4, 5, 6, 7])
-    z = _np.array([1, 2, 3, 4, 5, 6, 7])
+    cx = np.array([1, 2, 3, 4, 5, 6, 7])
+    cy = np.array([1, 2, 3, 4, 5, 6, 7])
+    z = np.array([1, 2, 3, 4, 5, 6, 7])
     wx, wy = calculate_zpsf(z, cx, cy)
 
     result = [4.90350522e+01,   7.13644987e+02,   5.52316597e+03,
@@ -65,8 +65,8 @@ def noisy(image, mu, sigma):
     """
     Add gaussian noise to an image.
     """
-    row, col = image.shape  # Variance for _np.random is 1
-    gauss = sigma * _np.random.normal(0, 1, (row, col)) + mu
+    row, col = image.shape  # Variance for np.random is 1
+    gauss = sigma * np.random.normal(0, 1, (row, col)) + mu
     gauss = gauss.reshape(row, col)
     noisy = image + gauss
     noisy[noisy < 0] = 0
@@ -77,9 +77,9 @@ def noisy_p(image, mu):
     """
     # Add poissonian noise to an image or movie
     """
-    poiss = _np.random.poisson(mu, image.shape).astype(float)
-    noisy = image + poiss
-    return noisy
+    poisson = np.random.poisson(mu, image.shape).astype(float)
+    nosiy_image = image + poisson
+    return nosiy_image
 
 
 def check_type(movie):
@@ -88,8 +88,8 @@ def check_type(movie):
     return movie
 
 
-def paintgen(
-    meandark, meanbright, frames, time, photonrate, photonratestd, photonbudget, always_on
+def generate_paint(
+    mean_dark, mean_bright, frames, time, photon_rate, photon_rate_std, photon_budget, always_on
 ):
     """
     Paint-Generator:
@@ -97,201 +97,185 @@ def paintgen(
     Calculates the number of Photons in each frame for a binding site.
     """
     num_of_blinking_event = 4 * int(
-        _np.ceil(frames * time / (meandark + meanbright))
+        np.ceil(frames * time / (mean_dark + mean_bright))
     )  # This is an estimate for the total number of binding events
     if num_of_blinking_event < 10:
         num_of_blinking_event = num_of_blinking_event * 10
 
     if always_on > 0:
-        print("Insdie paintgen always on")
-        return _np.random.normal(always_on / frames, photonratestd, frames).clip(min=0), _np.zeros(frames,
-                                                                                                   dtype=_np.float64), [
-                   0] * 4
+        return np.random.normal(always_on / frames, photon_rate_std, frames).clip(min=0), \
+               np.zeros(frames, dtype=np.float64), [0] * 4
 
-    dark_times = _np.random.exponential(meandark, num_of_blinking_event)
-    bright_times = _np.random.exponential(meanbright, num_of_blinking_event)
+    dark_times = np.random.exponential(mean_dark, num_of_blinking_event)
+    bright_times = np.random.exponential(mean_bright, num_of_blinking_event)
 
-    events = _np.vstack((dark_times, bright_times)).reshape(
+    events = np.vstack((dark_times, bright_times)).reshape(
         (-1,), order="F"
     )  # Interweave dark_times and bright_times [dt,bt,dt,bt..]
-    eventsum = _np.cumsum(events)
-    maxloc = _np.argmax(
-        eventsum > (frames * time)
+    event_sum = np.cumsum(events)
+    max_loc = np.argmax(
+        event_sum > (frames * time)
     )  # Find the first event that exceeds the total integration time
-    simulatedmeandark = _np.mean(events[:maxloc:2])
+    simulated_mean_dark = np.mean(events[:max_loc:2])
 
-    simulatedmeanbright = _np.mean(events[1:maxloc:2])
+    simulated_mean_bright = np.mean(events[1:max_loc:2])
 
     # check trace
-    if _np.mod(maxloc, 2):  # uneven -> ends with an OFF-event
-        onevents = int(_np.floor(maxloc / 2))
+    if np.mod(max_loc, 2):  # uneven -> ends with an OFF-event
+        on_events = int(np.floor(max_loc / 2))
     else:  # even -> ends with bright event
-        onevents = int(maxloc / 2)
-    bright_events = _np.floor(maxloc / 2)  # number of bright_events
+        on_events = int(max_loc / 2)
+    bright_events = np.floor(max_loc / 2)  # number of bright_events
 
-    photonsinframe = _np.zeros(
-        int(frames + _np.ceil(meanbright / time * 20))
+    photons_in_frame = np.zeros(
+        int(frames + np.ceil(mean_bright / time * 20))
     )  # an on-event might be longer than the movie, so allocate more memory
 
     # calculate photon numbers
-    for i in range(1, maxloc, 2):
-        if photonratestd == 0:
-            photons = _np.round(photonrate * time)
+    for i in range(1, max_loc, 2):
+        if photon_rate_std == 0:
+            photons = np.round(photon_rate * time)
         else:
-            photons = _np.round(
-                _np.random.normal(photonrate, photonratestd) * time
+            photons = np.round(
+                np.random.normal(photon_rate, photon_rate_std) * time
             )  # Number of Photons that are emitted in one frame
 
         if photons < 0:
             photons = 0
 
         tempFrame = int(
-            _np.floor(eventsum[i - 1] / time)
+            np.floor(event_sum[i - 1] / time)
         )  # Get the first frame in which something happens in on-event
-        onFrames = int(
-            _np.ceil((eventsum[i] - tempFrame * time) / time)
+        on_frames = int(
+            np.ceil((event_sum[i] - tempFrame * time) / time)
         )  # Number of frames in which photon emittance happens
 
-        if photons * onFrames > photonbudget:
-            onFrames = int(
-                _np.ceil(photonbudget / (photons * onFrames) * onFrames)
-            )  # Reduce the number of on-frames if the photonbudget is reached
+        if photons * on_frames > photon_budget:
+            on_frames = int(
+                np.ceil(photon_budget / (photons * on_frames) * on_frames)
+            )  # Reduce the number of on-frames if the photon_budget is reached
 
-        for j in range(0, (onFrames)):
-            if onFrames == 1:  # CASE 1: all photons are emitted in one frame
-                photonsinframe[1 + tempFrame] = int(
-                    _np.random.poisson(
-                        ((tempFrame + 1) * time - eventsum[i - 1])
+        for j in range(0, on_frames):
+            if on_frames == 1:  # CASE 1: all photons are emitted in one frame
+                photons_in_frame[1 + tempFrame] = int(
+                    np.random.poisson(
+                        ((tempFrame + 1) * time - event_sum[i - 1])
                         / time
                         * photons
                     )
                 )
             elif (
-                onFrames == 2
+                on_frames == 2
             ):  # CASE 2: all photons are emitted in two frames
-                emittedphotons = (
-                    ((tempFrame + 1) * time - eventsum[i - 1]) / time * photons
-                )
-                if j == 1:  # photons in first onframe
-                    photonsinframe[1 + tempFrame] = int(
-                        _np.random.poisson(
-                            ((tempFrame + 1) * time - eventsum[i - 1])
+                if j == 1:  # photons in first on frame
+                    photons_in_frame[1 + tempFrame] = int(
+                        np.random.poisson(
+                            ((tempFrame + 1) * time - event_sum[i - 1])
                             / time
                             * photons
                         )
                     )
-                else:  # photons in second onframe
-                    photonsinframe[2 + tempFrame] = int(
-                        _np.random.poisson(
-                            (eventsum[i] - (tempFrame + 1) * time)
+                else:  # photons in second on frame
+                    photons_in_frame[2 + tempFrame] = int(
+                        np.random.poisson(
+                            (event_sum[i] - (tempFrame + 1) * time)
                             / time
                             * photons
                         )
                     )
-            else:  # CASE 3: all photons are mitted in three or more frames
+            else:  # CASE 3: all photons are emitted in three or more frames
                 if j == 1:
-                    photonsinframe[1 + tempFrame] = int(
-                        _np.random.poisson(
-                            ((tempFrame + 1) * time - eventsum[i - 1])
+                    photons_in_frame[1 + tempFrame] = int(
+                        np.random.poisson(
+                            ((tempFrame + 1) * time - event_sum[i - 1])
                             / time
                             * photons
                         )
                     )  # Indexing starts with 0
-                elif j == onFrames:
-                    photonsinframe[onFrames + tempFrame] = int(
-                        _np.random.poisson(
-                            (eventsum(i) - (tempFrame + onFrames - 1) * time)
+                elif j == on_frames:
+                    photons_in_frame[on_frames + tempFrame] = int(
+                        np.random.poisson(
+                            (event_sum(i) - (tempFrame + on_frames - 1) * time)
                             / time
                             * photons
                         )
                     )
                 else:
-                    photonsinframe[tempFrame + j] = int(
-                        _np.random.poisson(photons)
+                    photons_in_frame[tempFrame + j] = int(
+                        np.random.poisson(photons)
                     )
 
-        totalphotons = _np.sum(
-            photonsinframe[1 + tempFrame: tempFrame + 1 + onFrames]
+        total_photons = np.sum(
+            photons_in_frame[1 + tempFrame: tempFrame + 1 + on_frames]
         )
-        if totalphotons > photonbudget:
-            photonsinframe[onFrames + tempFrame] = int(
-                photonsinframe[onFrames + tempFrame]
-                - (totalphotons - photonbudget)
+        if total_photons > photon_budget:
+            photons_in_frame[on_frames + tempFrame] = int(
+                photons_in_frame[on_frames + tempFrame]
+                - (total_photons - photon_budget)
             )
 
-    photonsinframe = photonsinframe[0:frames]
-    timetrace = events[0:maxloc]
+    photons_in_frame = photons_in_frame[0:frames]
+    time_trace = events[0:max_loc]
 
-    if onevents > 0:
-        spotkinetics = [
-            onevents,
-            sum(photonsinframe > 0),
-            simulatedmeandark,
-            simulatedmeanbright,
+    if on_events > 0:
+        spot_kinetics = [
+            on_events,
+            sum(photons_in_frame > 0),
+            simulated_mean_dark,
+            simulated_mean_bright,
         ]
     else:
-        spotkinetics = [0, sum(photonsinframe > 0), 0, 0]
-    return photonsinframe, timetrace, spotkinetics
+        spot_kinetics = [0, sum(photons_in_frame > 0), 0, 0]
+    return photons_in_frame, time_trace, spot_kinetics
 
 
-def distphotons(
+def distribute_photons(
     structures,
-    itime,
+    integration_time,
     frames,
     taud,
     taub,
-    photonrate,
-    photonratestd,
-    photonbudget,
+    photon_rate,
+    photon_rate_std,
+    photon_budget,
     always_on=0,
 ):
     """
-    Distrbute Photons
+    Distribute Photons
     """
-    time = itime
-    meandark = int(taud)
-    meanbright = int(taub)
-
-    bindingsitesx = structures[0, :]
-    bindingsitesy = structures[1, :]
-    nosites = len(bindingsitesx)
-
-    photonposall = _np.zeros((2, 0))
-    photonposall = [1, 1]
-
-    photonsinframe, timetrace, spotkinetics = paintgen(
-        meandark,
-        meanbright,
+    photons_in_frame, time_trace, spot_kinetics = generate_paint(
+        int(taud),  # mean dark
+        int(taub),  # mean bright
         frames,
-        time,
-        photonrate,
-        photonratestd,
-        photonbudget,
+        integration_time,
+        photon_rate,
+        photon_rate_std,
+        photon_budget,
         always_on
     )
 
-    return photonsinframe, timetrace, spotkinetics
+    return photons_in_frame, time_trace, spot_kinetics
 
 
-def dist_photons_xy(runner, photon_dist, structures, psf, mode3Dstate, cx, cy):
+def dist_photons_xy(runner, photon_dist, structures, psf, mode_3D_state, cx, cy):
 
     binding_sites_x = structures[0, :]
     binding_sites_y = structures[1, :]
     binding_sites_z = structures[4, :]
     no_sites = len(binding_sites_x)  # number of binding sites in image
 
-    temp_photons = _np.array(photon_dist[:, runner]).astype(int)
-    n_photons = _np.sum(temp_photons)
-    n_photons_step = _np.cumsum(temp_photons)
-    n_photons_step = _np.insert(n_photons_step, 0, 0)
+    temp_photons = np.array(photon_dist[:, runner]).astype(int)
+    n_photons = np.sum(temp_photons)
+    n_photons_step = np.cumsum(temp_photons)
+    n_photons_step = np.insert(n_photons_step, 0, 0)
 
     # Allocate memory
-    photon_pos_frame = _np.zeros((n_photons, 2))
+    photon_pos_frame = np.zeros((n_photons, 2))
     # Positions where are putting some photons
     gt_position = []
     for i in range(0, no_sites):
         photon_count = int(photon_dist[i, runner])
-        if mode3Dstate:
+        if mode_3D_state:
             wx, wy = calculate_zpsf(binding_sites_z[i], cx, cy)
             cov = [[wx * wx, 0], [0, wy * wy]]
         else:
@@ -301,7 +285,7 @@ def dist_photons_xy(runner, photon_dist, structures, psf, mode3Dstate, cx, cy):
         if photon_count > 0:
             gt_position.append(i)
             mu = [binding_sites_x[i], binding_sites_y[i]]
-            photon_pos = _np.random.multivariate_normal(mu, cov, photon_count)
+            photon_pos = np.random.multivariate_normal(mu, cov, photon_count)
             photon_pos_frame[
                 n_photons_step[i]: n_photons_step[i + 1], :
             ] = photon_pos
@@ -324,18 +308,18 @@ def convertMovie(
     if len(photon_pos_frame) == 0:
         # There is no photon allocated in this frame
         # So we will return empty image
-        return _np.zeros((config["Height"], config["Width"])), gt_position
+        return np.zeros((config["Height"], config["Width"])), gt_position
     else:
         # Insert the drift in here
         x = photon_pos_frame[:, 0] + config["drift_x"][runner]
         y = photon_pos_frame[:, 1] + config["drift_y"][runner]
         # TODO: Not sure why it is y, x need to check this
-        simulated_frame, _, _ = _np.histogram2d(y, x, bins=(edges, edges))
+        simulated_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges))
         return simulated_frame, gt_position
         # Because of this flip ground truth doesn't match with the render text
         # The origami might be fippled anyway. So this doesn't matter
         # Disabling this to have the exact match of the ground truth vs simulated data
-        # simulated_frame = _np.flipud(simulated_frame)  # to be consistent with render
+        # simulated_frame = np.flipud(simulated_frame)  # to be consistent with render
 
 
 def saveMovie(filename, movie, info):
@@ -345,101 +329,101 @@ def saveMovie(filename, movie, info):
 # Function to store the coordinates of a structure in a container.
 # The coordinates wil be adjusted so that the center of mass is the origin
 def defineStructure(
-    structurexxpx,
-    structureyypx,
-    structureex,
+    structure_xx_px,
+    structure_yy_px,
+    structure_ex,
     structure3d,
-    pixelsize,
+    pixel_size,
     mean=True,
 ):
     if mean:
-        structurexxpx = structurexxpx - _np.mean(structurexxpx)
-        structureyypx = structureyypx - _np.mean(structureyypx)
+        structure_xx_px = structure_xx_px - np.mean(structure_xx_px)
+        structure_yy_px = structure_yy_px - np.mean(structure_yy_px)
     # from px to nm
-    structurexx = []
-    for x in structurexxpx:
-        structurexx.append(x / pixelsize)
-    structureyy = []
-    for x in structureyypx:
-        structureyy.append(x / pixelsize)
+    structure_xx = []
+    for x in structure_xx_px:
+        structure_xx.append(x / pixel_size)
+    structure_yy = []
+    for x in structure_yy_px:
+        structure_yy.append(x / pixel_size)
 
-    structure = _np.array(
-        [structurexx, structureyy, structureex, structure3d]
+    structure = np.array(
+        [structure_xx, structure_yy, structure_ex, structure3d]
     )  # FORMAT: x-pos,y-pos,exchange information
 
     return structure
 
 
-def generatePositions(number, imagesize, frame, arrangement):
+def generatePositions(number, image_size, frame, arrangement):
     """
     Generate a set of positions where structures will be placed
     """
     if arrangement == 0:
-        spacing = int(_np.ceil((number ** 0.5)))
-        linpos = _np.linspace(frame, imagesize - frame, spacing)
-        [xxgridpos, yygridpos] = _np.meshgrid(linpos, linpos)
-        xxgridpos = _np.ravel(xxgridpos)
-        yygridpos = _np.ravel(yygridpos)
-        xxpos = xxgridpos[0:number]
-        yypos = yygridpos[0:number]
-        gridpos = _np.vstack((xxpos, yypos))
-        gridpos = _np.transpose(gridpos)
+        spacing = int(np.ceil((number ** 0.5)))
+        lin_pos = np.linspace(frame, image_size - frame, spacing)
+        [xx_grid_pos, yy_grid_pos] = np.meshgrid(lin_pos, lin_pos)
+        xx_grid_pos = np.ravel(xx_grid_pos)
+        yy_grid_pos = np.ravel(yy_grid_pos)
+        xx_pos = xx_grid_pos[0:number]
+        yy_pos = yy_grid_pos[0:number]
+        grid_pos = np.vstack((xx_pos, yy_pos))
+        grid_pos = np.transpose(grid_pos)
     else:
-        gridpos = (imagesize - 2 * frame) * _np.random.rand(number, 2) + frame
+        grid_pos = (image_size - 2 * frame) * np.random.rand(number, 2) + frame
 
-    return gridpos
+    return grid_pos
 
 
 def rotateStructure(structure):
     """
     Rotate a structure randomly
     """
-    angle_rad = _np.random.rand(1) * 2 * _np.pi
-    newstructure = _np.array(
+    angle_rad = np.random.rand(1) * 2 * np.pi
+    new_structure = np.array(
         [
-            (structure[0, :]) * _np.cos(angle_rad)
-            - (structure[1, :]) * _np.sin(angle_rad),
-            (structure[0, :]) * _np.sin(angle_rad)
-            + (structure[1, :]) * _np.cos(angle_rad),
+            (structure[0, :]) * np.cos(angle_rad)
+            - (structure[1, :]) * np.sin(angle_rad),
+            (structure[0, :]) * np.sin(angle_rad)
+            + (structure[1, :]) * np.cos(angle_rad),
             structure[2, :],
             structure[3, :],
         ]
     )
-    return newstructure
+    return new_structure
 
 
 def incorporateStructure(structure, incorporation):
     """
-    Returns a subset of the strucutre to reflect incorporation of stpales
+    Returns a subset of the structure to reflect incorporation of staples
     """
-    newstructure = structure[
-        :, (_np.random.rand(structure.shape[1]) < incorporation)
+    new_structure = structure[
+        :, (np.random.rand(structure.shape[1]) < incorporation)
     ]
-    return newstructure
+    return new_structure
 
 
 def randomExchange(pos):
     """
-    Randomly shuffle exchange parameters for rnadom labeling
+    Randomly shuffle exchange parameters for random labeling
     """
-    arraytoShuffle = pos[2, :]
-    _np.random.shuffle(arraytoShuffle)
-    newpos = _np.array([pos[0, :], pos[1, :], arraytoShuffle, pos[3, :]])
-    return newpos
+    array_to_shuffle = pos[2, :]
+    np.random.shuffle(array_to_shuffle)
+    new_pos = np.array([pos[0, :], pos[1, :], array_to_shuffle, pos[3, :]])
+    return new_pos
 
 
 def prepareStructures(
-    origamies, gridpos, orientation, number, incorporation, exchange, frame_padding, height, num_gold_nano_particle=0
+    origamies, grid_pos, orientation, number, incorporation, exchange, frame_padding, height, num_gold_nano_particle=0
 ):
     """
     prepareStructures:
     Input positions, the structure definition consider rotation etc.
     """
-    for i in range(0, len(gridpos)):
+    for i in range(0, len(grid_pos)):
         # for each grid position select a random origami and add that origami to that grid position
         # Origami id for this particular grid position
-        origami = origamies[_np.random.randint(0, len(origamies))]
-        old_structure = _np.array(
+        origami = origamies[np.random.randint(0, len(origamies))]
+        old_structure = np.array(
             [origami["x_cor"], origami["y_cor"], origami["labels"], origami["3d"]]
         )
         if orientation == 0:
@@ -452,36 +436,36 @@ def prepareStructures(
         else:
             structure = incorporateStructure(structure, incorporation)
 
-        newx = structure[0, :] + gridpos[i, 0]
-        newy = structure[1, :] + gridpos[i, 1]
-        newstruct = _np.array(
+        new_x = structure[0, :] + grid_pos[i, 0]
+        new_y = structure[1, :] + grid_pos[i, 1]
+        new_struct = np.array(
             [
-                newx,
-                newy,
+                new_x,
+                new_y,
                 structure[2, :],
                 structure[2, :] * 0 + i,
                 structure[3, :],
             ]
         )
         if i == 0:
-            newpos = newstruct
+            new_pos = new_struct
         else:
-            newpos = _np.concatenate((newpos, newstruct), axis=1)
+            new_pos = np.concatenate((new_pos, new_struct), axis=1)
 
     # Choose some random position from the whole movie to put the always on event
     if num_gold_nano_particle > 0:
-        fixed_structure = _np.array(
+        fixed_structure = np.array(
             [
-                _np.random.uniform(low=frame_padding, high=height - frame_padding, size=num_gold_nano_particle),
+                np.random.uniform(low=frame_padding, high=height - frame_padding, size=num_gold_nano_particle),
                 # considering height and width the same
-                _np.random.uniform(low=frame_padding, high=height - frame_padding, size=num_gold_nano_particle),
-                _np.ones(num_gold_nano_particle),
-                _np.zeros(num_gold_nano_particle),
-                _np.zeros(num_gold_nano_particle)
+                np.random.uniform(low=frame_padding, high=height - frame_padding, size=num_gold_nano_particle),
+                np.ones(num_gold_nano_particle),
+                np.zeros(num_gold_nano_particle),
+                np.zeros(num_gold_nano_particle)
             ]
         )
-        newpos = _np.concatenate((newpos, fixed_structure), axis=1)
+        new_pos = np.concatenate((new_pos, fixed_structure), axis=1)
 
     if exchange == 1:
-        newpos = randomExchange(newpos)
-    return newpos
+        new_pos = randomExchange(new_pos)
+    return new_pos
