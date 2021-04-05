@@ -9,9 +9,7 @@ from tqdm import tqdm
 import h5py
 
 # default variable
-ADVANCED_MODE = 0  # 1 is with calibration of noise model
 # IMAGER
-POWER_DENSITY_CONVERSION = 20
 POWERDENSITY_CONVERSION = 20
 # NOISE MODEL
 LASERC_DEFAULT = 0.012063
@@ -29,7 +27,7 @@ class Simulate:
     def save_ground_truth(self, config):
         x = config["new_struct"][0]
         y = config["new_struct"][1]
-        photons = config["Imager.Photonbudget"] / config["Imager.Photonslope"]
+        photons = config["Imager_Photonbudget"] / config["Imager_Photonslope"]
         ground_truth = np.rec.array(
             (
                 x,
@@ -77,8 +75,8 @@ class Simulate:
                 single_origami_x = single_origami_x - np.mean(single_origami_x)
                 single_origami_y = single_origami_y - np.mean(single_origami_y)
             # Convert pixel to nanometer
-            single_origami_x = single_origami_x / config["Camera.Pixelsize"]
-            single_origami_y = single_origami_y / config["Camera.Pixelsize"]
+            single_origami_x = single_origami_x / config["Camera_Pixelsize"]
+            single_origami_y = single_origami_y / config["Camera_Pixelsize"]
 
             unique_origami[origami_id] = {}
             unique_origami[origami_id]["x_cor"] = single_origami_x
@@ -127,13 +125,13 @@ class Simulate:
             #  For each site will assign the number of photon
             p_temp, t_temp, k_temp = simulate.distribute_photons(
                 self.config["new_struct"],
-                self.config["Camera.Integration Time"],
+                self.config["Camera_integration_time"],
                 self.config["Frames"],
                 self.config["taud"],  # mean dark (ms)
-                self.config["PAINT.taub"],  # mean bright (ms)
-                self.config["Imager.Photonrate"],
-                self.config["Imager.Photonrate Std"],
-                self.config["Imager.Photonbudget"],
+                self.config["PAINT_taub"],  # mean bright (ms)
+                self.config["Imager_Photonrate"],
+                self.config["Imager_Photonrate Std"],
+                self.config["Imager_Photonbudget"],
                 always_on=always_on
             )
             photon_dist[n_site, :] = p_temp
@@ -175,7 +173,7 @@ class Simulate:
         print("Here")
 
         ground_truth_frames = np.asarray(ground_truth_frames)
-        content_for_yaml_file = f"""Box Size: 7\nPixelsize: {self.config["Camera.Pixelsize"]}\nFrames: {self.config["Frames"]}\nHeight: {self.config["Height"]}\nWidth: {self.config["Width"]}"""
+        content_for_yaml_file = f"""Box Size: 7\nPixelsize: {self.config["Camera_Pixelsize"]}\nFrames: {self.config["Frames"]}\nHeight: {self.config["Height"]}\nWidth: {self.config["Width"]}"""
         ground_truth_without_drift = np.rec.array(
             (
                 ground_truth_frames,
@@ -238,12 +236,12 @@ class Simulate:
         path = "config.yaml"
         config = _io.load_info(path)[0]
         # calculate taud
-        config["taud"] = round(1 / (config["PAINT.k_on"] * config["PAINT.imager"] * 1 / 10 ** 9) * 1000)
+        config["taud"] = round(1 / (config["PAINT_k_on"] * config["PAINT_imager"] * 1 / 10 ** 9) * 1000)
         # Calculate photon parameter
 
-        config["Imager.PhotonslopeStd"] = config["Imager.Photonslope"] / STD_FACTOR
-        config["Imager.Photonrate"] = config["Imager.Photonslope"] * config["Imager.Laserpower"]
-        config["Imager.Photonrate Std"] = config["Imager.PhotonslopeStd"] * config["Imager.Laserpower"]
+        config["Imager_PhotonslopeStd"] = config["Imager_Photonslope"] / STD_FACTOR
+        config["Imager_Photonrate"] = config["Imager_Photonslope"] * config["Imager_Laserpower"]
+        config["Imager_Photonrate Std"] = config["Imager_PhotonslopeStd"] * config["Imager_Laserpower"]
 
         # Calculating the handle
         # handle x
@@ -273,9 +271,9 @@ class Simulate:
         config["Structure.HandleStruct"] = self.vectorToString(new_struct[3])
         config["noexchangecolors"] = len(set(new_struct[2]))
         bgmodel = (
-                (LASERC_DEFAULT + IMAGERC_DEFAULT * config["PAINT.imager"])
-                * config["Imager.Laserpower"] * POWERDENSITY_CONVERSION
-                * config["Camera.Integration Time"]
+                (LASERC_DEFAULT + IMAGERC_DEFAULT * config["PAINT_imager"])
+                * config["Imager_Laserpower"] * POWERDENSITY_CONVERSION
+                * config["Camera_integration_time"]
                 * config["noise_level"]
         )
         config["bgmodel"] = int(bgmodel)

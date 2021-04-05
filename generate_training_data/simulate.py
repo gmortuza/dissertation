@@ -259,7 +259,7 @@ def convertMovie(
 ):
     edges = range(0, config["Height"] + 1)
 
-    photon_pos_frame, gt_position = dist_photons_xy(runner, photon_dist, config["new_struct"], config["Imager.PSF"])
+    photon_pos_frame, gt_position = dist_photons_xy(runner, photon_dist, config["new_struct"], config["Imager_PSF"])
 
     if len(photon_pos_frame) == 0:
         # There is no photon allocated in this frame
