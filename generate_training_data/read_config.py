@@ -40,11 +40,20 @@ class Config:
         """
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.device = torch.device(self.device)
+        # Calculate background model
         self.bg_model = (
                 (self.laserc_default + self.imagec_default * self.PAINT_imager)
                 * self.Imager_Laserpower * self.power_density_conversion
                 * self.Camera_integration_time * self.noise_level
         )
+        # Calculate tau_d
+        self.tau_d = round(1 / (self.PAINT_k_on * self.PAINT_imager * 1 / 10 ** 9) * 1000)
+
+        # Calculate photon parameter
+        self.Imager_photon_slope_std = self.Imager_Photonslope / self.std_factor
+        self.Imager_photon_rate = self.Imager_Photonslope * self.Imager_Laserpower
+        self.Imager_photon_rate_std = self.Imager_photon_slope_std * self.Imager_Laserpower
+
 
     def _make_absolute_directory(self):
         # prepend this base directory with other parameter so that we won't get any error for the path
@@ -85,6 +94,7 @@ class Config:
         else:
             handler = logging.StreamHandler()
             handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+            logger.addHandler(handler)
         # set the log level
         if self.log_level == 'info':
             logger.setLevel(logging.INFO)
@@ -99,4 +109,4 @@ class Config:
 
 
 if __name__ == '__main__':
-    config = Config("new/config.yaml")
+    config = Config("config.yaml")

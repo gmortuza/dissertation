@@ -1,9 +1,10 @@
 Data Type: uint16
 Byte Order: <
-output_file: generated_data/test
 output_dir: generated_data
+output_file: test
 log_to: console  # console
-log_level: 1
+log_level: info
+device: cpu
 # From the file
 power_density_conversion: 20
 laserc_default: 0.012063
@@ -16,6 +17,7 @@ std_factor: 1.82
 frame_padding: 6
 Camera: Simulation
 Frames: 5000  # Total Number of frames
+image_size: 32
 Height: 32  # Frame height (px)
 Width: 32  # Frame width (px
 Camera_integration_time: 300  # (ms)
@@ -31,8 +33,8 @@ unique_origami: 3
 total_origami: 10  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
-# Float value ranging 0.0 - 100.0
-binding_site_incorporation: 100.0
+# Float value ranging 0.0 - 1.0
+binding_site_incorporation: 1.0
 # 0 --> not randomly oriented, 1 --> Randomly oriented
 origami_orientation: 0
 # 0 --> The distance of each origami is evenly distributed
@@ -41,12 +43,12 @@ origami_arrangement: 0
 origami_3d: 0
 origami_mean: False # Center of the mass of
 # Adding drift
-drift_x: 0  # Drift in nanometer in x direction for each 1000 frame
-drift_y: 0  # Drift in nanometer in y direction for each 1000 frame
+drift_x: 10  # Drift in nanometer in x direction for each 1000 frame
+drift_y: 10  # Drift in nanometer in y direction for each 1000 frame
 # Drift will be added in the whole frame
 # linear --> Evenly distribute the drift among 1000 frames
 # random_walk --> Randomly choose the drift from the normal distribution of mean 0 and SD 50/1000
-drift_method: linear  # we can also put random walk
+drift_method: random_walk  # we can also put random walk
 
 # Number of localization event that will blink all the frames
 num_gold_nano_particle: 0
