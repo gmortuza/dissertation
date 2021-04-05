@@ -156,7 +156,9 @@ class Simulate:
                 self.config
             )
             # Generate the ground truth data
-            if gt_pos:
+            # Not all the frames will have blinking event.
+            # If this particular frame have any blinking event then we will record it's property
+            if gt_pos.any():
                 x_pos = self.config["new_struct"][0][gt_pos]
                 y_pos = self.config["new_struct"][1][gt_pos]
                 photons.extend(photon_dist[gt_pos, runner])
@@ -165,9 +167,13 @@ class Simulate:
                 ground_truth_y = np.concatenate((ground_truth_y, y_pos))
                 ground_truth_x_with_drift = np.concatenate((ground_truth_x_with_drift, x_pos + self.config["drift_x"][runner]))
                 ground_truth_y_with_drift = np.concatenate((ground_truth_y_with_drift, y_pos + self.config["drift_y"][runner]))
-            # Add noise to this movie
+        # Add noise to this movie
+        movie, added_noise = simulate.add_noise(self.config["noise_type"], movie)
+        # Extract noise from each frame and for each binding site
         # Save the ground truth
         # Photons on each blinking event in each frame
+        print("Here")
+
         ground_truth_frames = np.asarray(ground_truth_frames)
         content_for_yaml_file = f"""Box Size: 7\nPixelsize: {self.config["Camera.Pixelsize"]}\nFrames: {self.config["Frames"]}\nHeight: {self.config["Height"]}\nWidth: {self.config["Width"]}"""
         ground_truth_without_drift = np.rec.array(
@@ -217,12 +223,9 @@ class Simulate:
             with open(self.config["output_file"] + "_ground_truth_with_drift.yaml", "w") as yaml_file:
                 yaml_file.write(content_for_yaml_file)
 
-        # Save the ground truth with drift
-        movie = simulate.noisy_p(movie, self.config["bgmodel"])
-        # insert poisson noise
         movie = simulate.check_type(movie)
         logger.info("saving movie")
-        # Convert newstruct and exhange_round to sring otherwise saving will have error
+        # Convert new struct and exchange_round to string otherwise saving will have error
         del self.config["new_struct"]
         del self.config["drift_x"]
         del self.config["drift_y"]

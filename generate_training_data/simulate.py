@@ -9,52 +9,9 @@
 """
 import numpy as np
 import io_modified as _io
-from numba import njit
+import torch
 
 magnification_factor = 0.79
-
-
-@njit
-def calculate_zpsf(z, cx, cy):
-    z = z / magnification_factor
-    z2 = z * z
-    z3 = z * z2
-    z4 = z * z3
-    z5 = z * z4
-    z6 = z * z5
-    wx = (
-        cx[0] * z6
-        + cx[1] * z5
-        + cx[2] * z4
-        + cx[3] * z3
-        + cx[4] * z2
-        + cx[5] * z
-        + cx[6]
-    )
-    wy = (
-        cy[0] * z6
-        + cy[1] * z5
-        + cy[2] * z4
-        + cy[3] * z3
-        + cy[4] * z2
-        + cy[5] * z
-        + cy[6]
-    )
-    return wx, wy
-
-
-def test_calculate_zpsf():
-    cx = np.array([1, 2, 3, 4, 5, 6, 7])
-    cy = np.array([1, 2, 3, 4, 5, 6, 7])
-    z = np.array([1, 2, 3, 4, 5, 6, 7])
-    wx, wy = calculate_zpsf(z, cx, cy)
-
-    result = [4.90350522e+01,   7.13644987e+02,   5.52316597e+03,
-              2.61621620e+04,   9.06621337e+04,   2.54548124e+05,
-              6.14947219e+05]
-
-    delta = wx - result
-    assert sum(delta**2) < 0.001
 
 
 def saveInfo(filename, info):
@@ -70,7 +27,7 @@ def noisy(image, mu, sigma):
     gauss = gauss.reshape(row, col)
     noisy = image + gauss
     noisy[noisy < 0] = 0
-    return noisy
+    return noisy, gauss
 
 
 def noisy_p(image, mu):
@@ -79,7 +36,19 @@ def noisy_p(image, mu):
     """
     poisson = np.random.poisson(mu, image.shape).astype(float)
     nosiy_image = image + poisson
-    return nosiy_image
+    return nosiy_image, poisson
+
+
+def add_noise(noise_type, movie, mu=None, sigma=None):
+    # convert image to Tensor
+    # TODO: Remove this later When everything will be based on torch
+    image = torch.Tensor(movie)
+    if noise_type == 'poisson':
+        noise = torch.distributions.poisson.Poisson(image).sample()
+    elif noise_type == 'gaussian':
+        noise = mu + torch.randn_like(image) * sigma
+
+    return (image + noise).numpy(), noise.numpy()
 
 
 def check_type(movie):
@@ -89,7 +58,7 @@ def check_type(movie):
 
 
 def generate_paint(
-    mean_dark, mean_bright, frames, time, photon_rate, photon_rate_std, photon_budget, always_on
+        mean_dark, mean_bright, frames, time, photon_rate, photon_rate_std, photon_budget, always_on
 ):
     """
     Paint-Generator:
@@ -165,7 +134,7 @@ def generate_paint(
                     )
                 )
             elif (
-                on_frames == 2
+                    on_frames == 2
             ):  # CASE 2: all photons are emitted in two frames
                 if j == 1:  # photons in first on frame
                     photons_in_frame[1 + tempFrame] = int(
@@ -230,15 +199,15 @@ def generate_paint(
 
 
 def distribute_photons(
-    structures,
-    integration_time,
-    frames,
-    taud,
-    taub,
-    photon_rate,
-    photon_rate_std,
-    photon_budget,
-    always_on=0,
+        structures,
+        integration_time,
+        frames,
+        taud,
+        taub,
+        photon_rate,
+        photon_rate_std,
+        photon_budget,
+        always_on=0,
 ):
     """
     Distribute Photons
@@ -257,11 +226,9 @@ def distribute_photons(
     return photons_in_frame, time_trace, spot_kinetics
 
 
-def dist_photons_xy(runner, photon_dist, structures, psf, mode_3D_state, cx, cy):
-
+def dist_photons_xy(runner, photon_dist, structures, psf):
     binding_sites_x = structures[0, :]
     binding_sites_y = structures[1, :]
-    binding_sites_z = structures[4, :]
     no_sites = len(binding_sites_x)  # number of binding sites in image
 
     temp_photons = np.array(photon_dist[:, runner]).astype(int)
@@ -272,38 +239,27 @@ def dist_photons_xy(runner, photon_dist, structures, psf, mode_3D_state, cx, cy)
     # Allocate memory
     photon_pos_frame = np.zeros((n_photons, 2))
     # Positions where are putting some photons
-    gt_position = []
-    for i in range(0, no_sites):
+    # indices that will have blinking event at this frame
+    gt_position = np.argwhere(photon_dist[:, runner] > 0).flatten()
+    for i in gt_position:
         photon_count = int(photon_dist[i, runner])
-        if mode_3D_state:
-            wx, wy = calculate_zpsf(binding_sites_z[i], cx, cy)
-            cov = [[wx * wx, 0], [0, wy * wy]]
-        else:
-            # covariance matrix for the normal distribution
-            cov = [[psf * psf, 0], [0, psf * psf]]
-
-        if photon_count > 0:
-            gt_position.append(i)
-            mu = [binding_sites_x[i], binding_sites_y[i]]
-            photon_pos = np.random.multivariate_normal(mu, cov, photon_count)
-            photon_pos_frame[
-                n_photons_step[i]: n_photons_step[i + 1], :
-            ] = photon_pos
+        # covariance matrix for the normal distribution
+        cov = [[psf * psf, 0], [0, psf * psf]]
+        mu = [binding_sites_x[i], binding_sites_y[i]]
+        photon_pos = np.random.multivariate_normal(mu, cov, photon_count)
+        photon_pos_frame[n_photons_step[i]: n_photons_step[i + 1], :] = photon_pos
 
     return photon_pos_frame, gt_position
 
 
 def convertMovie(
-    runner,
-    photon_dist,
-    config,
+        runner,
+        photon_dist,
+        config,
 ):
     edges = range(0, config["Height"] + 1)
 
-    photon_pos_frame, gt_position = dist_photons_xy(
-        runner, photon_dist, config["new_struct"], config["Imager.PSF"], config["origami_3d"],
-        config["Structure.CX"], config["Structure.CY"]
-    )
+    photon_pos_frame, gt_position = dist_photons_xy(runner, photon_dist, config["new_struct"], config["Imager.PSF"])
 
     if len(photon_pos_frame) == 0:
         # There is no photon allocated in this frame
@@ -313,7 +269,6 @@ def convertMovie(
         # Insert the drift in here
         x = photon_pos_frame[:, 0] + config["drift_x"][runner]
         y = photon_pos_frame[:, 1] + config["drift_y"][runner]
-        # TODO: Not sure why it is y, x need to check this
         simulated_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges))
         return simulated_frame, gt_position
         # Because of this flip ground truth doesn't match with the render text
@@ -329,12 +284,12 @@ def saveMovie(filename, movie, info):
 # Function to store the coordinates of a structure in a container.
 # The coordinates wil be adjusted so that the center of mass is the origin
 def defineStructure(
-    structure_xx_px,
-    structure_yy_px,
-    structure_ex,
-    structure3d,
-    pixel_size,
-    mean=True,
+        structure_xx_px,
+        structure_yy_px,
+        structure_ex,
+        structure3d,
+        pixel_size,
+        mean=True,
 ):
     if mean:
         structure_xx_px = structure_xx_px - np.mean(structure_xx_px)
@@ -397,8 +352,8 @@ def incorporateStructure(structure, incorporation):
     Returns a subset of the structure to reflect incorporation of staples
     """
     new_structure = structure[
-        :, (np.random.rand(structure.shape[1]) < incorporation)
-    ]
+                    :, (np.random.rand(structure.shape[1]) < incorporation)
+                    ]
     return new_structure
 
 
@@ -413,7 +368,8 @@ def randomExchange(pos):
 
 
 def prepareStructures(
-    origamies, grid_pos, orientation, number, incorporation, exchange, frame_padding, height, num_gold_nano_particle=0
+        origamies, grid_pos, orientation, number, incorporation, exchange, frame_padding, height,
+        num_gold_nano_particle=0
 ):
     """
     prepareStructures:
