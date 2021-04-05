@@ -50,6 +50,7 @@ class Config:
         # prepend this base directory with other parameter so that we won't get any error for the path
         # As those directory will be accessed from different file. which are in different location
         self.output_dir = os.path.join(self.base_dir, self.output_dir)
+        self.output_file = os.path.join(self.output_dir, self.output_file)
         # if output directory doesn't exists we have to create that
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -98,4 +99,4 @@ class Config:
 
 
 if __name__ == '__main__':
-    config = Config("config.yaml")
+    config = Config("new/config.yaml")
