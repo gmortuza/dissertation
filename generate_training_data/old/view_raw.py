@@ -9,9 +9,10 @@ import h5py
 # plt.imshow(images[5], cmap="gray")
 # plt.show()
 # file = h5py.File('test_locs.hdf5', 'r')
-df_without_drift = pd.DataFrame(np.array(h5py.File("generated_data/test_ground_truth_without_drift.hdf5", "r")["locs"]))
-df_without_frame = pd.DataFrame(np.array(h5py.File("generated_data/test_ground_truth_without_frame.hdf5", "r")["locs"]))
-df_localized = pd.DataFrame(np.array(h5py.File("generated_data/test_locs.hdf5", "r")["locs"]))
+# df_without_drift = pd.DataFrame(np.array(h5py.File("generated_data/test_ground_truth_without_drift.hdf5", "r")["locs"]))
+# df_without_frame = pd.DataFrame(np.array(h5py.File("generated_data/test_ground_truth_without_frame.hdf5", "r")["locs"]))
+df_localized_new = pd.DataFrame(np.array(h5py.File("../generated_data/test_locs.hdf5", "r")["locs"]))
+df_localized_old = pd.DataFrame(np.array(h5py.File("generated_data/test_locs.hdf5", "r")["locs"]))
 print("hi there")
 # new_df = pd.DataFrame(np.array(h5py.File("test_locs_after_drop.hdf5", "r")["locs"]))
 # Drop the column lpx, lpy, ellipticity

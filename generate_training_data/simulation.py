@@ -219,6 +219,66 @@ class Simulation:
         # Update the global variable
         self.distributed_photon[binding_site_id] = torch.tensor(photons_in_frame[0:frames])
 
+    def dist_photons_xy(self, frame_id):
+        binding_sites_x = self.binding_site_position[0]
+        binding_sites_y = self.binding_site_position[1]
+
+        temp_photons = np.array(self.distributed_photon[:, frame_id]).astype(int)
+        n_photons = np.sum(temp_photons)  # Total photons for this frame
+        n_photons_step = np.cumsum(temp_photons)
+        n_photons_step = np.insert(n_photons_step, 0, 0)
+
+        # Allocate memory
+        photon_pos_frame = np.zeros((n_photons, 2))
+        # Positions where are putting some photons
+        # indices that will have blinking event at this frame
+        gt_position = np.argwhere(self.distributed_photon[:, frame_id] > 0).flatten()
+        for i in gt_position:
+            photon_count = int(self.distributed_photon[i, frame_id])
+            # covariance matrix for the normal distribution
+            cov = [[self.config.Imager_PSF * self.config.Imager_PSF, 0], [0, self.config.Imager_PSF * self.config.Imager_PSF]]
+            mu = [binding_sites_x[i], binding_sites_y[i]]
+            photon_pos = np.random.multivariate_normal(mu, cov, photon_count)
+            photon_pos_frame[n_photons_step[i]: n_photons_step[i + 1], :] = photon_pos
+
+        return photon_pos_frame, gt_position
+
+    def convert_frame(self, frame_id):
+        edges = range(0, self.config.image_size + 1)
+
+        photon_pos_frame, gt_position = self.dist_photons_xy(frame_id)
+
+        # noise_for_this_frame = torch.rand_like(self.movie[frame_id]) * self.config.bg_model
+        # noise_for_this_frame = torch.poisson(noise_for_this_frame)
+        noise_distribution = torch.distributions.poisson.Poisson(self.config.bg_model)
+        noise_for_this_frame = noise_distribution.sample((self.config.image_size, self.config.image_size))
+
+        if len(photon_pos_frame) == 0:
+            # There is no photon allocated in this frame
+            # So we will return empty image
+            # TODO: Add noise in here
+            self.movie[frame_id, :, :] = torch.zeros_like(self.movie[frame_id]) + noise_for_this_frame
+        else:
+            # TODO: convert everything into tensor
+            x = photon_pos_frame[:, 0] + self.drift_x[frame_id].numpy()
+            y = photon_pos_frame[:, 1] + self.drift_y[frame_id].numpy()
+            single_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges), )
+
+            # return simulated_frame, gt_position
+
+            self.movie[frame_id, :, :] = torch.tensor(single_frame) + noise_for_this_frame
+            # TODO: process gt_position. Some how store that information
+            # Save the ground truth information
+            self.gt_frame.extend([frame_id] * len(gt_position))
+            self.gt_x.append(self.binding_site_position[0][gt_position])
+            self.gt_y.append(self.binding_site_position[1][gt_position])
+            self.gt_photon.extend(self.distributed_photon[gt_position, frame_id])
+            # Add correct background
+            self.gt_noise.extend([0] * len(gt_position))
+            # TODO: save the ground truth for training purpose
+
+
+
 
 if __name__ == '__main__':
     pass

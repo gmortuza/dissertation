@@ -166,6 +166,7 @@ class Simulate:
                 ground_truth_x_with_drift = np.concatenate((ground_truth_x_with_drift, x_pos + self.config["drift_x"][runner]))
                 ground_truth_y_with_drift = np.concatenate((ground_truth_y_with_drift, y_pos + self.config["drift_y"][runner]))
         # Add noise to this movie
+        movie, _ = simulate.noisy_p(movie, self.config['bgmodel'])
         movie, added_noise = simulate.add_noise(self.config["noise_type"], movie)
         # Extract noise from each frame and for each binding site
         # Save the ground truth
