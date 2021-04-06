@@ -81,7 +81,7 @@ Imager_Photonslope: 35  # Photon detection rate
 # ================ Paint parameters ===============
 PAINT_imager: 5.0  # Imager concentration (nm)
 PAINT_k_on: 1600000.0  # M-1s-1
-PAINT_taub: 500.0  # Bright Time
+PAINT_tau_b: 500.0  # Bright Time
 
 
 
