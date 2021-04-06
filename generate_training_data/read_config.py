@@ -3,6 +3,7 @@ import yaml
 import logging
 import torch
 
+torch.manual_seed(1234)
 
 class Config:
     """Class that loads hyper parameters from a json file.

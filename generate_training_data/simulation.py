@@ -2,6 +2,9 @@ import torch
 import numpy as np
 from unique_origami import get_unique_origami
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+
 
 class Simulation:
     def __init__(self):
@@ -270,11 +273,21 @@ class Simulation:
             # TODO: process gt_position. Some how store that information
             # Save the ground truth information
             self.gt_frame.extend([frame_id] * len(gt_position))
-            self.gt_x.append(self.binding_site_position[0][gt_position])
-            self.gt_y.append(self.binding_site_position[1][gt_position])
-            self.gt_photon.extend(self.distributed_photon[gt_position, frame_id])
+            if len(gt_position) == 1:
+                self.gt_x_without_drift.append(self.binding_site_position[0, gt_position])
+                self.gt_y_without_drift.append(self.binding_site_position[1, gt_position])
+
+                self.gt_x_with_drift.append(self.binding_site_position[0, gt_position] + self.drift_x[gt_position].item())
+                self.gt_y_with_drift.append(self.binding_site_position[1, gt_position] + self.drift_y[gt_position].item())
+            else:
+                self.gt_x_without_drift.extend(self.binding_site_position[0, gt_position].tolist())
+                self.gt_y_without_drift.extend(self.binding_site_position[1, gt_position].tolist())
+
+                self.gt_x_with_drift.extend((self.binding_site_position[0, gt_position] + self.drift_x[gt_position].numpy()).tolist())
+                self.gt_y_with_drift.extend((self.binding_site_position[1, gt_position] + self.drift_y[gt_position].numpy()).tolist())
+            self.gt_photon.extend(self.distributed_photon[gt_position, frame_id].tolist())
             # Add correct background
-            self.gt_noise.extend([0] * len(gt_position))
+            self.gt_noise.extend([noise_for_this_frame.mean().item()] * len(gt_position))
             # TODO: save the ground truth for training purpose
 
 
