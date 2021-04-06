@@ -277,14 +277,14 @@ class Simulation:
                 self.gt_x_without_drift.append(self.binding_site_position[0, gt_position])
                 self.gt_y_without_drift.append(self.binding_site_position[1, gt_position])
 
-                self.gt_x_with_drift.append(self.binding_site_position[0, gt_position] + self.drift_x[gt_position].item())
-                self.gt_y_with_drift.append(self.binding_site_position[1, gt_position] + self.drift_y[gt_position].item())
+                self.gt_x_with_drift.append(self.binding_site_position[0, gt_position] + self.drift_x[frame_id].item())
+                self.gt_y_with_drift.append(self.binding_site_position[1, gt_position] + self.drift_y[frame_id].item())
             else:
                 self.gt_x_without_drift.extend(self.binding_site_position[0, gt_position].tolist())
                 self.gt_y_without_drift.extend(self.binding_site_position[1, gt_position].tolist())
 
-                self.gt_x_with_drift.extend((self.binding_site_position[0, gt_position] + self.drift_x[gt_position].numpy()).tolist())
-                self.gt_y_with_drift.extend((self.binding_site_position[1, gt_position] + self.drift_y[gt_position].numpy()).tolist())
+                self.gt_x_with_drift.extend((self.binding_site_position[0, gt_position] + self.drift_x[frame_id].numpy()).tolist())
+                self.gt_y_with_drift.extend((self.binding_site_position[1, gt_position] + self.drift_y[frame_id].numpy()).tolist())
             self.gt_photon.extend(self.distributed_photon[gt_position, frame_id].tolist())
             # Add correct background
             self.gt_noise.extend([noise_for_this_frame.mean().item()] * len(gt_position))
