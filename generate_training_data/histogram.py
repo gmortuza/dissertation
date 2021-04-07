@@ -5,6 +5,8 @@ hsgh
 """
 
 import torch
+torch.manual_seed(1234)
+torch.use_deterministic_algorithms(True)
 
 _range = range
 

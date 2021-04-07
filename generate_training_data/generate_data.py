@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 torch.manual_seed(1234)
 np.random.seed(1234)
+torch.use_deterministic_algorithms(True)
 
 
 def show_execution_time(func):

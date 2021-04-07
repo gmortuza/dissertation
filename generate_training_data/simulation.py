@@ -5,6 +5,7 @@ from histogram import histogramdd
 
 torch.manual_seed(1234)
 np.random.seed(1234)
+torch.use_deterministic_algorithms(True)
 
 
 class Simulation:
@@ -246,7 +247,6 @@ class Simulation:
         return photon_pos_frame, gt_position
 
     def convert_frame(self, frame_id):
-
         edges = range(0, self.config.image_size + 1)
 
         photon_pos_frame, gt_position = self.dist_photons_xy(frame_id)
