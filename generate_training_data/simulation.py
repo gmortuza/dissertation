@@ -246,6 +246,7 @@ class Simulation:
         return photon_pos_frame, gt_position
 
     def convert_frame(self, frame_id):
+
         edges = range(0, self.config.image_size + 1)
 
         photon_pos_frame, gt_position = self.dist_photons_xy(frame_id)
@@ -259,8 +260,7 @@ class Simulation:
             samples = photon_pos_frame + self.drifts[frame_id]
             # The implementation is not optimized for GPU.
             # So it is better to use CPU
-            single_frame, _ = histogramdd(samples.T, bins=(edges, edges))
-            # single_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges), )
+            single_frame, _ = histogramdd(samples.T.roll(1, 0), bins=(edges, edges))
         return frame_id, single_frame, gt_position
 
 
