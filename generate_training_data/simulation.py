@@ -27,7 +27,7 @@ class Simulation:
             # for each grid position select a random origami and add that origami to that grid position
             # Origami id for this particular grid position
             origami = origamies[np.random.randint(0, len(origamies))]
-            structure = torch.tensor([origami["x_cor"], origami["y_cor"]])
+            structure = torch.stack((origami["x_cor"], origami["y_cor"]))
             #
             structure = self.rotate_structure(structure)
             #
@@ -36,18 +36,14 @@ class Simulation:
             structure[0] += grid_pos[i, 0]
             structure[1] += grid_pos[i, 1]
 
-            structures = np.concatenate((structures, structure), axis=1)
+            structures = torch.cat((structures, structure), axis=1)
 
         # Choose some random position from the whole movie to put the always on event
         if self.config.num_gold_nano_particle > 0:
-            fixed_structure = np.array(
-                [
-                    np.random.uniform(low=self.config.frame_padding, high=self.config.image_size - self.config.frame_padding, size=self.config.num_gold_nano_particle),
-                    # considering height and width the same
-                    np.random.uniform(low=self.config.frame_padding, high=self.config.image_size - self.config.frame_padding, size=self.config.num_gold_nano_particle),
-                ]
-            )
-            structures = np.concatenate((structures, fixed_structure), axis=1)
+            uniform_distribution = torch.distributions.uniform.Uniform(
+                low=self.config.frame_padding, high=self.config.image_size - self.config.frame_padding)
+            fixed_structure = uniform_distribution.sample((2, self.config.num_gold_nano_particle))
+            structures = torch.cat((structures, fixed_structure), axis=1)
 
         return structures
 
@@ -55,15 +51,11 @@ class Simulation:
         if not self.config.origami_orientation:
             return structure
 
-        angle_rad = np.random.rand(1) * 2 * np.pi
-        structure = torch.tensor(
+        angle_rad = torch.rand(1) * 2 * np.pi
+        structure = torch.stack(
             [
-                (structure[0, :]) * np.cos(angle_rad)
-                - (structure[1, :]) * np.sin(angle_rad),
-                (structure[0, :]) * np.sin(angle_rad)
-                + (structure[1, :]) * np.cos(angle_rad),
-                structure[2, :],
-                structure[3, :],
+                (structure[0, :]) * torch.cos(angle_rad) - (structure[1, :]) * torch.sin(angle_rad),
+                (structure[0, :]) * torch.sin(angle_rad) + (structure[1, :]) * torch.cos(angle_rad),
             ]
         )
         return structure
@@ -100,7 +92,7 @@ class Simulation:
         # TODO: Convert numpy array to tensor
         mean_dark = self.config.tau_d
         mean_bright = self.config.PAINT_tau_b
-        frames = self.config.Frames
+        frames = self.config.frames
         time = self.config.Camera_integration_time
         photon_budget = self.config.Imager_Photonbudget
         photon_rate_std = self.config.Imager_photon_rate_std
@@ -118,9 +110,9 @@ class Simulation:
             num_of_blinking_event = num_of_blinking_event * 10
 
         if always_on > 0:
-            return np.random.normal(always_on / frames, photon_rate_std, frames).clip(min=0), \
-                   np.zeros(frames, dtype=np.float64), [0] * 4
-
+            self.distributed_photon[binding_site_id] = torch.distributions.normal.Normal\
+                (torch.tensor(always_on / frames), torch.tensor((photon_rate_std))).sample((frames, )).clip(min=0)
+            return
         dark_times = np.random.exponential(mean_dark, num_of_blinking_event)
         bright_times = np.random.exponential(mean_bright, num_of_blinking_event)
 
@@ -251,46 +243,16 @@ class Simulation:
 
         photon_pos_frame, gt_position = self.dist_photons_xy(frame_id)
 
-        # noise_for_this_frame = torch.rand_like(self.movie[frame_id]) * self.config.bg_model
-        # noise_for_this_frame = torch.poisson(noise_for_this_frame)
-        noise_distribution = torch.distributions.poisson.Poisson(self.config.bg_model)
-        noise_for_this_frame = noise_distribution.sample((self.config.image_size, self.config.image_size))
-
         if len(photon_pos_frame) == 0:
             # There is no photon allocated in this frame
             # So we will return empty image
-            # TODO: Add noise in here
-            self.movie[frame_id, :, :] = torch.zeros_like(self.movie[frame_id]) + noise_for_this_frame
+            single_frame = torch.zeros_like(self.movie[frame_id])
         else:
             # TODO: convert everything into tensor
             x = photon_pos_frame[:, 0] + self.drift_x[frame_id].numpy()
             y = photon_pos_frame[:, 1] + self.drift_y[frame_id].numpy()
             single_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges), )
-
-            # return simulated_frame, gt_position
-
-            self.movie[frame_id, :, :] = torch.tensor(single_frame) + noise_for_this_frame
-            # TODO: process gt_position. Some how store that information
-            # Save the ground truth information
-            self.gt_frame.extend([frame_id] * len(gt_position))
-            if len(gt_position) == 1:
-                self.gt_x_without_drift.append(self.binding_site_position[0, gt_position])
-                self.gt_y_without_drift.append(self.binding_site_position[1, gt_position])
-
-                self.gt_x_with_drift.append(self.binding_site_position[0, gt_position] + self.drift_x[frame_id].item())
-                self.gt_y_with_drift.append(self.binding_site_position[1, gt_position] + self.drift_y[frame_id].item())
-            else:
-                self.gt_x_without_drift.extend(self.binding_site_position[0, gt_position].tolist())
-                self.gt_y_without_drift.extend(self.binding_site_position[1, gt_position].tolist())
-
-                self.gt_x_with_drift.extend((self.binding_site_position[0, gt_position] + self.drift_x[frame_id].numpy()).tolist())
-                self.gt_y_with_drift.extend((self.binding_site_position[1, gt_position] + self.drift_y[frame_id].numpy()).tolist())
-            self.gt_photon.extend(self.distributed_photon[gt_position, frame_id].tolist())
-            # Add correct background
-            self.gt_noise.extend([noise_for_this_frame.mean().item()] * len(gt_position))
-            # TODO: save the ground truth for training purpose
-
-
+        return frame_id, torch.tensor(single_frame, dtype=torch.float32), gt_position
 
 
 if __name__ == '__main__':

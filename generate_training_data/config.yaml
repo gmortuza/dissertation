@@ -17,7 +17,7 @@ std_factor: 1.82
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-Frames: 5000  # Total Number of frames
+frames: 5000  # Total Number of frames
 image_size: 32
 Height: 32  # Frame height (px)
 Width: 32  # Frame width (px
@@ -35,9 +35,9 @@ total_origami: 10  # Total number of origami in the whole movie. This is the sum
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
 # Float value ranging 0.0 - 1.0
-binding_site_incorporation: 1.0
+binding_site_incorporation: .8
 # 0 --> not randomly oriented, 1 --> Randomly oriented
-origami_orientation: 0
+origami_orientation: 1
 # 0 --> The distance of each origami is evenly distributed
 # 1 --> The distance of each origami is randomly distributed ( Origami is placed randomly in the frame)
 origami_arrangement: 0

@@ -18,16 +18,16 @@ def get_drift(config):
     # If the frame size is huge then it's efficient in GPU. Other wise it's better to take the sample from CPU
 
     if drift_method == "linear":
-        frame_drift_x, frame_drift_y = torch.full((config.Frames,), single_drift_x, device=config.device), \
-                                       torch.full((config.Frames,), single_drift_y, device=config.device)
+        frame_drift_x, frame_drift_y = torch.full((config.frames,), single_drift_x, device=config.device), \
+                                       torch.full((config.frames,), single_drift_y, device=config.device)
     else:
         # Default value is random walk
         mean = torch.tensor(0., device=config.device)
         single_drift_x = torch.tensor(single_drift_x, device=config.device)
         single_drift_y = torch.tensor(single_drift_y, device=config.device)
 
-        frame_drift_x = torch.distributions.normal.Normal(mean, single_drift_x).sample((config.Frames, ))
-        frame_drift_y = torch.distributions.normal.Normal(mean, single_drift_y).sample((config.Frames, ))
+        frame_drift_x = torch.distributions.normal.Normal(mean, single_drift_x).sample((config.frames, ))
+        frame_drift_y = torch.distributions.normal.Normal(mean, single_drift_y).sample((config.frames, ))
 
     frame_drift_x = torch.cumsum(frame_drift_x, dim=0)
     frame_drift_y = torch.cumsum(frame_drift_y, dim=0)

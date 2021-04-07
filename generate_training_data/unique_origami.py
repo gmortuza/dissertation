@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def get_unique_origami(config):
@@ -10,13 +11,13 @@ def get_unique_origami(config):
     row, column = config.origami_row, config.origami_column
     num_total_origami, num_unique_origami = config.total_origami, config.unique_origami
 
-    x = np.arange(0, x_distance * column, x_distance)
-    y = np.arange(0, y_distance * row, y_distance)
-    mesh_x, mesh_y = np.meshgrid(x, y)
+    x = torch.arange(0, x_distance * column, x_distance)
+    y = torch.arange(0, y_distance * row, y_distance)
+    mesh_x, mesh_y = torch.meshgrid(x, y)
     mesh_x, mesh_y = mesh_x.ravel(), mesh_y.ravel()
-    sample_origami = np.random.randint(2, size=(num_unique_origami, row * column), dtype=np.int)
-    np.savetxt(config.output_file + "_gt-origami.txt", sample_origami, fmt='%i')
-    sample_origami = sample_origami.astype(np.bool)
+    sample_origami = torch.randint(2, size=(num_unique_origami, row * column))
+    np.savetxt(config.output_file + "_gt-origami.txt", sample_origami.numpy(), fmt='%i')
+    sample_origami = sample_origami.to(torch.bool)
     # sample_origami = np.ones_like(sample_origami, dtype=np.int).astype(np.bool)
     unique_origamies = {}
     # create the unique origami
@@ -24,8 +25,8 @@ def get_unique_origami(config):
         single_origami_x, single_origami_y = mesh_x[single_origami], mesh_y[single_origami]
         # Move center of the mass to the origin
         if config.origami_mean:
-            single_origami_x = single_origami_x - np.mean(single_origami_x)
-            single_origami_y = single_origami_y - np.mean(single_origami_y)
+            single_origami_x = single_origami_x - torch.mean(single_origami_x)
+            single_origami_y = single_origami_y - torch.mean(single_origami_y)
         # Convert pixel to nanometer
         single_origami_x = single_origami_x / config.Camera_Pixelsize
         single_origami_y = single_origami_y / config.Camera_Pixelsize
@@ -33,19 +34,6 @@ def get_unique_origami(config):
         unique_origamies[origami_id] = {}
         unique_origamies[origami_id]["x_cor"] = single_origami_x
         unique_origamies[origami_id]["y_cor"] = single_origami_y
-
-    # Taking the random num_total_origamies here.
-    # but later decided to pick random origami later
-    # Keeping this Piece of code for future references
-    """
-    random_idx = np.random.choice(np.arange(num_unique_origami), num_total_origami)
-    origami_counter = Counter(random_idx)
-    unique_origami_x = np.asarray(unique_origami_x, dtype=np.object)
-    unique_origami_y = np.asarray(unique_origami_y, dtype=np.object)
-
-    total_origami_x = unique_origami_x[random_idx].ravel()
-    total_origami_y = unique_origami_y[random_idx].ravel()
-    """
     return unique_origamies
 
 
