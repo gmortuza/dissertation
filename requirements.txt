@@ -5,3 +5,4 @@ h5py~=2.10.0
 tqdm~=4.55.0
 yaml~=0.2.5
 pandas~=1.2.1
+nomkl~=3.0

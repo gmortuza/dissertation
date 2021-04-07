@@ -218,23 +218,27 @@ class Simulation:
         binding_sites_x = self.binding_site_position[0]
         binding_sites_y = self.binding_site_position[1]
 
-        temp_photons = np.array(self.distributed_photon[:, frame_id]).astype(int)
-        n_photons = np.sum(temp_photons)  # Total photons for this frame
-        n_photons_step = np.cumsum(temp_photons)
-        n_photons_step = np.insert(n_photons_step, 0, 0)
+        temp_photons = self.distributed_photon[:, frame_id]
+        n_photons = torch.sum(temp_photons).item()  # Total photons for this frame
+        n_photons_step = torch.cumsum(temp_photons, dim=0).to(torch.int)
+        # TODO: Don't know why this is added will remove this add see effect
+        # n_photons_step = np.insert(n_photons_step, 0, 0)
 
         # Allocate memory
-        photon_pos_frame = np.zeros((n_photons, 2))
+        photon_pos_frame = torch.zeros((int(n_photons), 2))
         # Positions where are putting some photons
         # indices that will have blinking event at this frame
-        gt_position = np.argwhere(self.distributed_photon[:, frame_id] > 0).flatten()
-        for i in gt_position:
+        gt_position = torch.where(self.distributed_photon[:, frame_id] > 0)[0].flatten()
+        for i in gt_position.tolist():
             photon_count = int(self.distributed_photon[i, frame_id])
             # covariance matrix for the normal distribution
-            cov = [[self.config.Imager_PSF * self.config.Imager_PSF, 0], [0, self.config.Imager_PSF * self.config.Imager_PSF]]
-            mu = [binding_sites_x[i], binding_sites_y[i]]
-            photon_pos = np.random.multivariate_normal(mu, cov, photon_count)
-            photon_pos_frame[n_photons_step[i]: n_photons_step[i + 1], :] = photon_pos
+            cov = torch.tensor([[self.config.Imager_PSF * self.config.Imager_PSF, 0],
+                                [0, self.config.Imager_PSF * self.config.Imager_PSF]]).to(self.config.device)
+            mu = torch.tensor([binding_sites_x[i], binding_sites_y[i]], device=self.config.device)
+            scale_tril = torch.linalg.cholesky(cov)
+            multi_norm_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
+            photon_pos = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
+            photon_pos_frame[n_photons_step[i-1]: n_photons_step[i], :] = photon_pos
 
         return photon_pos_frame, gt_position
 
