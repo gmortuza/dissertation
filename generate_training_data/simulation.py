@@ -230,19 +230,18 @@ class Simulation:
         # Positions where are putting some photons
         # indices that will have blinking event at this frame
         gt_position = torch.where(self.distributed_photon[:, frame_id] > 0)[0].flatten()
+        # covariance matrix for the normal distribution
+        cov = torch.tensor([[self.config.Imager_PSF * self.config.Imager_PSF, 0],
+                            [0, self.config.Imager_PSF * self.config.Imager_PSF]]).to(self.config.device)
+        scale_tril = torch.linalg.cholesky(cov)
         for i in gt_position.tolist():
             photon_count = int(self.distributed_photon[i, frame_id])
-            # covariance matrix for the normal distribution
-            cov = torch.tensor([[self.config.Imager_PSF * self.config.Imager_PSF, 0],
-                                [0, self.config.Imager_PSF * self.config.Imager_PSF]]).to(self.config.device)
+
             mu = torch.tensor([binding_sites_x[i], binding_sites_y[i]], device=self.config.device)
-            scale_tril = torch.linalg.cholesky(cov)
             multi_norm_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
             photon_pos = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
-            if i == 0:
-                photon_pos_frame[0: n_photons_step[i], :] = photon_pos
-            else:
-                photon_pos_frame[n_photons_step[i-1]: n_photons_step[i], :] = photon_pos
+            start = 0 if i == 0 else n_photons_step[i-1]
+            photon_pos_frame[start: n_photons_step[i], :] = photon_pos
 
         return photon_pos_frame, gt_position
 
