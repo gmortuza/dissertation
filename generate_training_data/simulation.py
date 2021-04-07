@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from unique_origami import get_unique_origami
+from histogram import histogramdd
 
 torch.manual_seed(1234)
 np.random.seed(1234)
@@ -238,7 +239,10 @@ class Simulation:
             scale_tril = torch.linalg.cholesky(cov)
             multi_norm_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
             photon_pos = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
-            photon_pos_frame[n_photons_step[i-1]: n_photons_step[i], :] = photon_pos
+            if i == 0:
+                photon_pos_frame[0: n_photons_step[i], :] = photon_pos
+            else:
+                photon_pos_frame[n_photons_step[i-1]: n_photons_step[i], :] = photon_pos
 
         return photon_pos_frame, gt_position
 
@@ -252,11 +256,15 @@ class Simulation:
             # So we will return empty image
             single_frame = torch.zeros_like(self.movie[frame_id])
         else:
-            # TODO: convert everything into tensor
-            x = photon_pos_frame[:, 0] + self.drift_x[frame_id].numpy()
-            y = photon_pos_frame[:, 1] + self.drift_y[frame_id].numpy()
-            single_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges), )
-        return frame_id, torch.tensor(single_frame, dtype=torch.float32), gt_position
+            # TODO: use single variable for drift
+            x = photon_pos_frame[:, 0] + self.drift_x[frame_id]
+            y = photon_pos_frame[:, 1] + self.drift_y[frame_id]
+            samples = torch.stack((x, y))
+            # The implementation is not optimized for GPU.
+            # So it is better to use CPU
+            single_frame, _ = histogramdd(samples, bins=(edges, edges))
+            # single_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges), )
+        return frame_id, single_frame, gt_position
 
 
 if __name__ == '__main__':
