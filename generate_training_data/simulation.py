@@ -256,12 +256,10 @@ class Simulation:
             single_frame = torch.zeros_like(self.movie[frame_id])
         else:
             # TODO: use single variable for drift
-            x = photon_pos_frame[:, 0] + self.drift_x[frame_id]
-            y = photon_pos_frame[:, 1] + self.drift_y[frame_id]
-            samples = torch.stack((x, y))
+            samples = photon_pos_frame + self.drifts[frame_id]
             # The implementation is not optimized for GPU.
             # So it is better to use CPU
-            single_frame, _ = histogramdd(samples, bins=(edges, edges))
+            single_frame, _ = histogramdd(samples.T, bins=(edges, edges))
             # single_frame, _, _ = np.histogram2d(y, x, bins=(edges, edges), )
         return frame_id, single_frame, gt_position
 

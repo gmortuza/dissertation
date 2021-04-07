@@ -34,7 +34,7 @@ class GenerateData(Simulation):
         self.frame_wise_noise = self.movie.mean((1, 2))  # Tensor of shape (num_of_frames)
         # self.movie = torch.zeros((self.config.frames, self.config.image_size, self.config.image_size),
         #                          device=self.config.device, dtype=torch.float64)
-        self.drift_x, self.drift_y = get_drift(self.config)
+        self.drifts = get_drift(self.config)  # tensor of shape (num_of_frames, 2)
         # This ground truth is only for visualization
         # Normally we don't need this ground truth for training purpose
         # For training purpose we will export something tensor shape
@@ -103,8 +103,8 @@ class GenerateData(Simulation):
                 gt_x_without_drift.extend(self.binding_site_position[0, gt_pos].tolist())
                 gt_y_without_drift.extend(self.binding_site_position[1, gt_pos].tolist())
 
-                gt_x_with_drift.extend((self.binding_site_position[0, gt_pos] + self.drift_x[frame_id].numpy()).tolist())
-                gt_y_with_drift.extend((self.binding_site_position[1, gt_pos] + self.drift_y[frame_id].numpy()).tolist())
+                gt_x_with_drift.extend((self.binding_site_position[0, gt_pos] + self.drifts[frame_id, 0].numpy()).tolist())
+                gt_y_with_drift.extend((self.binding_site_position[1, gt_pos] + self.drifts[frame_id, 1].numpy()).tolist())
                 gt_photons.extend(self.distributed_photon[gt_pos, frame_id].tolist())
                 gt_noise.extend([self.frame_wise_noise[frame_id].item()] * len(gt_pos))
                 gt_frames.extend([frame_id] * len(gt_pos))
