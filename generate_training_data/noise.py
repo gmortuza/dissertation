@@ -1,7 +1,7 @@
 import torch
 
 torch.manual_seed(1234)
-torch.use_deterministic_algorithms(True)
+
 
 def get_gaussian_noise(mu, sigma):
     return torch.distributions.normal.Normal(mu, sigma)
@@ -21,5 +21,7 @@ def get_noise(config):
 
 
 # TODO: Implement this function later
-def extract_noise_from_frame():
-    pass
+def extract_noise_from_frame(frame, position):
+    rounded_pos = position.round().to(int)
+    extracted_box = frame[rounded_pos[0]-3:rounded_pos[0]+3, rounded_pos[1]-3:rounded_pos[1]+3]
+    return extracted_box.mean()

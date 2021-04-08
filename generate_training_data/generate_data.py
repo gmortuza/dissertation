@@ -70,21 +70,32 @@ class GenerateData(Simulation):
         self.config.logger.info("Converting into Images")
 
         # =========  For debugging purpose
-        # for frame_id in tqdm(range(self.config.frames), desc="Converting into image"):
-        #     self.convert_frame(frame_id)
+        frame_details = map(self.convert_frame, np.arange(self.config.frames))
         # =========
         # pool = multiprocessing.Pool(processes=self.available_cpu_core)
         # frame_details = pool.map(self.convert_frame, np.arange(self.config.frames))
         # pool.close()
         # pool.join()
-        frame_details = map(self.convert_frame, np.arange(self.config.frames))
+
         # We save images in hdf5 for visualization purpose
-        self.save_frames_in_hdf5(frame_details)
+        # self.save_frames_in_hdf5(frame_details)
         # we save images in tensor for training purpose
         self.save_frames_in_tensor(frame_details)
 
     def save_frames_in_tensor(self, frame_details):
-        pass
+        # concatnenating tensor in a loop might be slower
+        # So we are creating a large tensor
+        combined_ground_truth = torch.zeros((self.config.frames * self.config.max_number_of_emitter_per_frame, 9))
+        current_num_of_emitter = 0
+        for frame_id, frame, gt_infos in frame_details:
+            self.movie[frame_id, :, :] += frame
+            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+len(gt_infos), 1:] = gt_infos[:, 1:]
+            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+len(gt_infos), 0] = torch.tensor([frame_id] * len(gt_infos))
+            current_num_of_emitter += len(gt_infos)
+        combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
+        torch.save(combined_ground_truth, self.config.output_file + "_ground_truth.pl")
+        torch.save(self.movie, self.config.output_file + ".pl")
+
 
     @show_execution_time
     def save_frames_in_hdf5(self, frame_details):
@@ -95,20 +106,32 @@ class GenerateData(Simulation):
         gt_y_with_drift = []
         gt_photons = []
         gt_noise = []
+        gt_sx = []
+        gt_sy = []
 
-        for (frame_id, frame, gt_pos) in frame_details:
+        for (frame_id, frame, gt_infos) in frame_details:
             # putting all the frame together
-            self.movie[frame_id, :, :] += frame
-            if gt_pos.any():
-                gt_pos = gt_pos if len(gt_pos) > 1 else [gt_pos]
-                gt_x_without_drift.extend(self.binding_site_position[0, gt_pos].tolist())
-                gt_y_without_drift.extend(self.binding_site_position[1, gt_pos].tolist())
+            # self.movie[frame_id, :, :] += frame
+            if gt_infos.any():  # gt_id, x_mean, y_mean, photons, sx, sy, noise, x, y
+                # gt_pos = gt_pos if len(gt_pos) > 1 else [gt_pos]
+                gt_x_without_drift.extend(gt_infos[:, 1].tolist())
+                gt_y_without_drift.extend(gt_infos[:, 2].tolist())
+                gt_x_with_drift.extend((gt_infos[:, 1] + self.drifts[frame_id, 0].numpy()).tolist())
+                gt_y_with_drift.extend((gt_infos[:, 2] + self.drifts[frame_id, 1].numpy()).tolist())
+                gt_photons.extend(gt_infos[:, 3].tolist())
+                gt_noise.extend(gt_infos[:, 6].tolist())
+                gt_sx.extend(gt_infos[:, 4].tolist())
+                gt_sy.extend(gt_infos[:, 5].tolist())
+                gt_frames.extend([frame_id] * len(gt_infos))
 
-                gt_x_with_drift.extend((self.binding_site_position[0, gt_pos] + self.drifts[frame_id, 0].numpy()).tolist())
-                gt_y_with_drift.extend((self.binding_site_position[1, gt_pos] + self.drifts[frame_id, 1].numpy()).tolist())
-                gt_photons.extend(self.distributed_photon[gt_pos, frame_id].tolist())
-                gt_noise.extend([self.frame_wise_noise[frame_id].item()] * len(gt_pos))
-                gt_frames.extend([frame_id] * len(gt_pos))
+                # gt_x_without_drift.extend(self.binding_site_position[0, gt_pos].tolist())
+                # gt_y_without_drift.extend(self.binding_site_position[1, gt_pos].tolist())
+
+                # gt_x_with_drift.extend((self.binding_site_position[0, gt_pos] + self.drifts[frame_id, 0].numpy()).tolist())
+                # gt_y_with_drift.extend((self.binding_site_position[1, gt_pos] + self.drifts[frame_id, 1].numpy()).tolist())
+                # gt_photons.extend(self.distributed_photon[gt_pos, frame_id].tolist())
+                # gt_noise.extend([self.frame_wise_noise[frame_id].item()] * len(gt_pos))
+                # gt_frames.extend([frame_id] * len(gt_pos))
 
         gt_without_drift = np.rec.array(
             (
@@ -116,6 +139,8 @@ class GenerateData(Simulation):
                 np.asarray(gt_x_without_drift),
                 np.asarray(gt_y_without_drift),
                 np.asarray(gt_photons),
+                np.asarray(gt_sx),
+                np.asarray(gt_sy),
                 np.asarray(gt_noise),  # background
                 np.full_like(gt_y_without_drift, .009),  # lpx
                 np.full_like(gt_y_without_drift, .009),  # lpy
@@ -124,6 +149,8 @@ class GenerateData(Simulation):
                 ("x", "f4"),
                 ("y", "f4"),
                 ("photons", "f4"),
+                ("sx", "f4"),
+                ("sy", "f4"),
                 ("bg", "f4"),
                 ("lpx", "f4"),
                 ("lpy", "f4"),
@@ -135,6 +162,8 @@ class GenerateData(Simulation):
                 np.asarray(gt_x_with_drift),
                 np.asarray(gt_y_with_drift),
                 np.asarray(gt_photons),
+                np.asarray(gt_sx),
+                np.asarray(gt_sy),
                 np.asarray(gt_noise),  # background
                 np.full_like(gt_y_with_drift, .009),  # lpx
                 np.full_like(gt_y_with_drift, .009),  # lpy
@@ -143,6 +172,8 @@ class GenerateData(Simulation):
                 ("x", "f4"),
                 ("y", "f4"),
                 ("photons", "f4"),
+                ("sx", "f4"),
+                ("sy", "f4"),
                 ("bg", "f4"),
                 ("lpx", "f4"),
                 ("lpy", "f4"),
