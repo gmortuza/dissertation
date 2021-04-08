@@ -43,10 +43,10 @@ class Config:
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.device = torch.device(self.device)
         # Calculate background model
-        self.bg_model = (
+        self.bg_model = torch.tensor(
                 (self.laserc_default + self.imagec_default * self.PAINT_imager)
                 * self.Imager_Laserpower * self.power_density_conversion
-                * self.Camera_integration_time * self.noise_level
+                * self.Camera_integration_time * self.noise_level, device=self.device
         )
         # Calculate tau_d
         self.tau_d = round(1 / (self.PAINT_k_on * self.PAINT_imager * 1 / 10 ** 9) * 1000)

@@ -6,7 +6,7 @@ from noise import extract_noise_from_frame
 
 torch.manual_seed(1234)
 np.random.seed(1234)
-torch.use_deterministic_algorithms(True)
+# torch.use_deterministic_algorithms(True)
 
 
 class Simulation:
@@ -25,19 +25,18 @@ class Simulation:
         place_origamies:
         Input positions, the structure definition consider rotation etc.
         """
-        structures = torch.empty(2, 0)
+        structures = torch.empty(2, 0, device=self.config.device)
         for i in range(grid_pos.shape[0]):
             # for each grid position select a random origami and add that origami to that grid position
             # Origami id for this particular grid position
-            origami = origamies[np.random.randint(0, len(origamies))]
-            structure = torch.stack((origami["x_cor"], origami["y_cor"]))
+            structure = origamies[np.random.randint(0, len(origamies))]
             #
             structure = self.rotate_structure(structure)
             #
             structure = self.incorporate_structure(structure, )
 
-            structure[0] += grid_pos[i, 0]
-            structure[1] += grid_pos[i, 1]
+            # TODO: shape grid pos during creating. So that we don't need to reshape it in here
+            structure += grid_pos[i]
 
             structures = torch.cat((structures, structure), axis=1)
 
@@ -71,14 +70,16 @@ class Simulation:
             return structure
         return structure[:, (np.random.rand(structure.shape[1]) < self.config.binding_site_incorporation)]
 
-    @staticmethod
-    def generate_grid_pos(number: int, image_size: int, frame: int, arrangement: int) -> torch.Tensor:
+    def generate_grid_pos(self, number: int, image_size: int, frame: int, arrangement: int) -> torch.Tensor:
         """
         Generate a set of positions where structures will be placed
         """
+        number, image_size, frame, arrangement = self.convert_device([number, image_size, frame, arrangement],
+                                                                     self.config.device)
+
         if arrangement == 0:
-            spacing = int(np.ceil((number ** 0.5)))
-            lin_pos = torch.linspace(frame, image_size - frame, spacing)
+            spacing = int(torch.ceil((number ** 0.5)))
+            lin_pos = torch.linspace(frame, image_size - frame, spacing, device=self.config.device)
             [xx_grid_pos, yy_grid_pos] = torch.meshgrid(lin_pos, lin_pos)
             xx_grid_pos = torch.ravel(xx_grid_pos)
             yy_grid_pos = torch.ravel(yy_grid_pos)
@@ -87,9 +88,10 @@ class Simulation:
             grid_pos = torch.vstack((xx_pos, yy_pos))
             grid_pos = torch.transpose(grid_pos, 0, 1)
         else:
+            # TODO: Need to check if this is working or not
             grid_pos = (image_size - 2 * frame) * torch.rand(number, 2) + frame
 
-        return grid_pos
+        return grid_pos.view(-1, 2, 1)  # [total_origami, [x_pos], [y_pos]]
 
     def distribute_photons_single_binding_site(self, binding_site_id):
         # TODO: Convert numpy array to tensor
@@ -268,6 +270,17 @@ class Simulation:
             # So it is better to use CPU
             single_frame, _ = histogramdd(samples.T.roll(1, 0), bins=(edges, edges))
         return frame_id, single_frame, gt_infos
+
+    def convert_device(self, tensors, device):
+        # Taken from decode
+        if not tensors:
+            return tensors
+        elif isinstance(tensors, (int, float)):
+            return torch.tensor(tensors, device=device)
+        elif isinstance(tensors, torch.Tensor):
+            return tensors.to(device)
+        elif isinstance(tensors, (tuple, list)):
+            return [self.convert_device(tensor, device) for tensor in tensors]
 
 
 if __name__ == '__main__':

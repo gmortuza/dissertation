@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 torch.manual_seed(1234)
 np.random.seed(1234)
-torch.use_deterministic_algorithms(True)
+# torch.use_deterministic_algorithms(True)
 
 
 def show_execution_time(func):
@@ -48,8 +48,7 @@ class GenerateData(Simulation):
 
         self.distribute_photons()
         self.convert_into_image()
-        self.save_image()
-        self.save_ground_truth()
+        # self.save_image()
 
     @show_execution_time
     def distribute_photons(self):
@@ -89,9 +88,12 @@ class GenerateData(Simulation):
         current_num_of_emitter = 0
         for frame_id, frame, gt_infos in frame_details:
             self.movie[frame_id, :, :] += frame
-            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+len(gt_infos), 1:] = gt_infos[:, 1:]
-            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+len(gt_infos), 0] = torch.tensor([frame_id] * len(gt_infos))
-            current_num_of_emitter += len(gt_infos)
+            emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
+            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+emitter_to_keep, 1:] \
+                = gt_infos[:emitter_to_keep, 1:]
+            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+emitter_to_keep, 0] = \
+                torch.tensor([frame_id] * emitter_to_keep)
+            current_num_of_emitter += emitter_to_keep
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
         torch.save(combined_ground_truth, self.config.output_file + "_ground_truth.pl")
         torch.save(self.movie, self.config.output_file + ".pl")
@@ -198,11 +200,6 @@ class GenerateData(Simulation):
         self.movie.numpy().tofile(self.config.output_file+".raw")
         # Save the info file
         # TODO: save here
-
-    @show_execution_time
-    def save_ground_truth(self):
-        self.config.logger.info("Saving the ground truth")
-
 
 
 if __name__ == "__main__":
