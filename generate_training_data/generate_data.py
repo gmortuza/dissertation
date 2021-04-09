@@ -71,11 +71,11 @@ class GenerateData():
         photon_distributor = partial(simulation.distribute_photons_single_binding_site, config=self.config,
                                      num_of_binding_site=self.num_of_binding_site)
         # Number of core available
-        # =========  For debugging purpose
-        # single_frame_distributed_photon = map(photon_distributor, range(self.num_of_binding_site))
-        # =========
-        with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
-            single_frame_distributed_photon = executor.map(photon_distributor, range(self.num_of_binding_site))
+        if self.config.num_of_process > 1:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=self.config.num_of_process) as executor:
+                single_frame_distributed_photon = executor.map(photon_distributor, range(self.num_of_binding_site))
+        else:
+            single_frame_distributed_photon = map(photon_distributor, range(self.num_of_binding_site))
 
         for site_id, photon in tqdm(single_frame_distributed_photon, desc="Distributing photons", total=self.num_of_binding_site):
             self.distributed_photon[site_id] = photon
@@ -87,11 +87,13 @@ class GenerateData():
                                   distributed_photon=self.distributed_photon, frame_wise_noise=self.frame_wise_noise,
                                   scale_tril=self.scale_tril, binding_site_position=self.binding_site_position)
         # =========  For debugging purpose
-        # frame_details = map(p_convert_frame, torch.arange(self.config.frames))
         # =========
         # print(self.available_cpu_core)
-        with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
-            frame_details = executor.map(p_convert_frame, torch.arange(self.config.frames))
+        if self.config.num_of_process > 1:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
+                frame_details = executor.map(p_convert_frame, torch.arange(self.config.frames))
+        else:
+            frame_details = map(p_convert_frame, torch.arange(self.config.frames))
 
         # We save images in hdf5 for visualization purpose
         # self.save_frames_in_hdf5(frame_details)

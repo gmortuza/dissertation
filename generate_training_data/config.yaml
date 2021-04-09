@@ -5,6 +5,7 @@ output_file: test
 log_to: console  # console
 log_level: info
 device: cpu
+num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
 # From the file
 power_density_conversion: 20
@@ -18,7 +19,7 @@ std_factor: 1.82
 frame_padding: 6
 Camera: Simulation
 frames: 5000  # Total Number of frames
-image_size: 128  # Height and width will be the same
+image_size: 32  # Height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
 max_number_of_emitter_per_frame: 7
