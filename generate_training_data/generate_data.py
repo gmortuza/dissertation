@@ -1,3 +1,5 @@
+from functools import partial
+
 import h5py
 import time
 from torch import multiprocessing
@@ -7,10 +9,11 @@ from torch.multiprocessing import Pool
 import torch
 import numpy as np
 from read_config import Config
-from simulation import Simulation
+import simulation
 from noise import get_noise
 from drift import get_drift
 import concurrent.futures
+import copy
 import torch.autograd.profiler as profiler
 
 from tqdm import tqdm
@@ -32,7 +35,7 @@ def show_execution_time(func):
     return wrapper
 
 
-class GenerateData(Simulation):
+class GenerateData():
     def __init__(self, config_file):
         self.config = Config(config_file)
         self.binding_site_position = None  # tensor in shape (2, num_of_event)
@@ -45,16 +48,15 @@ class GenerateData(Simulation):
         #                          device=self.config.device, dtype=torch.float64)
         self.drifts = get_drift(self.config)  # tensor of shape (num_of_frames, 2)
         # This will be used to sample from multivariate distribution
-        self.scale_tril = self.get_scale_tril()
+        self.scale_tril = simulation.get_scale_tril(self.config)
         # This ground truth is only for visualization
         # Normally we don't need this ground truth for training purpose
         # For training purpose we will export something tensor shape
         # TODO: export training example supporting neural network training
         self.available_cpu_core = int(np.ceil(multiprocessing.cpu_count()))
 
-
     def generate(self):
-        self.binding_site_position = self.generate_binding_site_position()
+        self.binding_site_position = simulation.generate_binding_site_position(self.config)
         self.num_of_binding_site = self.binding_site_position.shape[1]
 
         self.distribute_photons()
@@ -65,30 +67,31 @@ class GenerateData(Simulation):
     def distribute_photons(self):
         self.config.logger.info("Distributing photons")
         self.distributed_photon = torch.zeros((self.num_of_binding_site, self.config.frames), device=self.config.device)
+        # Setting up method for multiprocessing
+        photon_distributor = partial(simulation.distribute_photons_single_binding_site, config=self.config,
+                                     num_of_binding_site=self.num_of_binding_site)
         # Number of core available
         # =========  For debugging purpose
-        for site in tqdm(range(self.num_of_binding_site), desc="Distributing photons"):
-            self.distribute_photons_single_binding_site(site)
+        # single_frame_distributed_photon = map(photon_distributor, range(self.num_of_binding_site))
         # =========
-        # pool = Pool(processes=self.available_cpu_core)
-        # pool.map(self.distribute_photons_single_binding_site, np.arange(self.num_of_binding_site))
-        # pool.close()
-        # pool.join()
+        with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
+            single_frame_distributed_photon = executor.map(photon_distributor, range(self.num_of_binding_site))
+
+        for site_id, photon in tqdm(single_frame_distributed_photon, desc="Distributing photons", total=self.num_of_binding_site):
+            self.distributed_photon[site_id] = photon
 
     @show_execution_time
     def convert_into_image(self):
         self.config.logger.info("Converting into Images")
-
+        p_convert_frame = partial(simulation.convert_frame, config=self.config, drifts=self.drifts,
+                                  distributed_photon=self.distributed_photon, frame_wise_noise=self.frame_wise_noise,
+                                  scale_tril=self.scale_tril, binding_site_position=self.binding_site_position)
         # =========  For debugging purpose
-        # frame_details = map(self.convert_frame, np.arange(self.config.frames))
+        # frame_details = map(p_convert_frame, torch.arange(self.config.frames))
         # =========
         # print(self.available_cpu_core)
         with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
-            frame_details = executor.map(self.convert_frame, range(self.config.frames))
-        # pool = Pool(processes=self.available_cpu_core)
-        # frame_details = pool.map(self.convert_frame, np.arange(self.config.frames))
-        # pool.close()
-        # pool.join()
+            frame_details = executor.map(p_convert_frame, torch.arange(self.config.frames))
 
         # We save images in hdf5 for visualization purpose
         # self.save_frames_in_hdf5(frame_details)
@@ -100,7 +103,7 @@ class GenerateData(Simulation):
         # So we are creating a large tensor
         combined_ground_truth = torch.zeros((self.config.frames * self.config.max_number_of_emitter_per_frame, 9))
         current_num_of_emitter = 0
-        for frame_id, frame, gt_infos in frame_details:
+        for frame_id, frame, gt_infos in tqdm(frame_details, desc="Distributing photons", total=self.config.frames):
             self.movie[frame_id, :, :] += frame
             emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
             combined_ground_truth[current_num_of_emitter: current_num_of_emitter+emitter_to_keep, 1:] \
@@ -111,7 +114,6 @@ class GenerateData(Simulation):
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
         torch.save(combined_ground_truth, self.config.output_file + "_ground_truth.pl")
         torch.save(self.movie, self.config.output_file + ".pl")
-
 
     @show_execution_time
     def save_frames_in_hdf5(self, frame_details):
@@ -125,7 +127,7 @@ class GenerateData(Simulation):
         gt_sx = []
         gt_sy = []
 
-        for (frame_id, frame, gt_infos) in frame_details:
+        for (frame_id, frame, gt_infos) in tqdm(frame_details, desc="Distributing photons"):
             # putting all the frame together
             # self.movie[frame_id, :, :] += frame
             if gt_infos.any():  # gt_id, x_mean, y_mean, photons, sx, sy, noise, x, y
