@@ -1,17 +1,25 @@
 import h5py
 import time
-
-import multiprocessing
+from torch import multiprocessing
+# from multiprocessing.pool import ThreadPool as Pool
+# import multiprocessing.Pool as Pool
+from torch.multiprocessing import Pool
 import torch
 import numpy as np
 from read_config import Config
 from simulation import Simulation
 from noise import get_noise
 from drift import get_drift
+import concurrent.futures
+import torch.autograd.profiler as profiler
+
 from tqdm import tqdm
 
 torch.manual_seed(1234)
 np.random.seed(1234)
+torch.multiprocessing.set_sharing_strategy('file_system')
+# torch.multiprocessing.set_start_method('spawn')
+
 # torch.use_deterministic_algorithms(True)
 
 
@@ -36,11 +44,14 @@ class GenerateData(Simulation):
         # self.movie = torch.zeros((self.config.frames, self.config.image_size, self.config.image_size),
         #                          device=self.config.device, dtype=torch.float64)
         self.drifts = get_drift(self.config)  # tensor of shape (num_of_frames, 2)
+        # This will be used to sample from multivariate distribution
+        self.scale_tril = self.get_scale_tril()
         # This ground truth is only for visualization
         # Normally we don't need this ground truth for training purpose
         # For training purpose we will export something tensor shape
         # TODO: export training example supporting neural network training
         self.available_cpu_core = int(np.ceil(multiprocessing.cpu_count()))
+
 
     def generate(self):
         self.binding_site_position = self.generate_binding_site_position()
@@ -59,7 +70,7 @@ class GenerateData(Simulation):
         for site in tqdm(range(self.num_of_binding_site), desc="Distributing photons"):
             self.distribute_photons_single_binding_site(site)
         # =========
-        # pool = multiprocessing.Pool(processes=self.available_cpu_core)
+        # pool = Pool(processes=self.available_cpu_core)
         # pool.map(self.distribute_photons_single_binding_site, np.arange(self.num_of_binding_site))
         # pool.close()
         # pool.join()
@@ -69,9 +80,12 @@ class GenerateData(Simulation):
         self.config.logger.info("Converting into Images")
 
         # =========  For debugging purpose
-        frame_details = map(self.convert_frame, np.arange(self.config.frames))
+        # frame_details = map(self.convert_frame, np.arange(self.config.frames))
         # =========
-        # pool = multiprocessing.Pool(processes=self.available_cpu_core)
+        # print(self.available_cpu_core)
+        with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
+            frame_details = executor.map(self.convert_frame, range(self.config.frames))
+        # pool = Pool(processes=self.available_cpu_core)
         # frame_details = pool.map(self.convert_frame, np.arange(self.config.frames))
         # pool.close()
         # pool.join()
@@ -126,14 +140,6 @@ class GenerateData(Simulation):
                 gt_sy.extend(gt_infos[:, 5].tolist())
                 gt_frames.extend([frame_id] * len(gt_infos))
 
-                # gt_x_without_drift.extend(self.binding_site_position[0, gt_pos].tolist())
-                # gt_y_without_drift.extend(self.binding_site_position[1, gt_pos].tolist())
-
-                # gt_x_with_drift.extend((self.binding_site_position[0, gt_pos] + self.drifts[frame_id, 0].numpy()).tolist())
-                # gt_y_with_drift.extend((self.binding_site_position[1, gt_pos] + self.drifts[frame_id, 1].numpy()).tolist())
-                # gt_photons.extend(self.distributed_photon[gt_pos, frame_id].tolist())
-                # gt_noise.extend([self.frame_wise_noise[frame_id].item()] * len(gt_pos))
-                # gt_frames.extend([frame_id] * len(gt_pos))
 
         gt_without_drift = np.rec.array(
             (
@@ -203,5 +209,9 @@ class GenerateData(Simulation):
 
 
 if __name__ == "__main__":
+    # with profiler.profile(record_shapes=True) as prof:
+    #     with profiler.record_function("model_inference"):
     generate_data = GenerateData(config_file="config.yaml")
     generate_data.generate()
+
+    # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))

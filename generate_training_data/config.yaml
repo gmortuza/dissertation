@@ -4,7 +4,7 @@ output_dir: generated_data
 output_file: test
 log_to: console  # console
 log_level: info
-device: cuda
+device: cpu
 use_seed: True  # Get the same result all the time. For debugging purpose
 # From the file
 power_density_conversion: 20
@@ -32,7 +32,7 @@ distance_y: 10  # (nm)
 origami_row: 6
 origami_column: 8
 unique_origami: 3
-total_origami: 5000  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
+total_origami: 50  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
 # Float value ranging 0.0 - 1.0

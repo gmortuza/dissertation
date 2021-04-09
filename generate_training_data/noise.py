@@ -20,7 +20,6 @@ def get_noise(config):
     return distribution.sample(noise_shape)
 
 
-# TODO: Implement this function later
 def extract_noise_from_frame(frame, position):
     rounded_pos = position.round().to(int)
     extracted_box = frame[rounded_pos[0]-3:rounded_pos[0]+3, rounded_pos[1]-3:rounded_pos[1]+3]

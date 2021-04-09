@@ -14,25 +14,23 @@ def get_drift(config):
     # Drift on y direction for each 1000 frame
     drift_y = config.drift_y
     # single frame drift
-    single_drift_x = torch.tensor(drift_x / 1000, device=config.device)
-    single_drift_y = torch.tensor(drift_y / 1000, device=config.device)
+    single_frame_drift = torch.tensor([drift_x, drift_y], device=config.device) / 1000
+
     # If the frame size is huge then it's efficient in GPU. Other wise it's better to take the sample from CPU
 
     if drift_method == "linear":
-        frame_drift = torch.stack((torch.full((config.frames,), single_drift_x),
-                                   torch.full((config.frames,), single_drift_y)), dim=1)
+        frame_drift = single_frame_drift.expand(config.frames, 2)
     else:
         # Default value is random walk
-        mean = torch.tensor(0., device=config.device)
-        sigma = torch.tensor([single_drift_x, single_drift_y]).to(config.device)
+        mean = torch.tensor([0., 0.], device=config.device)
 
-        frame_drift = torch.distributions.normal.Normal(mean, sigma).sample((config.frames, ))
+        frame_drift = torch.distributions.normal.Normal(mean, single_frame_drift).sample((config.frames, ))
 
     drifts = torch.cumsum(frame_drift, dim=0)
     # Save drift
     with open(config.output_file + "_drift.csv", "w") as drift_file:
         drift_file.write("dx, dy\n")
-        np.savetxt(drift_file, drifts.numpy(), '%s', ',')
+        np.savetxt(drift_file, drifts.cpu().numpy(), '%s', ',')
 
     return drifts
 

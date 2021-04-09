@@ -3,6 +3,7 @@ import numpy as np
 from unique_origami import get_unique_origami
 from histogram import histogramdd
 from noise import extract_noise_from_frame
+import torch.autograd.profiler as profiler
 
 torch.manual_seed(1234)
 np.random.seed(1234)
@@ -228,27 +229,26 @@ class Simulation:
         n_photons_step = torch.cumsum(temp_photons, dim=0).to(torch.int)
 
         # Allocate memory
-        photon_pos_frame = torch.zeros((int(n_photons), 2))
+        photon_pos_frame = torch.zeros((int(n_photons), 2), device=self.config.device)
         # Positions where are putting some photons
         # indices that will have blinking event at this frame
         gt_positions = torch.where(self.distributed_photon[:, frame_id] > 0)[0].flatten()
         # This will contain the gt_id, x_mean, y_mean, photons, sx, sy, noise, x, y
-        gt_infos = torch.empty((len(gt_positions), 9))
+        gt_infos = torch.zeros((len(gt_positions), 9), device=self.config.device)
         gt_infos[:, 0] = gt_positions[:]
-        # covariance matrix for the normal distribution
-        cov = torch.tensor([[self.config.Imager_PSF * self.config.Imager_PSF, 0],
-                            [0, self.config.Imager_PSF * self.config.Imager_PSF]]).to(self.config.device)
-        scale_tril = torch.linalg.cholesky(cov)
+
         for i, gt_position in enumerate(gt_positions.tolist()):
             photon_count = int(self.distributed_photon[gt_position, frame_id])
             mu = torch.tensor([binding_sites_x[gt_position], binding_sites_y[gt_position]], device=self.config.device)
-            multi_norm_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
+            multi_norm_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=self.scale_tril)
             photon_pos = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
             gt_infos[i, 1:3] = photon_pos.mean(axis=0)
             gt_infos[i, 3] = self.distributed_photon[gt_position, frame_id]  # Photon count
             gt_infos[i, 4:6] = photon_pos.std(axis=0)
             # Extract the ground truth for this frame at this location
-            gt_infos[i, 6] = extract_noise_from_frame(self.movie[frame_id], position=gt_infos[i, 1:3])
+            gt_infos[i, 6] = self.frame_wise_noise[frame_id]
+            # TODO: Add this into the configuration file
+            # gt_infos[i, 6] = extract_noise_from_frame(self.movie[frame_id], position=gt_infos[i, 1:3])
             gt_infos[i, 7:9] = mu  # This is super exact position
             start = 0 if gt_position == 0 else n_photons_step[gt_position-1]
             photon_pos_frame[start: n_photons_step[gt_position], :] = photon_pos
@@ -256,7 +256,7 @@ class Simulation:
         return photon_pos_frame, gt_infos
 
     def convert_frame(self, frame_id):
-        edges = range(0, self.config.image_size + 1)
+        edges = torch.arange(0, self.config.image_size + 1, device=self.config.device)
 
         photon_pos_frame, gt_infos = self.dist_photons_xy(frame_id)
 
@@ -270,6 +270,11 @@ class Simulation:
             # So it is better to use CPU
             single_frame, _ = histogramdd(samples.T.roll(1, 0), bins=(edges, edges))
         return frame_id, single_frame, gt_infos
+
+    def get_scale_tril(self):
+        cov = torch.tensor([[self.config.Imager_PSF * self.config.Imager_PSF, 0],
+                            [0, self.config.Imager_PSF * self.config.Imager_PSF]]).to(self.config.device)
+        return torch.linalg.cholesky(cov)
 
     def convert_device(self, tensors, device):
         # Taken from decode
