@@ -9,7 +9,7 @@ from torch.multiprocessing import Pool
 import torch
 import numpy as np
 from read_config import Config
-import simulation
+from simulation import get_scale_tril, generate_binding_site_position, distribute_photons_single_binding_site, convert_frame
 from noise import get_noise
 from drift import get_drift
 import concurrent.futures
@@ -18,10 +18,12 @@ import torch.autograd.profiler as profiler
 
 from tqdm import tqdm
 
-torch.manual_seed(1234)
-np.random.seed(1234)
+# torch.manual_seed(1234)
+# np.random.seed(1234)
 torch.multiprocessing.set_sharing_strategy('file_system')
-# torch.multiprocessing.set_start_method('spawn')
+# multiprocessing.set_start_method("fork")
+torch.multiprocessing.set_start_method('spawn', force=True)
+# print(torch.multiprocessing.get_start_method())
 
 # torch.use_deterministic_algorithms(True)
 
@@ -48,15 +50,15 @@ class GenerateData():
         #                          device=self.config.device, dtype=torch.float64)
         self.drifts = get_drift(self.config)  # tensor of shape (num_of_frames, 2)
         # This will be used to sample from multivariate distribution
-        self.scale_tril = simulation.get_scale_tril(self.config)
+        self.scale_tril = get_scale_tril(self.config)
         # This ground truth is only for visualization
         # Normally we don't need this ground truth for training purpose
         # For training purpose we will export something tensor shape
         # TODO: export training example supporting neural network training
-        self.available_cpu_core = int(np.ceil(multiprocessing.cpu_count()))
+        self.available_cpu_core = int(self.config.num_of_process)
 
     def generate(self):
-        self.binding_site_position = simulation.generate_binding_site_position(self.config)
+        self.binding_site_position = generate_binding_site_position(self.config)
         self.num_of_binding_site = self.binding_site_position.shape[1]
 
         self.distribute_photons()
@@ -66,12 +68,13 @@ class GenerateData():
     @show_execution_time
     def distribute_photons(self):
         self.config.logger.info("Distributing photons")
-        self.distributed_photon = torch.zeros((self.num_of_binding_site, self.config.frames), device=self.config.device)
+        self.distributed_photon = torch.zeros((self.num_of_binding_site, self.config.frames),
+                                              device=self.config.device)
         # Setting up method for multiprocessing
-        photon_distributor = partial(simulation.distribute_photons_single_binding_site, config=self.config,
+        photon_distributor = partial(distribute_photons_single_binding_site, config=self.config,
                                      num_of_binding_site=self.num_of_binding_site)
         # Number of core available
-        if self.config.num_of_process > 1:
+        if self.config.num_of_process > 100:
             with concurrent.futures.ProcessPoolExecutor(max_workers=self.config.num_of_process) as executor:
                 single_frame_distributed_photon = executor.map(photon_distributor, range(self.num_of_binding_site))
         else:
@@ -83,15 +86,14 @@ class GenerateData():
     @show_execution_time
     def convert_into_image(self):
         self.config.logger.info("Converting into Images")
-        p_convert_frame = partial(simulation.convert_frame, config=self.config, drifts=self.drifts,
+        p_convert_frame = partial(convert_frame, config=self.config, drifts=self.drifts,
                                   distributed_photon=self.distributed_photon, frame_wise_noise=self.frame_wise_noise,
                                   scale_tril=self.scale_tril, binding_site_position=self.binding_site_position)
-        # =========  For debugging purpose
-        # =========
-        # print(self.available_cpu_core)
         if self.config.num_of_process > 1:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
-                frame_details = executor.map(p_convert_frame, torch.arange(self.config.frames))
+            with Pool(self.available_cpu_core) as pool:
+                frame_details = pool.map(p_convert_frame, torch.arange(self.config.frames))
+            # with concurrent.futures.ProcessPoolExecutor(max_workers=self.available_cpu_core) as executor:
+            #     frame_details = executor.map(p_convert_frame, torch.arange(self.config.frames))
         else:
             frame_details = map(p_convert_frame, torch.arange(self.config.frames))
 
@@ -213,9 +215,7 @@ class GenerateData():
 
 
 if __name__ == "__main__":
-    # with profiler.profile(record_shapes=True) as prof:
-    #     with profiler.record_function("model_inference"):
+    # torch.multiprocessing.set_start_method('spawn', force=True)
+    # print(torch.multiprocessing.get_start_method())
     generate_data = GenerateData(config_file="config.yaml")
     generate_data.generate()
-
-    # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))

@@ -1,12 +1,13 @@
 import torch
 import numpy as np
 from unique_origami import get_unique_origami
-from histogram import histogramdd
+from histogram import histogram2d
 from noise import extract_noise_from_frame
 import torch.autograd.profiler as profiler
 
 torch.manual_seed(1234)
 np.random.seed(1234)
+# torch.cuda.synchronize()
 # torch.use_deterministic_algorithms(True)
 
 
@@ -72,12 +73,13 @@ def generate_grid_pos(config) -> torch.Tensor:
     """
     Generate a set of positions where structures will be placed
     """
-    number, image_size, frame, arrangement = convert_device([config.total_origami, config.image_size, config.frames,
-                                                             config.origami_arrangement], config.device)
+    number, image_size, frame_padding, arrangement = convert_device([config.total_origami, config.image_size,
+                                                                     config.frame_padding, config.origami_arrangement],
+                                                                    config.device)
 
     if arrangement == 0:
         spacing = int(torch.ceil((number ** 0.5)))
-        lin_pos = torch.linspace(frame, image_size - frame, spacing, device=config.device)
+        lin_pos = torch.linspace(frame_padding, image_size - frame_padding, spacing, device=config.device)
         [xx_grid_pos, yy_grid_pos] = torch.meshgrid(lin_pos, lin_pos)
         xx_grid_pos = torch.ravel(xx_grid_pos)
         yy_grid_pos = torch.ravel(yy_grid_pos)
@@ -87,7 +89,7 @@ def generate_grid_pos(config) -> torch.Tensor:
         grid_pos = torch.transpose(grid_pos, 0, 1)
     else:
         # TODO: Need to check if this is working or not
-        grid_pos = (image_size - 2 * frame) * torch.rand(number, 2) + frame
+        grid_pos = (image_size - 2 * frame_padding) * torch.rand(number, 2) + frame_padding
 
     return grid_pos.view(-1, 2, 1)  # [total_origami, [x_pos], [y_pos]]
 
@@ -258,7 +260,7 @@ def dist_photons_xy(binding_site_position, distributed_photon, frame_id, frame_w
 
 
 def convert_frame(frame_id, config, drifts, distributed_photon, frame_wise_noise, scale_tril, binding_site_position):
-    edges = torch.arange(0, config.image_size + 1, device=config.device)
+    edges = torch.arange(0, config.image_size, device=config.device)
     photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position, distributed_photon, frame_id, frame_wise_noise, scale_tril)
 
     if len(photon_pos_frame) == 0:
@@ -266,11 +268,14 @@ def convert_frame(frame_id, config, drifts, distributed_photon, frame_wise_noise
         # So we will return empty image
         single_frame = torch.zeros((config.image_size, config.image_size), device=config.device)
     else:
-        samples = photon_pos_frame + drifts[frame_id]
+        samples = (photon_pos_frame + drifts[frame_id])
         # The implementation is not optimized for GPU.
         # So it is better to use CPU
-        single_frame, _ = histogramdd(samples.T.roll(1, 0), bins=(edges, edges))
-    return frame_id, single_frame, gt_infos
+        # single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(edges, edges))
+        single_frame = histogram2d(samples[:, 1].view(1, -1), samples[:, 0].view(1, -1), bins=edges, bandwidth=torch.tensor(.8))
+
+        # single_frame, _ = histogramdd(samples.T.roll(1, 0), bins=(edges, edges))
+    return frame_id, single_frame[0], gt_infos
 
 
 def get_scale_tril(config):
