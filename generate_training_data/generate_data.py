@@ -9,7 +9,7 @@ from torch.multiprocessing import Pool
 import torch
 import numpy as np
 from read_config import Config
-from simulation import get_scale_tril, generate_binding_site_position, distribute_photons_single_binding_site, convert_frame
+from simulation import generate_binding_site_position, distribute_photons_single_binding_site, convert_frame, get_binding_site_position_distribution
 from noise import get_noise
 from drift import get_drift
 import concurrent.futures
@@ -50,7 +50,6 @@ class GenerateData():
         #                          device=self.config.device, dtype=torch.float64)
         self.drifts = get_drift(self.config)  # tensor of shape (num_of_frames, 2)
         # This will be used to sample from multivariate distribution
-        self.scale_tril = get_scale_tril(self.config)
         # This ground truth is only for visualization
         # Normally we don't need this ground truth for training purpose
         # For training purpose we will export something tensor shape
@@ -59,6 +58,7 @@ class GenerateData():
 
     def generate(self):
         self.binding_site_position = generate_binding_site_position(self.config)
+        self.binding_site_position_distribution = get_binding_site_position_distribution(self.binding_site_position, self.config)
         self.num_of_binding_site = self.binding_site_position.shape[1]
 
         self.distribute_photons()
@@ -74,13 +74,13 @@ class GenerateData():
         photon_distributor = partial(distribute_photons_single_binding_site, config=self.config,
                                      num_of_binding_site=self.num_of_binding_site)
         # Number of core available
-        if self.config.num_of_process > 100:
+        if self.config.num_of_process > 1:
             with concurrent.futures.ProcessPoolExecutor(max_workers=self.config.num_of_process) as executor:
                 single_frame_distributed_photon = executor.map(photon_distributor, range(self.num_of_binding_site))
         else:
             single_frame_distributed_photon = map(photon_distributor, range(self.num_of_binding_site))
 
-        for site_id, photon in tqdm(single_frame_distributed_photon, desc="Distributing photons", total=self.num_of_binding_site):
+        for site_id, photon in tqdm(single_frame_distributed_photon, desc="Distributing photons", total=self.num_of_binding_site, disable=self.config.progress_bar_disable):
             self.distributed_photon[site_id] = photon
 
     @show_execution_time
@@ -88,7 +88,7 @@ class GenerateData():
         self.config.logger.info("Converting into Images")
         p_convert_frame = partial(convert_frame, config=self.config, drifts=self.drifts,
                                   distributed_photon=self.distributed_photon, frame_wise_noise=self.frame_wise_noise,
-                                  scale_tril=self.scale_tril, binding_site_position=self.binding_site_position)
+                                  binding_site_position_distribution=self.binding_site_position_distribution)
         if self.config.num_of_process > 1:
             with Pool(self.available_cpu_core) as pool:
                 frame_details = pool.map(p_convert_frame, torch.arange(self.config.frames))
@@ -97,67 +97,46 @@ class GenerateData():
         else:
             frame_details = map(p_convert_frame, torch.arange(self.config.frames))
 
-        # We save images in hdf5 for visualization purpose
-        # self.save_frames_in_hdf5(frame_details)
         # we save images in tensor for training purpose
-        self.save_frames_in_tensor(frame_details)
+        ground_truth = self.save_frames_in_tensor(frame_details)
+        if self.config.save_for_picasso:
+            self.save_frames_in_hdf5(ground_truth)
 
     def save_frames_in_tensor(self, frame_details):
         # concatnenating tensor in a loop might be slower
         # So we are creating a large tensor
-        combined_ground_truth = torch.zeros((self.config.frames * self.config.max_number_of_emitter_per_frame, 9))
+        # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
+        combined_ground_truth = torch.zeros((self.config.frames * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device)
         current_num_of_emitter = 0
-        for frame_id, frame, gt_infos in tqdm(frame_details, desc="Distributing photons", total=self.config.frames):
+        for frame_id, frame, gt_infos in tqdm(frame_details, desc="Distributing photons", total=self.config.frames, disable=self.config.progress_bar_disable):
+
             self.movie[frame_id, :, :] += frame
             emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
-            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+emitter_to_keep, 1:] \
-                = gt_infos[:emitter_to_keep, 1:]
-            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+emitter_to_keep, 0] = \
-                torch.tensor([frame_id] * emitter_to_keep)
+            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+emitter_to_keep, :] = gt_infos[:emitter_to_keep, :]
             current_num_of_emitter += emitter_to_keep
+
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
         torch.save(combined_ground_truth, self.config.output_file + "_ground_truth.pl")
         torch.save(self.movie, self.config.output_file + ".pl")
+        return combined_ground_truth
 
     @show_execution_time
-    def save_frames_in_hdf5(self, frame_details):
-        gt_frames = []
-        gt_x_without_drift = []
-        gt_y_without_drift = []
-        gt_x_with_drift = []
-        gt_y_with_drift = []
-        gt_photons = []
-        gt_noise = []
-        gt_sx = []
-        gt_sy = []
-
-        for (frame_id, frame, gt_infos) in tqdm(frame_details, desc="Distributing photons"):
-            # putting all the frame together
-            # self.movie[frame_id, :, :] += frame
-            if gt_infos.any():  # gt_id, x_mean, y_mean, photons, sx, sy, noise, x, y
-                # gt_pos = gt_pos if len(gt_pos) > 1 else [gt_pos]
-                gt_x_without_drift.extend(gt_infos[:, 1].tolist())
-                gt_y_without_drift.extend(gt_infos[:, 2].tolist())
-                gt_x_with_drift.extend((gt_infos[:, 1] + self.drifts[frame_id, 0].numpy()).tolist())
-                gt_y_with_drift.extend((gt_infos[:, 2] + self.drifts[frame_id, 1].numpy()).tolist())
-                gt_photons.extend(gt_infos[:, 3].tolist())
-                gt_noise.extend(gt_infos[:, 6].tolist())
-                gt_sx.extend(gt_infos[:, 4].tolist())
-                gt_sy.extend(gt_infos[:, 5].tolist())
-                gt_frames.extend([frame_id] * len(gt_infos))
-
-
+    def save_frames_in_hdf5(self, ground_truth):
+        # First save the movie
+        self.movie.cpu().numpy().tofile(self.config.output_file + ".raw")
+        ground_truth = ground_truth.cpu().numpy()
+        # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
         gt_without_drift = np.rec.array(
             (
-                np.asarray(gt_frames),
-                np.asarray(gt_x_without_drift),
-                np.asarray(gt_y_without_drift),
-                np.asarray(gt_photons),
-                np.asarray(gt_sx),
-                np.asarray(gt_sy),
-                np.asarray(gt_noise),  # background
-                np.full_like(gt_y_without_drift, .009),  # lpx
-                np.full_like(gt_y_without_drift, .009),  # lpy
+                ground_truth[:, 0],  # frames
+                ground_truth[:, 1],  # x
+                ground_truth[:, 2],  # y
+                ground_truth[:, 7],  # photons
+                ground_truth[:, 8],  # s_x
+                ground_truth[:, 9],  # s_y
+                ground_truth[:, 10],  # background
+                np.full(ground_truth[:, 0].shape, .009),  # lpx
+                np.full(ground_truth[:, 0].shape, .009),  # lpy
             ), dtype=[
                 ("frame", "u4"),
                 ("x", "f4"),
@@ -172,15 +151,15 @@ class GenerateData():
 
         gt_with_drift = np.rec.array(
             (
-                np.asarray(gt_frames),
-                np.asarray(gt_x_with_drift),
-                np.asarray(gt_y_with_drift),
-                np.asarray(gt_photons),
-                np.asarray(gt_sx),
-                np.asarray(gt_sy),
-                np.asarray(gt_noise),  # background
-                np.full_like(gt_y_with_drift, .009),  # lpx
-                np.full_like(gt_y_with_drift, .009),  # lpy
+                ground_truth[:, 0],  # frames
+                ground_truth[:, 5],  # x
+                ground_truth[:, 6],  # y
+                ground_truth[:, 7],  # photons
+                ground_truth[:, 8],  # s_x
+                ground_truth[:, 9],  # s_y
+                ground_truth[:, 10],  # background
+                np.full(ground_truth[:, 0].shape, .009),  # lpx
+                np.full(ground_truth[:, 0].shape, .009),  # lpy
             ), dtype=[
                 ("frame", "u4"),
                 ("x", "f4"),
@@ -206,12 +185,6 @@ class GenerateData():
             locs_file.create_dataset("locs", data=gt_with_drift)
             with open(self.config.output_file + "_gt_with_drift.yaml", "w") as yaml_file:
                 yaml_file.write(content_for_yaml_file)
-
-
-    def save_image(self):
-        self.movie.numpy().tofile(self.config.output_file+".raw")
-        # Save the info file
-        # TODO: save here
 
 
 if __name__ == "__main__":

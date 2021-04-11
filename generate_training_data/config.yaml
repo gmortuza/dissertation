@@ -4,9 +4,11 @@ output_dir: generated_data
 output_file: test
 log_to: console  # console
 log_level: info
-device: cuda
+device: cpu
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
+progress_bar_disable: False
+save_for_picasso: True  # This will save both the raw file and ground truth compatible with picasso
 # From the file
 power_density_conversion: 20
 laserc_default: 0.012063
@@ -33,11 +35,11 @@ distance_y: 10  # (nm)
 origami_row: 6
 origami_column: 8
 unique_origami: 3
-total_origami: 50  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
+total_origami: 10  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
 # Float value ranging 0.0 - 1.0
-binding_site_incorporation: .8
+binding_site_incorporation: 1.0
 # 0 --> not randomly oriented, 1 --> Randomly oriented
 origami_orientation: 0
 # 0 --> The distance of each origami is evenly distributed

@@ -1,5 +1,6 @@
-# Code taken from kornia (https://github.com/kornia/kornia/blob/master/kornia/enhance/histogram.py)
 from typing import Tuple
+import matplotlib.pyplot as plt
+import operator
 
 import torch
 
@@ -9,7 +10,9 @@ __all__ = [
     "histogram2d",
 ]
 
+import numpy as np
 
+# Code taken from kornia (https://github.com/kornia/kornia/blob/master/kornia/enhance/histogram.py)
 def marginal_pdf(values: torch.Tensor, bins: torch.Tensor, sigma: torch.Tensor,
                  epsilon: float = 1e-10) -> Tuple[torch.Tensor, torch.Tensor]:
     """Function that calculates the marginal probability distribution function of the input tensor
@@ -167,3 +170,62 @@ def histogram2d(
     pdf = joint_pdf(kernel_values1, kernel_values2)
 
     return pdf
+
+_range = range
+
+def custom_histogram(y, x, bins):
+    numpy_hist, _, _ = np.histogram2d(y.numpy(), x.numpy(), bins=(range(bins+1), range(bins+1)))
+    x_hist = torch.histc(x, min=0, max=bins, bins=bins).expand(bins, bins)
+    y_hist = torch.histc(y, min=0, max=bins, bins=bins).expand(bins, bins).T
+
+    x_mask = x_hist.clamp_max(1.)
+    y_mask = y_hist.clamp_max(1.)
+    combined_mask = torch.mul(x_mask, y_mask)
+
+    combined_hist = x_hist + y_hist
+    combined_hist = torch.mul(combined_hist, combined_mask)
+    combined_hist = combined_hist * .5
+    return combined_hist
+
+
+
+def custom_np_histogram(sample, size=32):
+    sample = sample.roll(shifts=(1, 0), dims=(1, 0))
+    N, D = sample.shape
+
+    edges = torch.tensor([range(0, size+1), range(0, size+1)], device=sample.device)
+    nbin = np.asarray([size + 2, size + 2])
+
+
+    # Compute the bin number each sample falls into.
+    Ncount = tuple(
+        # avoid np.digitize to work around gh-11022
+        torch.searchsorted(edges[i], sample[:, i].contiguous(), right=True).cpu().numpy() for i in _range(D)
+    )
+
+    # Using digitize, values that fall on an edge are put in the right bin.
+    # For the rightmost bin, we want values equal to the right edge to be
+    # counted in the last bin, and not as an outlier.
+    for i in torch.arange(D):
+        # Find which points are on the rightmost edge.
+        on_edge = (sample[:, i] == edges[i][-1]).cpu().numpy()
+        # Shift these points one bin to the left.
+        Ncount[i][on_edge] -= 1
+
+    # Compute the sample indices in the flattened histogram matrix.
+    # This raises an error if the array is too large.
+    xy = torch.from_numpy(np.ravel_multi_index(Ncount, nbin)).to(sample.device)
+
+    # Compute the number of repetitions in xy and assign it to the
+    # flattened histmat.
+    hist = torch.bincount(xy, minlength=nbin.prod())
+
+    # Shape into a proper matrix
+    hist = hist.reshape(size + 2, size + 2)
+
+    # Remove outliers (indices 0 and -1 for each dimension).
+    core = D * (slice(1, -1),)
+    hist = hist[core]
+
+    return hist
+
