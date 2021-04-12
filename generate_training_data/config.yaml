@@ -1,12 +1,19 @@
+# ================ Configuration for Model ===============
+input_dir: inputs/
+
+
+
+
+# ================ Configuration for Simulation ===============
 output_dir: generated_data_test
 output_file: test
 log_to: console  # console
 log_level: info
-device: cuda
-num_of_process: 10
+device: cpu
+num_of_process: 5
 use_seed: True  # Get the same result all the time. For debugging purpose
-progress_bar_disable: True
-save_for_picasso: False  # This will save both the raw file and ground truth compatible with picasso
+progress_bar_disable: False
+save_for_picasso: True  # This will save both the raw file and ground truth compatible with picasso
 # From the file
 power_density_conversion: 20
 laserc_default: 0.012063
@@ -19,7 +26,7 @@ std_factor: 1.82
 frame_padding: 6
 Camera: Simulation
 frames: 10000  # Total Number of frames
-split_into: 10 # Total number of frames will be splitted into this amount of files
+split_into: 5 # Total number of frames will be splitted into this amount of files
 image_size: 32  # Height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter

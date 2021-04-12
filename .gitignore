@@ -131,6 +131,7 @@ dmypy.json
 # Custom ignore
 inputs/
 outputs/
+*.hdf5
 *.raw
 *.tiff
 generated_data/
