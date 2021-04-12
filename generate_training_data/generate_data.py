@@ -6,6 +6,7 @@ from torch import multiprocessing
 # from multiprocessing.pool import ThreadPool as Pool
 # import multiprocessing.Pool as Pool
 from torch.multiprocessing import Pool
+from torch.multiprocessing import current_process
 import torch
 import numpy as np
 from read_config import Config
@@ -13,10 +14,11 @@ from simulation import generate_binding_site_position, distribute_photons_single
 from noise import get_noise
 from drift import get_drift
 import concurrent.futures
+import os
 import copy
 import torch.autograd.profiler as profiler
 
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 # torch.manual_seed(1234)
 # np.random.seed(1234)
@@ -44,8 +46,7 @@ class GenerateData():
         self.num_of_binding_site = None
         self.distributed_photon = None  # tensor in shape(num_binding_event, total frames)
         # Initially the movie is just a random noise
-        self.movie = get_noise(self.config)  # Tensor of shape (num_of_frames, height, width)
-        self.frame_wise_noise = self.movie.mean((1, 2)).share_memory_()  # Tensor of shape (num_of_frames)
+        # self.movie = get_noise(self.config)  # Tensor of shape (num_of_frames, height, width)
         # self.movie = torch.zeros((self.config.frames, self.config.image_size, self.config.image_size),
         #                          device=self.config.device, dtype=torch.float64)
         self.drifts = get_drift(self.config).share_memory_()  # tensor of shape (num_of_frames, 2)
@@ -59,12 +60,16 @@ class GenerateData():
     def get_frame_range(self):
         num_of_frame_in_single_file = self.config.frames // self.config.split_into
         frame_range = []
+
         for i in range(self.config.split_into):
-            single_range = [i * num_of_frame_in_single_file, (i+1) * num_of_frame_in_single_file]
+            f_start = i * num_of_frame_in_single_file
+            f_end = (i+1) * num_of_frame_in_single_file
+            single_range = [f_start, f_end]
             frame_range.append(single_range)
-        frame_range[-1][-1] = self.config.frames
+        frame_range[-1][1] = self.config.frames
         return frame_range
 
+    @show_execution_time
     def generate(self):
         self.binding_site_position = generate_binding_site_position(self.config).share_memory_()
         self.binding_site_position_distribution = get_binding_site_position_distribution(self.binding_site_position, self.config)
@@ -72,9 +77,18 @@ class GenerateData():
 
         self.distribute_photons()
         frame_range = self.get_frame_range()
-        for frame_start, frame_end in frame_range:
-            self.convert_into_image(frame_start, frame_end)
+
+        if self.config.num_of_process > 1:
+            with Pool(processes=self.config.num_of_process) as pool:
+                pool.map(self.convert_into_image, frame_range)
+        else:
+            for range_ in frame_range:
+                self.convert_into_image(range_)
+
+        # for frame_start, frame_end in frame_range:
+        #     self.convert_into_image(frame_start, frame_end)
         # self.save_image()
+        self.config.logger.info("Finish converting the data")
 
     @show_execution_time
     def distribute_photons(self):
@@ -84,56 +98,47 @@ class GenerateData():
         # Setting up method for multiprocessing
         photon_distributor = partial(distribute_photons_single_binding_site, config=self.config,
                                      num_of_binding_site=self.num_of_binding_site)
-        # Number of core available
-        if self.config.num_of_process > 1:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=self.config.num_of_process) as executor:
-                single_frame_distributed_photon = executor.map(photon_distributor, range(self.num_of_binding_site))
-        else:
-            single_frame_distributed_photon = map(photon_distributor, range(self.num_of_binding_site))
+
+        single_frame_distributed_photon = map(photon_distributor, range(self.num_of_binding_site))
 
         for site_id, photon in tqdm(single_frame_distributed_photon, desc="Distributing photons", total=self.num_of_binding_site, disable=self.config.progress_bar_disable):
             self.distributed_photon[site_id] = photon
 
-    @show_execution_time
-    def convert_into_image(self, frame_start, frame_end):
-        self.config.logger.info("Converting into Images")
-        p_convert_frame = partial(convert_frame, config=self.config, drifts=self.drifts,
-                                  distributed_photon=self.distributed_photon, frame_wise_noise=self.frame_wise_noise,
-                                  binding_site_position_distribution=self.binding_site_position_distribution)
-        if self.config.num_of_process > 1:
-            with Pool(self.available_cpu_core) as pool:
-                frame_details = pool.map(p_convert_frame, torch.arange(frame_start, frame_end))
-        else:
-            frame_details = map(p_convert_frame, torch.arange(frame_start, frame_end))
-
-        # we save images in tensor for training purpose
-        ground_truth = self.save_frames_in_tensor(frame_details, frame_start, frame_end)
-        if self.config.save_for_picasso:
-            self.save_frames_in_hdf5(ground_truth, frame_start, frame_end)
-
-    def save_frames_in_tensor(self, frame_details, frame_start, frame_end):
-        # concatnenating tensor in a loop might be slower
-        # So we are creating a large tensor
-        # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
-
-        combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device).share_memory_()
+    # @show_execution_time
+    def convert_into_image(self, frame_range):
+        frame_start, frame_end = frame_range
+        combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device)
         current_num_of_emitter = 0
-        for frame_id, frame, gt_infos in tqdm(frame_details, desc="Distributing photons", total=frame_end - frame_start, disable=self.config.progress_bar_disable):
-            self.movie[frame_id, :, :] += frame
-            emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
-            combined_ground_truth[current_num_of_emitter: current_num_of_emitter+emitter_to_keep, :] = gt_infos[:emitter_to_keep, :]
-            current_num_of_emitter += emitter_to_keep
+        current_pid = os.getpid()
+        progress_bar_description = f"Converting frame {frame_start} to {frame_end}"
 
+        noise_shape = (frame_end - frame_start, self.config.image_size, self.config.image_size)
+        movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
+        frame_wise_noise = movie.mean((1, 2))  # Tensor of shape (num_of_frames)
+        p_convert_frame = partial(convert_frame, frame_started=frame_start, config=self.config, drifts=self.drifts,
+                                  distributed_photon=self.distributed_photon, frame_wise_noise=frame_wise_noise,
+                                  binding_site_position_distribution=self.binding_site_position_distribution)
+        with tqdm(total=frame_end - frame_start, disable=self.config.progress_bar_disable,
+                  desc=progress_bar_description, position=current_pid) as progress_bar:
+            for frame_id in range(frame_start, frame_end):
+                frame_id, frame, gt_infos = p_convert_frame(frame_id=frame_id)
+                movie[frame_id - frame_start, :, :] += frame
+                emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
+                combined_ground_truth[current_num_of_emitter: current_num_of_emitter + emitter_to_keep, :] \
+                    = gt_infos[:emitter_to_keep,:]
+                current_num_of_emitter += emitter_to_keep
+                progress_bar.update()
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
 
         torch.save(combined_ground_truth, self.config.output_file + f"_ground_truth_{frame_start + 1}_{frame_end}.pl")
-        torch.save(self.movie[frame_start: frame_end], self.config.output_file + f"_{frame_start+1}_{frame_end}.pl")
-        return combined_ground_truth
+        torch.save(movie, self.config.output_file + f"_{frame_start + 1}_{frame_end}.pl")
+        if self.config.save_for_picasso:
+            self.save_frames_in_hdf5(movie, combined_ground_truth, frame_start, frame_end)
 
     @show_execution_time
-    def save_frames_in_hdf5(self, ground_truth, frame_start, frame_end):
+    def save_frames_in_hdf5(self, movie, ground_truth, frame_start, frame_end):
         # First save the movie
-        self.movie[frame_start: frame_end].cpu().numpy().tofile(self.config.output_file + f"_{frame_start+1}_{frame_end}.raw")
+        movie[frame_start: frame_end].cpu().numpy().tofile(self.config.output_file + f"_{frame_start+1}_{frame_end}.raw")
         ground_truth = ground_truth.cpu().numpy()
         # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
         gt_without_drift = np.rec.array(

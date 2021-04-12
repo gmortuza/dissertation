@@ -231,7 +231,7 @@ def get_binding_site_position_distribution(binding_site_position, config):
     return binding_site_distribution
 
 
-def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_wise_noise, drifts):
+def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started, frame_wise_noise, drifts):
     device = distributed_photon.device
 
     temp_photons = distributed_photon[:, frame_id]
@@ -260,15 +260,15 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
         gt_infos[i, 7] = distributed_photon[gt_position, frame_id]  # Photon count
         gt_infos[i, 8:10] = photon_pos.std(axis=0)
         # Extract the ground truth for this frame at this location
-        gt_infos[i, 10] = frame_wise_noise[frame_id]
+        gt_infos[i, 10] = frame_wise_noise[frame_id - frame_started]
         start = 0 if gt_position == 0 else n_photons_step[gt_position-1]
         photon_pos_frame[start: n_photons_step[gt_position], :] = photon_pos
 
     return photon_pos_frame, gt_infos
 
 
-def convert_frame(frame_id, config, drifts, distributed_photon, frame_wise_noise, binding_site_position_distribution):
-    photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_wise_noise, drifts)
+def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise, binding_site_position_distribution):
+    photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started, frame_wise_noise, drifts)
 
     if len(photon_pos_frame) == 0:
         # There is no photon allocated in this frame
