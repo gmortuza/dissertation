@@ -1,19 +1,18 @@
 # ================ Configuration for Model ===============
-input_dir: inputs/
-
+output_dir: outputs
 
 
 
 # ================ Configuration for Simulation ===============
-output_dir: generated_data_test
-output_file: test
+simulated_data_dir: simulated_data  # This output directory will be the input directory of the model
+simulated_file_name: test
 log_to: console  # console
 log_level: info
 device: cpu
 num_of_process: 5
 use_seed: True  # Get the same result all the time. For debugging purpose
 progress_bar_disable: False
-save_for_picasso: True  # This will save both the raw file and ground truth compatible with picasso
+save_for_picasso: False  # This will save both the raw file and ground truth compatible with picasso
 # From the file
 power_density_conversion: 20
 laserc_default: 0.012063

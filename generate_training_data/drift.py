@@ -28,10 +28,9 @@ def get_drift(config):
 
     drifts = torch.cumsum(frame_drift, dim=0)
     # Save drift
-    with open(config.output_file + "_drift.csv", "w") as drift_file:
+    with open(config.simulated_file_name + "_drift.csv", "w") as drift_file:
         drift_file.write("dx, dy\n")
         np.savetxt(drift_file, drifts.cpu().numpy(), '%s', ',')
-
     return drifts
 
 
