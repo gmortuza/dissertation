@@ -9,7 +9,7 @@ simulated_file_name: test
 log_to: console  # console
 log_level: info
 device: cpu
-num_of_process: 5
+num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
 progress_bar_disable: False
 save_for_picasso: False  # This will save both the raw file and ground truth compatible with picasso

@@ -89,6 +89,7 @@ class GenerateData:
     def convert_into_image(self, frame_range):
         frame_start, frame_end = frame_range
         combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device)
+        target = torch.zeros((frame_end-frame_start, self.config.max_number_of_emitter_per_frame, 6), device=self.config.device)
         current_num_of_emitter = 0
 
         noise_shape = (frame_end - frame_start, self.config.image_size, self.config.image_size)
@@ -103,13 +104,15 @@ class GenerateData:
             movie[frame_id - frame_start, :, :] += frame
             emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
             combined_ground_truth[current_num_of_emitter: current_num_of_emitter + emitter_to_keep, :] \
-                = gt_infos[:emitter_to_keep,:]
+                = gt_infos[:emitter_to_keep, :]
             current_num_of_emitter += emitter_to_keep
+            # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
+            target[frame_id - frame_start][:][:emitter_to_keep] = gt_infos[:emitter_to_keep, [3, 4, 7, 8, 9, 10]]
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
 
-        torch.save(combined_ground_truth, self.config.simulated_file_name + f"_ground_truth_{frame_start + 1}_{frame_end}.pl")
-
+        torch.save(combined_ground_truth, self.config.simulated_file_name + f"_gt_{frame_start + 1}_{frame_end}.pl")
         torch.save(movie, self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}.pl")
+        torch.save(target, self.config.simulated_file_name + f"_target_{frame_start+1}_{frame_end}.pl")
         if self.config.save_for_picasso:
             self.save_frames_in_hdf5(movie, combined_ground_truth, frame_start, frame_end)
 

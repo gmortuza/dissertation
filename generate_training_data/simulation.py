@@ -243,6 +243,7 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
     # Positions where are putting some photons
     # indices that will have blinking event at this frame
     gt_positions = torch.where(distributed_photon[:, frame_id] > 0)[0].flatten()
+    # 0,       , 1, 2, 3     , 4     , 5        , 6,       , 7,     , 8,   9,  10
     # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
     # This will contain the gt_id, x_mean, y_mean, photons, sx, sy, noise, x, y
     gt_infos = torch.zeros((len(gt_positions), 11), device=device)
