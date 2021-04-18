@@ -1,15 +1,22 @@
 # ================ Configuration for Model ===============
 output_dir: outputs
+validation_split: .2
+batch_size: 64
+num_epochs: 10
+learning_rate: .0001
+model_type: resnet34
+save_summary_steps: 10 # batch
+load_checkpoint: True
 
 
 
 # ================ Configuration for Simulation ===============
 simulated_data_dir: simulated_data  # This output directory will be the input directory of the model
-simulated_file_name: test
+simulated_file_name: data
 log_to: console  # console
 log_level: info
 device: cpu
-num_of_process: 1
+num_of_process: 10
 use_seed: True  # Get the same result all the time. For debugging purpose
 progress_bar_disable: False
 save_for_picasso: False  # This will save both the raw file and ground truth compatible with picasso
@@ -24,12 +31,12 @@ std_factor: 1.82
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-frames: 10000  # Total Number of frames
-split_into: 5 # Total number of frames will be splitted into this amount of files
+frames: 50000  # Total Number of frames
+split_into: 10 # Total number of frames will be splitted into this amount of files
 image_size: 32  # Height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
-max_number_of_emitter_per_frame: 7
+max_number_of_emitter_per_frame: 30
 Camera_integration_time: 300  # (ms)
 Camera_Pixelsize: 130  # (nm)
 

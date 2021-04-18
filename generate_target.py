@@ -13,22 +13,27 @@ def generate_target_gt(input_tensor: torch.Tensor, config: Config, start_frame: 
     :return:
     """
     number_of_frame = end_frame - start_frame
-    target_tensor = torch.zeros(size=(number_of_frame, config.max_number_of_emitter_per_frame, 6), device=config.device)
+    target_tensor = torch.zeros(size=(number_of_frame, config.max_number_of_emitter_per_frame, 1), device=config.device)
     for frame_id in input_tensor[:, 0].unique():
         frame_gts = input_tensor[input_tensor[:, 0] == frame_id]
-        target_tensor[int(frame_id) - start_frame, :, :len(frame_gts)] = frame_gts[:, [3, 4, 7, 8, 9, 10]]
+        # x_mean, y_mean, photons, s_x, s_y, noise
+        # target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4, 7, 8, 9, 10]]
+        target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3]]
     return target_tensor
 
 
-def generate_target_from_path(path: str, config_path: Config):
-    config = Config(config_path)
+def generate_target_from_path(path: str, config: Config):
+    if isinstance(config, str):
+        config = Config(config)
     input_tensor = torch.load(path)
-    path_arr = path.replace(".pl", "").split("_")
+    path_arr = path.replace("_gt.pl", "").split("_")
     start_frame, end_frame = int(path_arr[-2]) - 1, int(path_arr[-1])
-    generate_target_gt(input_tensor, config, start_frame, end_frame)
+    return generate_target_gt(input_tensor, config, start_frame, end_frame)
 
 
 if __name__ == '__main__':
-    path = "simulated_data/test_ground_truth_1_5000.pl"
+    path = "simulated_data/data_1_5000_gt.pl"
     config_path = "config.yaml"
-    generate_target_from_path(path, config_path)
+    dataset = generate_target_from_path(path, config_path)
+    print(dataset)
+

@@ -89,11 +89,12 @@ class GenerateData:
     def convert_into_image(self, frame_range):
         frame_start, frame_end = frame_range
         combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device)
-        target = torch.zeros((frame_end-frame_start, self.config.max_number_of_emitter_per_frame, 6), device=self.config.device)
+        # target = torch.zeros((frame_end-frame_start, self.config.max_number_of_emitter_per_frame, 6), device=self.config.device)
         current_num_of_emitter = 0
 
         noise_shape = (frame_end - frame_start, self.config.image_size, self.config.image_size)
-        movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
+        # movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
+        movie = torch.zeros(size=noise_shape, device=self.config.device)
         frame_wise_noise = movie.mean((1, 2))  # Tensor of shape (num_of_frames)
         p_convert_frame = partial(convert_frame, frame_started=frame_start, config=self.config, drifts=self.drifts,
                                   distributed_photon=self.distributed_photon, frame_wise_noise=frame_wise_noise,
@@ -102,17 +103,19 @@ class GenerateData:
         for frame_id in range(frame_start, frame_end):
             frame_id, frame, gt_infos = p_convert_frame(frame_id=frame_id)
             movie[frame_id - frame_start, :, :] += frame
+            # sort ground truth based on the most bright sopt
+            gt_infos = gt_infos[gt_infos[:, 7].sort(descending=True)[1]]
             emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
             combined_ground_truth[current_num_of_emitter: current_num_of_emitter + emitter_to_keep, :] \
                 = gt_infos[:emitter_to_keep, :]
             current_num_of_emitter += emitter_to_keep
             # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
-            target[frame_id - frame_start][:][:emitter_to_keep] = gt_infos[:emitter_to_keep, [3, 4, 7, 8, 9, 10]]
+            # target[frame_id - frame_start][:][:emitter_to_keep] = gt_infos[:emitter_to_keep, [3, 4, 7, 8, 9, 10]]
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
 
-        torch.save(combined_ground_truth, self.config.simulated_file_name + f"_gt_{frame_start + 1}_{frame_end}.pl")
+        torch.save(combined_ground_truth, self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}_gt.pl")
         torch.save(movie, self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}.pl")
-        torch.save(target, self.config.simulated_file_name + f"_target_{frame_start+1}_{frame_end}.pl")
+        # torch.save(target, self.config.simulated_file_name + f"_{frame_start+1}_{frame_end}_target.pl")
         if self.config.save_for_picasso:
             self.save_frames_in_hdf5(movie, combined_ground_truth, frame_start, frame_end)
 
@@ -185,6 +188,6 @@ class GenerateData:
 
 
 if __name__ == "__main__":
-    configuration = Config(config_file_path="/Users/golammortuza/workspace/nam/dnam_nn/config.yaml")
+    configuration = Config(config_file_path="../config.yaml")
     generate_data = GenerateData(configuration)
     generate_data.generate()

@@ -2,6 +2,8 @@ import os
 import yaml
 import logging
 import torch
+from torch.utils.tensorboard import SummaryWriter
+import time
 
 torch.manual_seed(1234)
 
@@ -69,6 +71,11 @@ class Config:
 
         self.checkpoint_dir = os.path.join(self.output_dir, "checkpoint")
         self.log_dir = os.path.join(self.output_dir, "logs")
+        # Create a directory for this run
+        tensorflow_log_dir = os.path.join(self.log_dir, time.strftime("%l:%M%p - %b %d, %Y"))
+        if not os.path.exists(tensorflow_log_dir):
+            os.makedirs(tensorflow_log_dir)
+        self.tensor_board_writer = SummaryWriter(tensorflow_log_dir)
 
     def save(self, json_path):
         """Saves parameters to json file"""
