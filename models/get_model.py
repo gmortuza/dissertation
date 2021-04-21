@@ -1,9 +1,14 @@
 from models.resnet34 import ResNet34
 from models.base_model import BaseModel
+from models.unet import UNet
 
 
 def get_model(config):
     if config.model_type == 'resnet34':
-        return ResNet34(config).to(config.device)
+        model = ResNet34(config)
     elif config.model_type == 'base_model':
-        return BaseModel(config).to(config.device)
+        model = BaseModel(config)
+    elif config.model_type == 'unet':
+        model = UNet(config)
+
+    return model.to(config.device)

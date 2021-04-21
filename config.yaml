@@ -2,11 +2,11 @@
 output_dir: outputs
 validation_split: .2
 test_split: .1
-batch_size: 32
-num_epochs: 10
+batch_size: 64
+num_epochs: 30
 learning_rate: .0001
-model_type: resnet34
-save_summary_steps: 10 # batch
+model_type: unet
+save_summary_steps: 40 # batch
 load_checkpoint: True
 
 

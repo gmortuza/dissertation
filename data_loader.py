@@ -57,9 +57,10 @@ def fetch_data_loader(config: Config, shuffle: bool = True):
     val_dataset = SMLMDataset(val_dir, config)
     test_dataset = SMLMDataset(test_dir, config)
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, pin_memory=True)
-    valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, pin_memory=True)
-    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=shuffle, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle)
+    valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle)
+    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=shuffle)
+
 
     return train_loader, valid_loader, test_loader
 

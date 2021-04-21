@@ -16,7 +16,6 @@ class ResNet34(torch.nn.Module):
         num_ftrs = self.model.fc.in_features
         self.model.fc = nn.Identity()
 
-        # TODO: Take the 30 from config file
         self.x = nn.Linear(num_ftrs, config.max_number_of_emitter_per_frame)
         self.y = nn.Linear(num_ftrs, config.max_number_of_emitter_per_frame)
         self.photons = nn.Linear(num_ftrs, config.max_number_of_emitter_per_frame)
