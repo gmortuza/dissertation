@@ -56,7 +56,7 @@ def save_dict_to_json(d, json_path):
         json.dump(d, f, indent=4)
 
 
-def load_checkpoint(checkpoint_dir, model, config, optimizer=None):
+def load_checkpoint(checkpoint_dir, model, config, optimizer=None) -> float:
     """Loads model parameters (state_dict) from file_path. If optimizer is provided, loads state_dict of
     optimizer assuming it is present in checkpoint.
     Args:
@@ -64,13 +64,27 @@ def load_checkpoint(checkpoint_dir, model, config, optimizer=None):
         model: (torch.nn.Module) model for which the parameters are loaded
         optimizer: (torch.optim) optional: resume optimizer from checkpoint
     """
-    checkpoint_path = os.path.join(checkpoint_dir, "best.pth.tar")
+    checkpoint_path = os.path.join(checkpoint_dir, "last.pth.tar")
     if not os.path.exists(checkpoint_path):
-        return config.logger.info(f"Checkpoint file doesn't exists {checkpoint_path}")
+        config.logger.info(f"Checkpoint file doesn't exists {checkpoint_path}")
+        return float('-inf')
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint['state_dict'])
 
     if optimizer:
         optimizer.load_state_dict(checkpoint['optim_dict'])
+    # Get accuracy
+    with open(os.path.join(checkpoint_dir, "metrics_val_best_weights.json")) as f:
+        best_accuracy = json.load(f)["accuracy"]
+    return best_accuracy
 
-    return checkpoint
+
+def convert_device(tensors, device):
+    if not tensors:
+        return tensors
+    elif isinstance(tensors, (int, float)):
+        return torch.tensor(tensors, device=device)
+    elif isinstance(tensors, torch.Tensor):
+        return tensors.to(device)
+    elif isinstance(tensors, (tuple, list)):
+        return [convert_device(tensor, device) for tensor in tensors]

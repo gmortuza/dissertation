@@ -28,7 +28,7 @@ class ResNet34(torch.nn.Module):
         input_item = self.model(input_item)
 
         x = self.x(input_item)
-        # y = self.y(input_item)
+        y = self.y(input_item)
         # photons = self.photons(input_item)
         # s_x = self.s_x(input_item)
         # s_y = self.s_y(input_item)
@@ -36,7 +36,7 @@ class ResNet34(torch.nn.Module):
 
         # x_mean, y_mean, photons, s_x, s_y, noise
         # output_target = torch.stack([x, y, photons, s_x, s_y, noise], dim=2)
-        output_target = torch.stack([x], dim=2)
+        output_target = torch.stack([x, y], dim=2)
 
         return output_target
 

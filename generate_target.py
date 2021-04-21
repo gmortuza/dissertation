@@ -13,12 +13,12 @@ def generate_target_gt(input_tensor: torch.Tensor, config: Config, start_frame: 
     :return:
     """
     number_of_frame = end_frame - start_frame
-    target_tensor = torch.zeros(size=(number_of_frame, config.max_number_of_emitter_per_frame, 1), device=config.device)
+    target_tensor = torch.zeros(size=(number_of_frame, config.max_number_of_emitter_per_frame, 2), device=config.device)
     for frame_id in input_tensor[:, 0].unique():
         frame_gts = input_tensor[input_tensor[:, 0] == frame_id]
         # x_mean, y_mean, photons, s_x, s_y, noise
         # target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4, 7, 8, 9, 10]]
-        target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3]]
+        target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4]]
     return target_tensor
 
 

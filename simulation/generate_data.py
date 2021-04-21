@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import h5py
@@ -6,9 +7,10 @@ from torch.multiprocessing import Pool
 import torch
 import numpy as np
 from read_config import Config
-from simulation import generate_binding_site_position, distribute_photons_single_binding_site, convert_frame, get_binding_site_position_distribution
-from noise import get_noise
-from drift import get_drift
+from simulation.simulate import generate_binding_site_position, distribute_photons_single_binding_site, convert_frame,\
+    get_binding_site_position_distribution
+from simulation.noise import get_noise
+from simulation.drift import get_drift
 
 
 from tqdm import tqdm, trange
@@ -42,7 +44,7 @@ class GenerateData:
         self.available_cpu_core = int(self.config.num_of_process)
 
     def get_frame_range(self):
-        num_of_frame_in_single_file = self.config.frames // self.config.split_into
+        num_of_frame_in_single_file = self.config.frame_to_generate // self.config.split_into
         frame_range = []
 
         for i in range(self.config.split_into):
@@ -50,10 +52,10 @@ class GenerateData:
             f_end = (i+1) * num_of_frame_in_single_file
             single_range = [f_start, f_end]
             frame_range.append(single_range)
-        frame_range[-1][1] = self.config.frames
+        frame_range[-1][1] = self.config.frame_to_generate
         return frame_range
 
-    @show_execution_time
+    # @show_execution_time
     def generate(self):
         self.binding_site_position = generate_binding_site_position(self.config).share_memory_()
         self.binding_site_position_distribution = get_binding_site_position_distribution(self.binding_site_position, self.config)
@@ -74,7 +76,7 @@ class GenerateData:
     @show_execution_time
     def distribute_photons(self):
         self.config.logger.info("Distributing photons")
-        self.distributed_photon = torch.zeros((self.num_of_binding_site, self.config.frames),
+        self.distributed_photon = torch.zeros((self.num_of_binding_site, self.config.frame_to_generate),
                                               device=self.config.device).share_memory_()
         # Setting up method for multiprocessing
         photon_distributor = partial(distribute_photons_single_binding_site, config=self.config,
@@ -90,11 +92,11 @@ class GenerateData:
         frame_start, frame_end = frame_range
         combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device)
         # target = torch.zeros((frame_end-frame_start, self.config.max_number_of_emitter_per_frame, 6), device=self.config.device)
+        self.config.logger.info("Generating ", str(frame_range), "frames")
         current_num_of_emitter = 0
 
         noise_shape = (frame_end - frame_start, self.config.image_size, self.config.image_size)
-        # movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
-        movie = torch.zeros(size=noise_shape, device=self.config.device)
+        movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
         frame_wise_noise = movie.mean((1, 2))  # Tensor of shape (num_of_frames)
         p_convert_frame = partial(convert_frame, frame_started=frame_start, config=self.config, drifts=self.drifts,
                                   distributed_photon=self.distributed_photon, frame_wise_noise=frame_wise_noise,
@@ -113,15 +115,15 @@ class GenerateData:
             # target[frame_id - frame_start][:][:emitter_to_keep] = gt_infos[:emitter_to_keep, [3, 4, 7, 8, 9, 10]]
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
 
-        torch.save(combined_ground_truth, self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}_gt.pl")
-        torch.save(movie, self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}.pl")
+        torch.save(combined_ground_truth, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_gt.pl")
+        torch.save(movie, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}.pl")
         # torch.save(target, self.config.simulated_file_name + f"_{frame_start+1}_{frame_end}_target.pl")
         if self.config.save_for_picasso:
             self.save_frames_in_hdf5(movie, combined_ground_truth, frame_start, frame_end)
 
-    @show_execution_time
+    # @show_execution_time
     def save_frames_in_hdf5(self, movie, ground_truth, frame_start, frame_end):
-        file_name = self.config.simulated_file_name + f"_{frame_start  + 1}_{frame_end}"
+        file_name = self.config.file_name_to_save + f"_{frame_start  + 1}_{frame_end}"
         movie = movie.cpu().numpy()
         movie.tofile(file_name + ".raw")
         ground_truth = ground_truth.cpu().numpy()
@@ -173,17 +175,17 @@ class GenerateData:
             ])
 
         content_for_yaml_file = f"Box Size: 7\nPixelsize: {self.config.Camera_Pixelsize}" \
-                                f"\nFrames: {self.config.frames}\n" \
+                                f"\nFrames: {self.config.frame_to_generate}\n" \
                                 f"Height: {self.config.image_size}\n" \
                                 f"Width: {self.config.image_size}"
-        with h5py.File(self.config.simulated_file_name + f"_{frame_start+1}_{frame_end}_gt_without_drift.hdf5", "w") as locs_file:
+        with h5py.File(self.config.file_name_to_save + f"_{frame_start+1}_{frame_end}_gt_without_drift.hdf5", "w") as locs_file:
             locs_file.create_dataset("locs", data=gt_without_drift)
-            with open(self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}_gt_without_drift.yaml", "w") as yaml_file:
+            with open(self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_gt_without_drift.yaml", "w") as yaml_file:
                 yaml_file.write(content_for_yaml_file)
 
-        with h5py.File(self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}_gt_with_drift.hdf5", "w") as locs_file:
+        with h5py.File(self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_gt_with_drift.hdf5", "w") as locs_file:
             locs_file.create_dataset("locs", data=gt_with_drift)
-            with open(self.config.simulated_file_name + f"_{frame_start + 1}_{frame_end}_gt_with_drift.yaml", "w") as yaml_file:
+            with open(self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_gt_with_drift.yaml", "w") as yaml_file:
                 yaml_file.write(content_for_yaml_file)
 
 

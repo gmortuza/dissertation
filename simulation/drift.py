@@ -1,10 +1,6 @@
 import numpy as np
 import torch
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-# torch.use_deterministic_algorithms(True)
-
 
 def get_drift(config):
     # linear/random_walk
@@ -19,12 +15,12 @@ def get_drift(config):
     # If the frame size is huge then it's efficient in GPU. Other wise it's better to take the sample from CPU
 
     if drift_method == "linear":
-        frame_drift = single_frame_drift.expand(config.frames, 2)
+        frame_drift = single_frame_drift.expand(config.total_frames, 2)
     else:
         # Default value is random walk
         mean = torch.tensor([0., 0.], device=config.device)
 
-        frame_drift = torch.distributions.normal.Normal(mean, single_frame_drift).sample((config.frames, ))
+        frame_drift = torch.distributions.normal.Normal(mean, single_frame_drift).sample((config.total_frames, ))
 
     drifts = torch.cumsum(frame_drift, dim=0)
     # Save drift

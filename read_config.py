@@ -62,20 +62,15 @@ class Config:
     def _make_absolute_directory(self):
         # prepend this base directory with other parameter so that we won't get any error for the path
         # As those directory will be accessed from different file. which are in different location
-        self.simulated_data_dir = os.path.join(self.base_dir, self.simulated_data_dir)
-        self.simulated_file_name = os.path.join(self.simulated_data_dir, self.simulated_file_name)
+        self.input_dir = os.path.join(self.base_dir, self.input_dir)
         self.output_dir = os.path.join(self.base_dir, self.output_dir)
-        # if output directory doesn't exists we have to create that
-        if not os.path.exists(self.simulated_data_dir):
-            os.makedirs(self.simulated_data_dir)
 
         self.checkpoint_dir = os.path.join(self.output_dir, "checkpoint")
         self.log_dir = os.path.join(self.output_dir, "logs")
         # Create a directory for this run
-        tensorflow_log_dir = os.path.join(self.log_dir, time.strftime("%l:%M%p - %b %d, %Y"))
-        if not os.path.exists(tensorflow_log_dir):
-            os.makedirs(tensorflow_log_dir)
-        self.tensor_board_writer = SummaryWriter(tensorflow_log_dir)
+        self.tensorflow_log_dir = os.path.join(self.log_dir, time.strftime("%l:%M%p - %b %d, %Y"))
+        if not os.path.exists(self.tensorflow_log_dir):
+            os.makedirs(self.tensorflow_log_dir)
 
     def save(self, json_path):
         """Saves parameters to json file"""

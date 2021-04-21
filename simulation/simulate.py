@@ -1,15 +1,10 @@
 import torch
 import numpy as np
-from unique_origami import get_unique_origami
-from histogram import histogram2d, custom_histogram, custom_np_histogram
+from simulation.unique_origami import get_unique_origami
+from utils import convert_device
+from simulation.histogram import histogram2d, custom_histogram, custom_np_histogram
 import matplotlib.pyplot as plt
-from noise import extract_noise_from_frame
-import torch.autograd.profiler as profiler
-
-torch.manual_seed(1234)
-np.random.seed(1234)
-# torch.cuda.synchronize()
-# torch.use_deterministic_algorithms(True)
+from simulation.noise import extract_noise_from_frame
 
 
 def generate_binding_site_position(config):
@@ -34,7 +29,6 @@ def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
         #
         structure = incorporate_structure(structure, config.binding_site_incorporation)
 
-        # TODO: shape grid pos during creating. So that we don't need to reshape it in here
         structure += grid_pos[i]
 
         structures = torch.cat((structures, structure), axis=1)
@@ -97,7 +91,7 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
     # TODO: Convert numpy array to tensor
     mean_dark = config.tau_d
     mean_bright = config.PAINT_tau_b
-    frames = config.frames
+    frames = config.frame_to_generate
     time = config.Camera_integration_time
     photon_budget = config.Imager_Photonbudget
     photon_rate_std = config.Imager_photon_rate_std
@@ -289,13 +283,5 @@ def get_scale_tril(config):
     return torch.linalg.cholesky(cov)
 
 
-def convert_device(tensors, device):
-    if not tensors:
-        return tensors
-    elif isinstance(tensors, (int, float)):
-        return torch.tensor(tensors, device=device)
-    elif isinstance(tensors, torch.Tensor):
-        return tensors.to(device)
-    elif isinstance(tensors, (tuple, list)):
-        return [convert_device(tensor, device) for tensor in tensors]
+
 

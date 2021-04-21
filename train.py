@@ -60,11 +60,11 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
 
 
 def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_fn, metrics, config):
+    best_val_acc = float('-inf')
     if config.load_checkpoint:
         config.logger.info(f"Restoring parameters from {config.checkpoint_dir}")
-        utils.load_checkpoint(config.checkpoint_dir, model, config, optimizer)
+        best_val_acc = utils.load_checkpoint(config.checkpoint_dir, model, config, optimizer)
 
-    best_val_acc = float('-inf')
     for epoch in range(config.num_epochs):
         config.logger.info("Epoch {}/{}".format(epoch + 1, config.num_epochs))
         train_loss, train_metrics = train(model, optimizer, loss_fn, train_dataloader, metrics, config)
@@ -106,9 +106,10 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_
 
 if __name__ == '__main__':
     config = Config("config.yaml")
+    config.tensor_board_writer = SummaryWriter(config.tensorflow_log_dir)
     model = get_model(config)
     loss_fn = get_loss_fn()
-    train_data_loader, val_data_loader = fetch_data_loader(config)
+    train_data_loader, val_data_loader, test_data_loader = fetch_data_loader(config)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 
     train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, metrics, config)

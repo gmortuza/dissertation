@@ -3,7 +3,6 @@ matplotlib~=3.3.2
 pyyaml~=5.3.1
 h5py~=2.10.0
 tqdm~=4.55.0
-yaml~=0.2.5
 torch~=1.8.1
 torchvision~=0.9.1
-scikit-learn
+scikit-learn~=0.24.1

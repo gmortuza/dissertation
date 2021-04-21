@@ -1,7 +1,8 @@
 # ================ Configuration for Model ===============
 output_dir: outputs
 validation_split: .2
-batch_size: 64
+test_split: .1
+batch_size: 32
 num_epochs: 10
 learning_rate: .0001
 model_type: resnet34
@@ -9,29 +10,23 @@ save_summary_steps: 10 # batch
 load_checkpoint: True
 
 
-
-# ================ Configuration for Simulation ===============
-simulated_data_dir: simulated_data  # This output directory will be the input directory of the model
+# ================ General settings ===============
+input_dir: simulated_data  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
+device: cuda:1
 log_level: info
-device: cpu
 num_of_process: 10
 use_seed: True  # Get the same result all the time. For debugging purpose
 progress_bar_disable: False
 save_for_picasso: False  # This will save both the raw file and ground truth compatible with picasso
-# From the file
-power_density_conversion: 20
-laserc_default: 0.012063
-imagec_default: 0.003195
-std_factor: 1.82
 
 # ================ Camera Settings ===============
 # Padding in each framed
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-frames: 50000  # Total Number of frames
+total_frames: 15000  # Total Number of frames
 split_into: 10 # Total number of frames will be splitted into this amount of files
 image_size: 32  # Height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
@@ -85,6 +80,11 @@ Imager_Laserpower: 1.5  # Power density (kwCm-2)
 Imager_PSF: 0.82  # point spread function (px)
 Imager_Photonbudget: 1500000.0  #
 Imager_Photonslope: 35  # Photon detection rate
+# From the file
+power_density_conversion: 20
+laserc_default: 0.012063
+imagec_default: 0.003195
+std_factor: 1.82
 
 
 
