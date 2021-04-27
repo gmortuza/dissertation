@@ -108,10 +108,10 @@ def generate_image_from_points(frame_gts, config):
         start = 0
         for i in range(single_frame_gt.shape[0]):
             photons = int(single_frame_gt[i, 2])
-            mu = single_frame_gt[i, [0, 1]]
+            mu = single_frame_gt[i, [0, 1]].to(config.device)
             cov = torch.tensor([[config.Imager_PSF * config.Imager_PSF, 0],
-                            [0, config.Imager_PSF * config.Imager_PSF]])
-            multivariate_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, cov).to(config.device)
+                            [0, config.Imager_PSF * config.Imager_PSF]], device=config.device)
+            multivariate_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, cov)
             samples = multivariate_dist.sample((photons, ))
             photon_pos_frame[start: start+photons, :] = samples
             start += photons
