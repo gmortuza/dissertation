@@ -116,7 +116,7 @@ def generate_image_from_points(frame_gts, config):
             photon_pos_frame[start: start+photons, :] = samples
             start += photons
 
-        photon_pos_frame = photon_pos_frame.numpy()
+        photon_pos_frame = photon_pos_frame.cpu().numpy()
         frame_without_noise, _, _ = np.histogram2d(photon_pos_frame[:, 1], photon_pos_frame[:, 0], bins=(range(config.image_size + 1), range(config.image_size + 1)))
         frame_without_noise = torch.from_numpy(frame_without_noise).to(config.device)
         movie[single_image_id] += frame_without_noise
