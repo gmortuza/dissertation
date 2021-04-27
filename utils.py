@@ -96,7 +96,7 @@ def convert_device(tensors, device):
 def generate_image_from_points(frame_gts, config):
     # Remove all the gts that have negative value
     bs = frame_gts.size(0)
-    movie = get_noise(config.noise_type, (bs, config.image_size, config.image_size), config.bg_model)
+    movie = get_noise(config.noise_type, (bs, config.image_size, config.image_size), config.bg_model).to(config.device)
     for single_image_id in range(bs):
         # Remove all the non negative value from the frame
         idx = (frame_gts[single_image_id] >= 0).all(-1)
@@ -111,7 +111,7 @@ def generate_image_from_points(frame_gts, config):
             mu = single_frame_gt[i, [0, 1]]
             cov = torch.tensor([[config.Imager_PSF * config.Imager_PSF, 0],
                             [0, config.Imager_PSF * config.Imager_PSF]])
-            multivariate_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, cov)
+            multivariate_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, cov).to(config.device)
             samples = multivariate_dist.sample((photons, ))
             photon_pos_frame[start: start+photons, :] = samples
             start += photons
