@@ -92,7 +92,7 @@ class GenerateData:
         frame_start, frame_end = frame_range
         combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device)
         # target = torch.zeros((frame_end-frame_start, self.config.max_number_of_emitter_per_frame, 6), device=self.config.device)
-        self.config.logger.info("Generating ", str(frame_range), "frames")
+        # self.config.logger.info("Generating ", str(frame_range), "frames")
         current_num_of_emitter = 0
 
         noise_shape = (frame_end - frame_start, self.config.image_size, self.config.image_size)

@@ -61,7 +61,6 @@ def fetch_data_loader(config: Config, shuffle: bool = True):
     valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=shuffle)
 
-
     return train_loader, valid_loader, test_loader
 
 

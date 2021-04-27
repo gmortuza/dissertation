@@ -42,6 +42,7 @@ class UNet(nn.Module):
 
         self.x_pos_pred = nn.Linear(65536, config.max_number_of_emitter_per_frame)
         self.y_pos_pred = nn.Linear(65536, config.max_number_of_emitter_per_frame)
+        self.photons = nn.Linear(65536, config.max_number_of_emitter_per_frame)
 
     def forward(self, x):
         skip_connections = []
@@ -63,7 +64,8 @@ class UNet(nn.Module):
         x = torch.flatten(x, 1)
         x_pos_pred = self.x_pos_pred(x)
         y_pos_pred = self.y_pos_pred(x)
-        return torch.stack((x_pos_pred, y_pos_pred), dim=2)
+        photons = self.photons(x)
+        return torch.stack((x_pos_pred, y_pos_pred, photons), dim=2)
 
 
 if __name__ == '__main__':

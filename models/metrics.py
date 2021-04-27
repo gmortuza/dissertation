@@ -12,6 +12,7 @@ def get_mse(prediction, target):
 
 
 metrics = {
-    'accuracy': get_r2_score,
+    # 'accuracy': get_r2_score,
+    'accuracy': get_mse
     # 'mse': get_mse
 }

@@ -211,7 +211,6 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
                 - (total_photons - photon_budget)
             )
 
-    # Update the global variable
     return binding_site_id, torch.tensor(photons_in_frame[0:frames])
 
 
@@ -228,7 +227,7 @@ def get_binding_site_position_distribution(binding_site_position, config):
 def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started, frame_wise_noise, drifts):
     device = distributed_photon.device
 
-    temp_photons = distributed_photon[:, frame_id]
+    temp_photons = distributed_photon[:, frame_id]  # Shape (number of binding event, )
     n_photons = torch.sum(temp_photons).item()  # Total photons for this frame
     n_photons_step = torch.cumsum(temp_photons, dim=0).to(torch.int)
 

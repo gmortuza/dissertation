@@ -1,6 +1,7 @@
 # Convert pickle to target dataset
 import torch
 from read_config import Config
+from utils import generate_image_from_points
 
 
 def generate_target_gt(input_tensor: torch.Tensor, config: Config, start_frame: int, end_frame: int) -> torch.Tensor:
@@ -16,6 +17,8 @@ def generate_target_gt(input_tensor: torch.Tensor, config: Config, start_frame: 
     target_tensor = torch.zeros(size=(number_of_frame, config.max_number_of_emitter_per_frame, 2), device=config.device)
     for frame_id in input_tensor[:, 0].unique():
         frame_gts = input_tensor[input_tensor[:, 0] == frame_id]
+        # image = generate_image_from_points(frame_gts.view(1, frame_gts.size(0), -1), config)
+        # Generate image from gts
         # x_mean, y_mean, photons, s_x, s_y, noise
         # target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4, 7, 8, 9, 10]]
         target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4]]
@@ -32,7 +35,7 @@ def generate_target_from_path(path: str, config: Config):
 
 
 if __name__ == '__main__':
-    path = "simulated_data/data_1_5000_gt.pl"
+    path = "/Users/golammortuza/workspace/nam/dnam_nn/simulated_data/train/data_1_1050_gt.pl"
     config_path = "config.yaml"
     dataset = generate_target_from_path(path, config_path)
     print(dataset)
