@@ -14,14 +14,23 @@ def generate_target_gt(input_tensor: torch.Tensor, config: Config, start_frame: 
     :return:
     """
     number_of_frame = end_frame - start_frame
-    target_tensor = torch.zeros(size=(number_of_frame, config.max_number_of_emitter_per_frame, 2), device=config.device)
+    # TODO: During adding noise change 5 to 6
+    target_tensor = torch.zeros(size=(number_of_frame, config.max_number_of_emitter_per_frame, 5), device=config.device)
     for frame_id in input_tensor[:, 0].unique():
         frame_gts = input_tensor[input_tensor[:, 0] == frame_id]
         # image = generate_image_from_points(frame_gts.view(1, frame_gts.size(0), -1), config)
         # Generate image from gts
         # x_mean, y_mean, photons, s_x, s_y, noise
+        # TODO: Add noise later
         # target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4, 7, 8, 9, 10]]
-        target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4]]
+        target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4, 7, 8, 9]]
+        # target_tensor[int(frame_id) - start_frame, :len(frame_gts), :] = frame_gts[:, [3, 4]]
+    # Normalize the photons
+    total_photon = target_tensor[:, :, 2].sum(1)
+    have_photons = total_photon > 0
+    target_tensor[have_photons, :, 2] /= total_photon[have_photons].view(-1, 1)
+    # If std is zero then torch through an error during creating GMM. So clipping that with a very small number
+    target_tensor[:, :, [3, 4]] = torch.clip(target_tensor[:, :, [3, 4]], min=.00001, max=10)
     return target_tensor
 
 

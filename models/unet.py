@@ -42,6 +42,9 @@ class UNet(nn.Module):
 
         self.x_pos_pred = nn.Linear(65536, config.max_number_of_emitter_per_frame)
         self.y_pos_pred = nn.Linear(65536, config.max_number_of_emitter_per_frame)
+        self.x_std = nn.Linear(65536, config.max_number_of_emitter_per_frame)
+        self.y_std = nn.Linear(65536, config.max_number_of_emitter_per_frame)
+        self.noise = nn.Linear(65536, config.max_number_of_emitter_per_frame)
         self.photons = nn.Linear(65536, config.max_number_of_emitter_per_frame)
 
     def forward(self, x):
@@ -62,10 +65,15 @@ class UNet(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         x = torch.flatten(x, 1)
-        x_pos_pred = self.x_pos_pred(x)
-        y_pos_pred = self.y_pos_pred(x)
-        photons = self.photons(x)
-        return torch.stack((x_pos_pred, y_pos_pred, photons), dim=2)
+        # Pos will never be zero so using relu to remove convert negetive prediction to zero
+        x_pos_pred = nn.ReLU()(self.x_pos_pred(x))
+        y_pos_pred = nn.ReLU()(self.y_pos_pred(x))
+        photons = nn.Sigmoid()(self.photons(x))
+        x_std = nn.Sigmoid()(self.x_std(x))
+        y_std = nn.Sigmoid()(self.y_std(x))
+        # TODO: Add noise later
+        # noise = nn.ReLU()(self.noise(x))
+        return torch.stack((x_pos_pred, y_pos_pred, photons, x_std, y_std), dim=2)
 
 
 if __name__ == '__main__':

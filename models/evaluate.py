@@ -17,7 +17,7 @@ def evaluate(model, loss_fn, data_loader, metrics, config) -> (float, dict):
 
         # Compute all metrics on this batch
 
-        summary_batch = {metric: metrics[metric](output_batch[:, :, [0, 1]], labels_batch) for metric in metrics}
+        summary_batch = {metric: metrics[metric](output_batch, labels_batch) for metric in metrics}
         summary_batch['loss'] = loss.item()
         summary.append(summary_batch)
     # compute mean of all metrics in summary
@@ -25,6 +25,6 @@ def evaluate(model, loss_fn, data_loader, metrics, config) -> (float, dict):
                                      for x in summary]) for metric in summary[0]}
     metrics_string = " ; ".join("{}: {:05.3f}".format(k, v)
                                 for k, v in metrics_mean.items())
-    config.logger.info("- Eval metrics : " + metrics_string)
+    config.logger.info("Eval metrics : " + metrics_string)
 
     return float(loss.item()), metrics_mean

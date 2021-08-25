@@ -27,8 +27,8 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
 
             # Model output and it's loss
             output_batch = model(train_batch)
-            # loss = loss_fn(output_batch, labels_batch)
-            loss = loss_fn(output_batch, train_batch)
+            loss = loss_fn(output_batch, labels_batch)
+            # loss = loss_fn(output_batch, train_batch)
             # clear previous gradients,  computer gradients of all variable wrt loss
             optimizer.zero_grad()
             loss.backward()
@@ -38,7 +38,7 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
                 output_batch = output_batch.detach()
                 labels_batch = labels_batch.detach()
                 # compute all metrics on this batch
-                summary_batch = {metric: metrics[metric](output_batch[:, :, [0, 1]], labels_batch)
+                summary_batch = {metric: metrics[metric](output_batch, labels_batch)
                                  for metric in metrics}
                 summary_batch['loss'] = loss.item()
                 summary.append(summary_batch)

@@ -1,7 +1,7 @@
 # ================ Configuration for Model ===============
 output_dir: outputs
 validation_split: .1
-test_split: .1
+test_split: .8
 batch_size: 64
 num_epochs: 60
 learning_rate: .0001
@@ -14,20 +14,20 @@ load_checkpoint: False
 input_dir: simulated_data  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cpu
+device: cuda:0
 log_level: info
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
 progress_bar_disable: False
-save_for_picasso: False  # This will save both the raw file and ground truth compatible with picasso
+save_for_picasso: True  # This will save both the raw file and ground truth compatible with picasso
 
 # ================ Camera Settings ===============
 # Padding in each framed
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 15000  # Total Number of frames
-split_into: 1 # Total number of frames will be splitted into this amount of files
+total_frames: 1500  # Total Number of frames
+split_into: 3 # Total number of frames will be splitted into this amount of files
 image_size: 32  # Height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
@@ -42,7 +42,7 @@ distance_y: 10  # (nm)
 origami_row: 6
 origami_column: 8
 unique_origami: 3
-total_origami: 10  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
+total_origami: 30  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
 # Float value ranging 0.0 - 1.0
@@ -55,12 +55,12 @@ origami_arrangement: 0
 origami_3d: 0
 origami_mean: False # Center of the mass of
 # Adding drift
-drift_x: 10  # Drift in nanometer in x direction for each 1000 frame
-drift_y: 10  # Drift in nanometer in y direction for each 1000 frame
+drift_x: 0  # Drift in nanometer in x direction for each 1000 frame
+drift_y: 0  # Drift in nanometer in y direction for each 1000 frame
 # Drift will be added in the whole frame
 # linear --> Evenly distribute the drift among 1000 frames
 # random_walk --> Randomly choose the drift from the normal distribution of mean 0 and SD 50/1000
-drift_method: random_walk  # we can also put random walk
+drift_method: linear  # we can also put random walk
 
 # Number of localization event that will blink all the frames
 num_gold_nano_particle: 0
