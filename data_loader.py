@@ -5,9 +5,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from read_config import Config
 from generate_target import generate_target_from_path
-from torch.utils.data.sampler import SubsetRandomSampler
-import numpy as np
-from torchvision import transforms
 
 
 class SMLMDataset(Dataset):
@@ -15,7 +12,8 @@ class SMLMDataset(Dataset):
         gt_file_names = glob.glob(f"{data_set_dir}/*_gt.pl")
         self.data, self.target = self.get_data_and_target(gt_file_names, config)
 
-    def get_data_and_target(self, gt_file_names: list, config):
+    @staticmethod
+    def get_data_and_target(gt_file_names: list, config: Config):
         data = None
         target = None
         for single_gt_file in gt_file_names:
@@ -35,20 +33,21 @@ class SMLMDataset(Dataset):
     def __len__(self):
         return self.target.shape[0]
 
-    def __getitem__(self, index):
-        x = self.data[index]
-        y = self.target[index]
+    def __getitem__(self, index: int):
+        x: torch.Tensor = self.data[index]
+        y: torch.Tensor = self.target[index]
+        # Normalize the data
         x = x / x.norm()
+        y = y / y.norm()
         return x, y
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True):
     """
 
-    :param types:
-    :param config:
-    :param shuffle
-    :return:
+    Args:
+        config ():
+        shuffle (object):
     """
     train_dir = os.path.join(config.input_dir, "train")
     val_dir = os.path.join(config.input_dir, "validation")
@@ -65,6 +64,6 @@ def fetch_data_loader(config: Config, shuffle: bool = True):
 
 
 if __name__ == '__main__':
-    config = Config('config.yaml')
-    dl = fetch_data_loader(config)
-    x, y = next(iter(dl[0]))
+    config_ = Config('config.yaml')
+    dl = fetch_data_loader(config_)
+    x_, y_ = next(iter(dl[0]))
