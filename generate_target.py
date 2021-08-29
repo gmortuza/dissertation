@@ -1,7 +1,4 @@
 # Convert pickle to target dataset
-import sys
-
-import numpy as np
 import torch
 from read_config import Config
 from utils import generate_image_from_points
@@ -54,6 +51,7 @@ def get_gt_as_image(input_tensor: torch.Tensor, config: Config, start_frame: int
                               disable=config.progress_bar_disable):
         # Take the points for this frame only
         frame_blinkers = input_tensor[input_tensor[:, 0] == frame_id]
+        # TODO: remove this for loop and vectorize this
         for blinker in frame_blinkers:
             mu = torch.round(blinker[[1, 2]].to(config.device) * config.output_resolution).int()
             high_res_movie[idx][mu[1]][mu[0]] += blinker[7]
