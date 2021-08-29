@@ -135,4 +135,6 @@ outputs/
 *.hdf5
 *.raw
 *.tiff
+*.jpg
+*.jpeg
 generated_data/
