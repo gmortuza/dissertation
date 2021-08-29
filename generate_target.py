@@ -1,4 +1,6 @@
 # Convert pickle to target dataset
+import sys
+
 import numpy as np
 import torch
 from read_config import Config
@@ -48,32 +50,17 @@ def get_gt_as_image(input_tensor: torch.Tensor, config: Config, start_frame: int
     total_frame = end_frame - start_frame
     high_res_image_size = config.image_size * config.output_resolution
     high_res_movie = torch.zeros((total_frame, high_res_image_size, high_res_image_size))
-    for idx, frame_id in tqdm(enumerate(range(start_frame, end_frame)), total=total_frame, desc="Generating target", disable=config.progress_bar_disable):
+    for idx, frame_id in tqdm(enumerate(range(start_frame, end_frame)), total=total_frame, desc="Generating target",
+                              disable=config.progress_bar_disable):
         # Take the points for this frame only
         frame_blinkers = input_tensor[input_tensor[:, 0] == frame_id]
-        # Generate frame here
-        n_photons = int(frame_blinkers.sum(0)[7])
-        photon_pos_frame = torch.zeros((int(n_photons), 2), device=config.device)
-        start = 0
         for blinker in frame_blinkers:
-            photons = int(blinker[7])
-            mu = blinker[[1, 2]].to(config.device) * config.output_resolution
-            cov = torch.tensor([[config.Imager_PSF * config.Imager_PSF, 0],
-                                [0, config.Imager_PSF * config.Imager_PSF]], device=config.device)
-            multivariate_dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, cov)
-            samples = multivariate_dist.sample((photons,))
-            photon_pos_frame[start: start + photons, :] = samples
-            start += photons
-        photon_pos_frame = photon_pos_frame.cpu().numpy()
-        frame_without_noise, _, _ = np.histogram2d(photon_pos_frame[:, 1], photon_pos_frame[:, 0],
-                                                   bins=(range(high_res_image_size + 1), range(high_res_image_size + 1)))
-        frame_without_noise = torch.from_numpy(frame_without_noise).to(config.device)
-        high_res_movie[idx] = frame_without_noise
-        # high_res_movie[idx] = frame_without_noise / frame_without_noise.norm()
+            mu = torch.round(blinker[[1, 2]].to(config.device) * config.output_resolution).int()
+            high_res_movie[idx][mu[1]][mu[0]] += blinker[7]
     # Save higher resolution image for test
-    high_res_movie_single = torch.sum(high_res_movie, axis=0)
-    plt.imsave("test.tiff", high_res_movie_single, cmap='gray')
-
+    # high_res_movie_single = torch.sum(high_res_movie, axis=0)
+    # high_res_movie_single[high_res_movie_single > 0] = 255.
+    # plt.imsave("test1.tiff", high_res_movie_single, cmap='gray')
     return high_res_movie
 
 
