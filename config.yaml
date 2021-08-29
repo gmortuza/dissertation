@@ -1,20 +1,21 @@
 # ================ Configuration for Model ===============
 output_dir: outputs
 validation_split: .1
-test_split: .8
+test_split: .1
 batch_size: 64
 num_epochs: 60
 learning_rate: .0001
 model_type: unet
 save_summary_steps: 40 # batch
 load_checkpoint: False
+output_resolution: 50  # increase the resolution of the image by x times
 
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cuda:0
+device: cpu
 log_level: info
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
@@ -26,8 +27,8 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 1500  # Total Number of frames
-split_into: 3 # Total number of frames will be splitted into this amount of files
+total_frames: 10000  # Total Number of frames
+split_into: 1 # Total number of frames will be splitted into this amount of files
 image_size: 32  # Height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
