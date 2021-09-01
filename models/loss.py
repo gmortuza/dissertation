@@ -20,8 +20,14 @@ class dNamNNLoss(nn.Module):
         # Create a gaussian mixture model from target
         # formatted_target = targets[:, :, [0, 1]].permute(1, 0, 2)
         # return self._kl_dv_loss(outputs, targets)
-        return self._gmm_loss(outputs, targets)
+        return self._L1L2Loss(outputs, targets)
+        # return self._gmm_loss(outputs, targets)
         # return nn.MSELoss(reduction='mean')(outputs, targets)
+
+    def _L1L2Loss(self, outputs, targets):
+        # TODO: fix the shape during making the target
+        targets = targets.view(outputs.shape)
+        return nn.MSELoss(reduction='mean')(outputs, targets)
 
     def _mse_loss(self, outputs, targets):
         return nn.MSELoss(reduction='mean')(outputs, targets)

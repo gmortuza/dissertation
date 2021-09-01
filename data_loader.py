@@ -22,6 +22,9 @@ class SMLMDataset(Dataset):
             single_data_shape = single_data.shape
             single_data = single_data.reshape(single_data_shape[0], 1, single_data_shape[1], single_data_shape[2])
             single_target = generate_target_from_path(single_gt_file, config)
+            # Normalize target here so that we can change the datatype to avoid memory crash
+            # single_target = single_target / single_target.norm()
+            # single_target = single_target
             if data is None:
                 data = single_data
                 target = single_target
@@ -37,8 +40,9 @@ class SMLMDataset(Dataset):
         x: torch.Tensor = self.data[index]
         y: torch.Tensor = self.target[index]
         # Normalize the data
-        x = x / x.norm()
-        y = y / y.norm()
+        # TODO: change 50000 to maximum assigned photons
+        x = x / 50000.
+        y = y / 50000.
         return x, y
 
 
