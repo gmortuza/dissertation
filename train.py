@@ -116,7 +116,7 @@ if __name__ == '__main__':
     config.tensor_board_writer = SummaryWriter(config.tensorflow_log_dir)
     model = get_model(config)
     loss_fn = dNamNNLoss(config)
-    train_data_loader, val_data_loader, test_data_loader = fetch_data_loader(config)
+    train_data_loader, val_data_loader = fetch_data_loader(config)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 
     train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, metrics, config)
