@@ -3,7 +3,6 @@ import os
 
 import torch
 from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
 
 from read_config import Config
 from generate_target import generate_target_from_path
@@ -64,6 +63,8 @@ class SMLMDataset(Dataset):
         # Normalize the data
         # TODO: change 50000 to maximum assigned photons
         x = x / 50000.
+        # Upscale the input
+        x = torch.nn.Upsample(scale_factor=self.config.output_resolution, mode="bilinear")(x.unsqueeze(0))[0]
         if self.type_ == 'train':
             y: torch.Tensor = self._get_image_from_point(self.target[index])
             # convert points into images

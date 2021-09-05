@@ -43,11 +43,7 @@ class UNet(nn.Module):
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
 
         self.generate_high_res_image = nn.Sequential(
-            nn.ConvTranspose2d(features[0], 32, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(32, 16, kernel_size=5, stride=2),
-            nn.ConvTranspose2d(16, 8, kernel_size=3, stride=3),
-            nn.ConvTranspose2d(8, 1, kernel_size=4, stride=2),
-            # nn.ConvTranspose2d(4, 1, kernel_size=2, stride=2),
+            nn.ConvTranspose2d(features[0], 1, kernel_size=1, stride=1),
         )
 
     def forward(self, x):
@@ -68,7 +64,7 @@ class UNet(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         # x = torch.flatten(x, 1)
-        return self.generate_high_res_image(x)
+        return torch.tanh(self.generate_high_res_image(x))
 
 
 if __name__ == '__main__':
