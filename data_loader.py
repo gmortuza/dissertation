@@ -3,6 +3,8 @@ import os
 
 import torch
 from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
+
 from read_config import Config
 from generate_target import generate_target_from_path
 
@@ -28,7 +30,7 @@ class SMLMDataset(Dataset):
             single_data = single_data.reshape(single_data_shape[0], 1, single_data_shape[1], single_data_shape[2])
             # there will be no target during test
             if self.type_ != 'test':
-                single_target = generate_target_from_path(single_gt_file, self.config)
+                single_target = generate_target_from_path(single_gt_file, self.config, target="points")
             # Normalize target here so that we can change the datatype to avoid memory crash
             # single_target = single_target / single_target.norm()
             # single_target = single_target
@@ -44,6 +46,16 @@ class SMLMDataset(Dataset):
             return data, target
         return data
 
+    def _get_image_from_point(self, point: torch.Tensor) -> torch.Tensor:
+        # points --> [x, y, photons]
+        high_res_image_size = self.config.image_size * self.config.output_resolution
+        high_res_movie = torch.zeros((high_res_image_size, high_res_image_size), device=self.config.device)
+        # TODO: remove this for loop and vectorize this
+        for blinker in point[point[:, 2] > 0.]:
+            mu = torch.round(blinker[[0, 1]] * self.config.output_resolution).int()
+            high_res_movie[mu[1]][mu[0]] += blinker[2]
+        return high_res_movie.unsqueeze(0)
+
     def __len__(self):
         return self.data.shape[0]
 
@@ -52,8 +64,9 @@ class SMLMDataset(Dataset):
         # Normalize the data
         # TODO: change 50000 to maximum assigned photons
         x = x / 50000.
-        if self.type_ != 'test':
-            y: torch.Tensor = self.target[index]
+        if self.type_ == 'train':
+            y: torch.Tensor = self._get_image_from_point(self.target[index])
+            # convert points into images
             y = y / 50000.
             return x, y
         return x
