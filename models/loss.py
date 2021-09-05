@@ -4,6 +4,7 @@ from torch import distributions as D
 from geomloss import SamplesLoss
 from torch.nn import KLDivLoss
 import matplotlib.pyplot as plt
+from .metrics import normalized_cross_correlation
 
 from utils import generate_image_from_points
 
@@ -20,14 +21,50 @@ class dNamNNLoss(nn.Module):
         # Create a gaussian mixture model from target
         # formatted_target = targets[:, :, [0, 1]].permute(1, 0, 2)
         # return self._kl_dv_loss(outputs, targets)
-        return self._L1L2Loss(outputs, targets)
+        return self._cross_coreation_loss(outputs, targets)
         # return self._gmm_loss(outputs, targets)
         # return nn.MSELoss(reduction='mean')(outputs, targets)
 
     def _L1L2Loss(self, outputs, targets):
         # TODO: fix the shape during making the target
-        targets = targets.view(outputs.shape)
+        # targets = targets.view(outputs.shape)
         return nn.MSELoss(reduction='mean')(outputs, targets)
+
+    def _cross_coreation_loss(self, outputs, targets):
+        shape = outputs.shape
+        b = shape[0]
+
+        # reshape
+        x = outputs.view(b, -1)
+        y = targets.view(b, -1)
+
+        # mean
+        x_mean = torch.mean(x, dim=1, keepdim=True)
+        y_mean = torch.mean(y, dim=1, keepdim=True)
+
+        # deviation
+        x = x - x_mean
+        y = y - y_mean
+
+        dev_xy = torch.mul(x, y)
+        dev_xx = torch.mul(x, x)
+        dev_yy = torch.mul(y, y)
+
+        dev_xx_sum = torch.sum(dev_xx, dim=1, keepdim=True)
+        dev_yy_sum = torch.sum(dev_yy, dim=1, keepdim=True)
+        eps = 1e-8
+        ncc = torch.div(dev_xy + eps / dev_xy.shape[1],
+                        torch.sqrt(torch.mul(dev_xx_sum, dev_yy_sum)) + eps)
+        reduction = 'mean'
+        # reduce
+        if reduction == 'mean':
+            ncc = torch.mean(torch.sum(ncc, dim=1))
+        elif reduction == 'sum':
+            ncc = torch.sum(ncc)
+        else:
+            raise KeyError('unsupported reduction type: %s' % reduction)
+
+        return 1 - ncc
 
     def _mse_loss(self, outputs, targets):
         return nn.MSELoss(reduction='mean')(outputs, targets)
