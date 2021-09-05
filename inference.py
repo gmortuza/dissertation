@@ -41,6 +41,8 @@ def main():
     # Single output
     single_frame = torch.sum(output, axis=0).view(800, 800).detach().cpu().numpy()
     # save the final output image
+    plt.rcParams['figure.dpi'] = 600
+    plt.rcParams['savefig.dpi'] = 600
     plt.imsave("final_output.tiff", single_frame, cmap='gray')
 
 
