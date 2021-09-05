@@ -13,8 +13,11 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import numpy as np
 
+scaler = torch.cuda.amp.GradScaler()
 
-def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_loader: torch.utils.data.DataLoader, metrics, config: Config) -> (float, float):
+
+def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_loader: torch.utils.data.DataLoader,
+          metrics, config: Config) -> (float, float):
     model.train()
     summary = []
     loss_avg = utils.RunningAverage()
@@ -26,13 +29,16 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
             labels_batch = labels_batch.to(config.device, non_blocking=True)
 
             # Model output and it's loss
-            output_batch = model(train_batch)
-            loss = loss_fn(output_batch, labels_batch)
+            with torch.cuda.amp.autocast(enabled=True):
+                output_batch = model(train_batch)
+                loss = loss_fn(output_batch, labels_batch)
             # loss = loss_fn(output_batch, train_batch)
             # clear previous gradients,  computer gradients of all variable wrt loss
+
             optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             if i % config.save_summary_steps == 0:
                 output_batch = output_batch.detach()
@@ -120,5 +126,3 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 
     train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, metrics, config)
-
-
