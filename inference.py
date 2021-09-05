@@ -30,20 +30,16 @@ def main():
     config.logger.info(f"Restoring parameters from {config.checkpoint_dir}")
     _ = utils.load_checkpoint(config.checkpoint_dir, model, config, optimizer)
     test_data_loader = fetch_data_loader(config, type_='test')
-    output = None
+    output = torch.zeros((config.image_size * config.output_resolution, config.image_size * config.output_resolution),
+                         device=config.device)
     for data_batch in test_data_loader:
         output_batch = model(data_batch)
-        if output is None:
-            output = output_batch
-        else:
-            output = torch.cat((output, output_batch), axis=0)
+        output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)
     # TODO: extract points from each of these frames
-    # Single output
-    single_frame = torch.sum(output, axis=0).view(800, 800).detach().cpu().numpy()
     # save the final output image
     plt.rcParams['figure.dpi'] = 600
     plt.rcParams['savefig.dpi'] = 600
-    plt.imsave("final_output.tiff", single_frame, cmap='gray')
+    plt.imsave("final_output.tiff", output, cmap='gray')
 
 
 if __name__ == '__main__':
