@@ -7,6 +7,7 @@ import utils
 from data_loader import fetch_data_loader
 from read_config import Config
 from models.get_model import get_model
+from generate_target import generate_target_from_path
 
 
 def read_args():
@@ -37,10 +38,20 @@ def main():
         output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)
     # TODO: extract points from each of these frames
     # save the final output image
-    plt.rcParams['figure.dpi'] = 600
-    plt.rcParams['savefig.dpi'] = 600
-    plt.imsave("final_output.tiff", output, cmap='gray')
+    plt.rcParams['figure.dpi'] = 300
+    plt.rcParams['savefig.dpi'] = 300
+    plt.imsave("final_output.tiff", output.cpu().numpy(), cmap='gray')
 
 
 if __name__ == '__main__':
     main()
+    # config = Config('config.yaml')
+    # images_1 = generate_target_from_path('simulated_data/train/data_1_8000_gt.pl', config, target='images').squeeze(1).sum(axis=0)
+    # images_2 = generate_target_from_path('simulated_data/train/data_8001_16000_gt.pl', config, target='images').squeeze(1).sum(axis=0)
+    # image = images_1 + images_2
+    # plt.rcParams['figure.dpi'] = 300
+    # plt.rcParams['savefig.dpi'] = 300
+    # image = image.detach().cpu()
+    # plt.imshow(image.detach().cpu(), cmap='gray')
+    # plt.imsave("inference.tiff", image, cmap='gray')
+    # plt.show()
