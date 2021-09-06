@@ -21,9 +21,15 @@ class dNamNNLoss(nn.Module):
         # Create a gaussian mixture model from target
         # formatted_target = targets[:, :, [0, 1]].permute(1, 0, 2)
         # return self._kl_dv_loss(outputs, targets)
-        return self._cross_coreation_loss(outputs, targets)
+        # return self._cross_coreation_loss(outputs, targets)
         # return self._gmm_loss(outputs, targets)
+        return self._mse_loss(outputs, targets)
         # return nn.MSELoss(reduction='mean')(outputs, targets)
+
+    def _cross_entropy(self, outputs, targets):
+        targets = targets * 500000.
+        targets = targets.squeeze(1).long()
+        return nn.CrossEntropyLoss()(outputs, targets)
 
     def _L1L2Loss(self, outputs, targets):
         # TODO: fix the shape during making the target

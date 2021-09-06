@@ -1,4 +1,6 @@
 # Convert pickle to target dataset
+import sys
+
 import torch
 from read_config import Config
 from utils import generate_image_from_points
@@ -63,16 +65,19 @@ def get_gt_as_image(input_tensor: torch.Tensor, config: Config, start_frame: int
             high_res_movie[idx][mu[1]][mu[0]] += blinker[7]
         # high_res_movie[idx] = high_res_movie[idx] / high_res_movie[idx].norm()
     # Save higher resolution image for test
-    # high_res_movie_single = torch.sum(high_res_movie, axis=0)
-    # high_res_movie_single[high_res_movie_single > 0] = 255.
-    # plt.imsave("test1.tiff", high_res_movie_single, cmap='gray')
+    # plt.rcParams['figure.dpi'] = 300
+    # plt.rcParams['savefig.dpi'] = 300
+    # image = high_res_movie.sum(axis=0).half().detach().cpu()
+    # image[image > 0] = 255.
+    # plt.imsave("test1.tiff", image, cmap='gray')
+    # sys.exit(0)
     return high_res_movie.unsqueeze(1)
 
 
 def generate_target_from_path(gt_path: str, config: Config, target='points'):
     if isinstance(config, str):
         config = Config(config)
-    input_tensor = torch.load(gt_path)
+    input_tensor = torch.load(gt_path).to(config.device)
     path_arr = gt_path.replace("_gt.pl", "").split("_")
     start_frame, end_frame = int(path_arr[-2]) - 1, int(path_arr[-1])
     return generate_target_gt(input_tensor, config, start_frame, end_frame, target)

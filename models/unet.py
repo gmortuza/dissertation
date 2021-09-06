@@ -64,7 +64,7 @@ class UNet(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         # x = torch.flatten(x, 1)
-        return torch.tanh(self.generate_high_res_image(x))
+        return torch.sigmoid(self.generate_high_res_image(x))
 
 
 if __name__ == '__main__':

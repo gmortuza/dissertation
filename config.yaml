@@ -3,12 +3,12 @@ output_dir: outputs
 validation_split: .1
 test_split: .1
 batch_size: 16
-num_epochs: 60
+num_epochs: 30
 learning_rate: .0001
 model_type: unet
 save_summary_steps: 40 # batch
-load_checkpoint: False
-output_resolution: 25  # increase the resolution of the image by x times
+load_checkpoint: True
+output_resolution: 8  # increase the resolution of the image by x times
 
 
 # ================ General settings ===============
@@ -27,9 +27,9 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 7000  # Total Number of frames
-split_into: 1 # Total number of frames will be splitted into this amount of files
-image_size: 32  # Height and width will be the same
+total_frames: 20000  # Total Number of frames
+split_into: 2 # Total number of frames will be splitted into this amount of files
+image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
 max_number_of_emitter_per_frame: 30
