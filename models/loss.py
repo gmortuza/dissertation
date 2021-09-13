@@ -1,12 +1,33 @@
 import torch
+from torch import Tensor
 import torch.nn as nn
 from torch import distributions as D
 from geomloss import SamplesLoss
 from torch.nn import KLDivLoss
+from torchvision import models
 import matplotlib.pyplot as plt
 from .metrics import normalized_cross_correlation
 
 from utils import generate_image_from_points
+
+
+class VGGLoss(nn.Module):
+    def __init__(self):
+        super(VGGLoss, self).__init__()
+        vgg = models.vgg19(pretrained=True, num_classes=1000).features[:36].eval().to('cuda:0')
+        # Modify so that vgg takes single channel
+        vgg = list(vgg.children())
+        weight = vgg[0].weight
+        vgg[0] = nn.Conv2d(1, 64, 3, 1, 1, bias=False)
+        vgg[0].weight = nn.Parameter(torch.mean(weight, dim=1, keepdim=True))
+        self.vgg = nn.Sequential(*vgg)
+        for params in self.vgg.parameters():
+            params.requires_grad = False
+
+    def forward(self, output_tensor: Tensor, target_tensor: Tensor) -> Tensor:
+        output_features = self.vgg(output_tensor)
+        target_features = self.vgg(target_tensor)
+        return nn.MSELoss()(output_features, target_features)
 
 
 class dNamNNLoss(nn.Module):
@@ -23,7 +44,7 @@ class dNamNNLoss(nn.Module):
         # return self._kl_dv_loss(outputs, targets)
         # return self._cross_coreation_loss(outputs, targets)
         # return self._gmm_loss(outputs, targets)
-        return self._mse_loss(outputs, targets)
+        return self._mse_loss(outputs, targets) + VGGLoss()(outputs, targets)
         # return nn.MSELoss(reduction='mean')(outputs, targets)
 
     def _cross_entropy(self, outputs, targets):
@@ -35,42 +56,6 @@ class dNamNNLoss(nn.Module):
         # TODO: fix the shape during making the target
         # targets = targets.view(outputs.shape)
         return nn.MSELoss(reduction='mean')(outputs, targets)
-
-    def _cross_coreation_loss(self, outputs, targets):
-        shape = outputs.shape
-        b = shape[0]
-
-        # reshape
-        x = outputs.view(b, -1)
-        y = targets.view(b, -1)
-
-        # mean
-        x_mean = torch.mean(x, dim=1, keepdim=True)
-        y_mean = torch.mean(y, dim=1, keepdim=True)
-
-        # deviation
-        x = x - x_mean
-        y = y - y_mean
-
-        dev_xy = torch.mul(x, y)
-        dev_xx = torch.mul(x, x)
-        dev_yy = torch.mul(y, y)
-
-        dev_xx_sum = torch.sum(dev_xx, dim=1, keepdim=True)
-        dev_yy_sum = torch.sum(dev_yy, dim=1, keepdim=True)
-        eps = 1e-8
-        ncc = torch.div(dev_xy + eps / dev_xy.shape[1],
-                        torch.sqrt(torch.mul(dev_xx_sum, dev_yy_sum)) + eps)
-        reduction = 'mean'
-        # reduce
-        if reduction == 'mean':
-            ncc = torch.mean(torch.sum(ncc, dim=1))
-        elif reduction == 'sum':
-            ncc = torch.sum(ncc)
-        else:
-            raise KeyError('unsupported reduction type: %s' % reduction)
-
-        return 1 - ncc
 
     def _mse_loss(self, outputs, targets):
         return nn.MSELoss(reduction='mean')(outputs, targets)

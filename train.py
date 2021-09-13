@@ -24,9 +24,6 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
 
     with tqdm(total=len(train_data_loader)) as progress_bar:
         for i, (train_batch, labels_batch) in enumerate(train_data_loader):
-            # Move training data to GPU if possible
-            train_batch = train_batch.to(config.device, non_blocking=True)
-            labels_batch = labels_batch.to(config.device, non_blocking=True)
 
             # Model output and it's loss
             with torch.cuda.amp.autocast(enabled=True):
@@ -41,8 +38,6 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
             scaler.update()
 
             if i % config.save_summary_steps == 0:
-                output_batch = output_batch.detach()
-                labels_batch = labels_batch.detach()
                 # compute all metrics on this batch
                 summary_batch = {metric: metrics[metric](output_batch, labels_batch)
                                  for metric in metrics}
