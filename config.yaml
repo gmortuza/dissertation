@@ -2,20 +2,20 @@
 output_dir: outputs
 validation_split: .1
 test_split: .1
-batch_size: 32
+batch_size: 8
 num_epochs: 30
 learning_rate: .0001
 model_type: unet
 save_summary_steps: 40 # batch
 load_checkpoint: True
-output_resolution: 8  # increase the resolution of the image by x times
+output_resolution: 6  # increase the resolution of the image by x times
 
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cuda:0
+device: cpu
 log_level: info
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose

@@ -53,7 +53,8 @@ def get_gt_as_points(input_tensor: torch.Tensor, config: Config, start_frame: in
 
 def get_gt_as_image(input_tensor: torch.Tensor, config: Config, start_frame: int, end_frame: int) -> torch.Tensor:
     total_frame = end_frame - start_frame
-    high_res_image_size = config.image_size * config.output_resolution
+    # TODO: replace 24 with config resolution
+    high_res_image_size = config.image_size * config.output_resolution * 4
     high_res_movie = torch.zeros((total_frame, high_res_image_size, high_res_image_size), device=config.device)
     for idx, frame_id in tqdm(enumerate(range(start_frame, end_frame)), total=total_frame, desc="Generating target",
                               disable=config.progress_bar_disable):
@@ -61,7 +62,8 @@ def get_gt_as_image(input_tensor: torch.Tensor, config: Config, start_frame: int
         frame_blinkers = input_tensor[input_tensor[:, 0] == frame_id]
         # TODO: remove this for loop and vectorize this
         for blinker in frame_blinkers:
-            mu = torch.round(blinker[[1, 2]] * config.output_resolution).int()
+
+            mu = torch.round(blinker[[1, 2]] * config.output_resolution * 4).int()
             high_res_movie[idx][mu[1]][mu[0]] += blinker[7]
         # high_res_movie[idx] = high_res_movie[idx] / high_res_movie[idx].norm()
     # Save higher resolution image for test

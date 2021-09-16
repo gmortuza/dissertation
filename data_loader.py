@@ -1,5 +1,6 @@
 import glob
 import os
+import pickle
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -34,37 +35,40 @@ class SMLMDataset(Dataset):
                 label_[:, 7] /= normalize_factor
                 for idx, single_input in tqdm(enumerate(input_, start), total=input_.shape[0], desc="Upsampling the data individual",
                               disable=self.config.progress_bar_disable, leave=False):
-                    single_input_upsampled = upsample_fn(single_input.unsqueeze(0))
+                    single_input_upsampled = upsample_fn(single_input.unsqueeze(0)).squeeze(0)
                     if self.type_ == 'test':
-                        combine_training = single_input_upsampled[0]
+                        single_label_upsampled = None
                     else:
                         single_label = label_[label_[:, 0] == idx]
                         single_label_upsampled = self._get_image_from_point(single_label)
-                        combine_training = torch.cat((single_input_upsampled, single_label_upsampled), dim=0)
+                        # combine_training = torch.cat((single_input_upsampled, single_label_upsampled), dim=0)
                     f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{idx}.pl"
-                    torch.save(combine_training, f_name)
+                    # save the input and label as pickle
+                    with open(f_name, 'wb') as handle:
+                        pickle.dump([single_input_upsampled, single_label_upsampled], handle)
+                    # torch.save(combine_training, f_name)
                     total += 1
             return total
 
     def _get_image_from_point(self, point: torch.Tensor) -> torch.Tensor:
         # points --> [x, y, photons]
-        high_res_image_size = self.config.image_size * self.config.output_resolution
+        high_res_image_size = self.config.image_size * self.config.output_resolution * 4
         high_res_movie = torch.zeros((high_res_image_size, high_res_image_size), device=self.config.device)
         # TODO: remove this for loop and vectorize this
         for blinker in point[point[:, 7] > 0.]:
-            mu = torch.round(blinker[[1, 2]] * self.config.output_resolution).int()
+            mu = torch.round(blinker[[1, 2]] * self.config.output_resolution * 4).int()
             high_res_movie[mu[1]][mu[0]] += blinker[7]
-        return high_res_movie.unsqueeze(0).unsqueeze(0)
+        return high_res_movie.unsqueeze(0)
 
     def __len__(self):
         return self.total_data
 
     def __getitem__(self, index: int):
         f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index}.pl"
-        data = torch.load(f_name)
-        if data.shape[0] == 1:  # it's the test directory
-            return data[0]
-        return data[0], data[1]
+        with open(f_name, 'rb') as handle:
+            x, y = pickle.load(handle)
+        # if y is none then it's test. so we don't require the label
+        return x, y if y is not None else x
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):

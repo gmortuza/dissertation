@@ -120,4 +120,6 @@ if __name__ == '__main__':
     train_data_loader, val_data_loader = fetch_data_loader(config)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 
-    train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, metrics, config)
+    # train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, metrics, config)
+    from models.srgan.train import train_evaluation
+    train_evaluation()
