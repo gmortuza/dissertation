@@ -2,9 +2,6 @@ import torch
 import numpy as np
 from simulation.unique_origami import get_unique_origami
 from utils import convert_device
-from simulation.histogram import histogram2d, custom_histogram, custom_np_histogram
-import matplotlib.pyplot as plt
-from simulation.noise import extract_noise_from_frame
 
 
 def generate_binding_site_position(config):
@@ -31,14 +28,14 @@ def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
 
         structure += grid_pos[i]
 
-        structures = torch.cat((structures, structure), axis=1)
+        structures = torch.cat(tensors=(structures, structure), dim=1)
 
     # Choose some random position from the whole movie to put the always on event
     if config.num_gold_nano_particle > 0:
         uniform_distribution = torch.distributions.uniform.Uniform(
             low=config.frame_padding, high=config.image_size - config.frame_padding)
         fixed_structure = uniform_distribution.sample((2, config.num_gold_nano_particle))
-        structures = torch.cat((structures, fixed_structure), axis=1)
+        structures = torch.cat(tensors=(structures, fixed_structure), dim=1)
 
     return structures
 
@@ -97,11 +94,14 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
     photon_rate_std = config.Imager_photon_rate_std
     photon_rate = config.Imager_photon_rate
 
-    # The last ids are for always on binding site
+    # The last ids are for always on binding site -- gold nano particle
     always_on = config.photons_for_each_gold_nano_particle if \
         num_of_binding_site - binding_site_id <= int(config.num_gold_nano_particle) else 0
 
     # This method will be called from the multiprocess pool
+    # total_acquisition_time = frame * integration_time
+    # total time for a single binding event = mean_dark + mean_bright
+    # total number of event = total_acquisition_time / total time for a single binding event
     num_of_blinking_event = 4 * int(
         np.ceil(frames * time / (mean_dark + mean_bright))
     )  # This is an estimate for the total number of binding events
@@ -110,25 +110,28 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
 
     if always_on > 0:
         # return it with id
-        return binding_site_id, torch.distributions.normal.Normal\
-            (torch.tensor(always_on / frames), torch.tensor((photon_rate_std))).sample((frames, )).clip(min=0)
-        return
+        return binding_site_id, torch.distributions.normal.\
+            Normal(torch.tensor(always_on / frames), torch.tensor(photon_rate_std)).sample((frames, )).clip(min=0)
     dark_times = np.random.exponential(mean_dark, num_of_blinking_event)
     bright_times = np.random.exponential(mean_bright, num_of_blinking_event)
 
+    # dark time will be followed by the bright times
     events = np.vstack((dark_times, bright_times)).reshape(
         (-1,), order="F"
     )  # Interweave dark_times and bright_times [dt,bt,dt,bt..]
+    # track the total time
     event_sum = np.cumsum(events)
+    # Find the first event that exceeds the total integration time
+    # will not use the event that surpass the total integration time
     max_loc = np.argmax(
         event_sum > (frames * time)
-    )  # Find the first event that exceeds the total integration time
-
+    )
+    # an on-event might be longer than the movie, so allocate more memory
     photons_in_frame = np.zeros(
         int(frames + np.ceil(mean_bright / time * 20))
-    )  # an on-event might be longer than the movie, so allocate more memory
-
-    # calculate photon numbers
+    )
+    # we will only use events time that are within our total acquisition time (frames * integration time) limit
+    # event sum is combine of dark and bright event. One binding event will complete by combining both these event
     for i in range(1, max_loc, 2):
         if photon_rate_std == 0:
             photons = np.round(photon_rate * time)
@@ -137,70 +140,37 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
                 np.random.normal(photon_rate, photon_rate_std) * time
             )  # Number of Photons that are emitted in one frame
 
-        if photons < 0:
-            photons = 0
+        photons = max(photons, 0)
 
+        # use the event time stamp to see on which frame that event happened
         tempFrame = int(
             np.floor(event_sum[i - 1] / time)
-        )  # Get the first frame in which something happens in on-event
+        )
+        # this particular blinking event will be active for #on_frames frames continuously
+        # Number of frames in which photon emittance happens
         on_frames = int(
             np.ceil((event_sum[i] - tempFrame * time) / time)
-        )  # Number of frames in which photon emittance happens
-
+        )
+        # if total budget exceed for a particular binding event then reduce number of on frame
         if photons * on_frames > photon_budget:
             on_frames = int(
                 np.ceil(photon_budget / (photons * on_frames) * on_frames)
             )  # Reduce the number of on-frames if the photon_budget is reached
-
+        # assign photons for each of the on frames for this particular binding event
         for j in range(0, on_frames):
-            if on_frames == 1:  # CASE 1: all photons are emitted in one frame
-                photons_in_frame[1 + tempFrame] = int(
-                    np.random.poisson(
-                        ((tempFrame + 1) * time - event_sum[i - 1])
-                        / time
-                        * photons
-                    )
-                )
-            elif (
-                    on_frames == 2
-            ):  # CASE 2: all photons are emitted in two frames
-                if j == 1:  # photons in first on frame
-                    photons_in_frame[1 + tempFrame] = int(
-                        np.random.poisson(
-                            ((tempFrame + 1) * time - event_sum[i - 1])
-                            / time
-                            * photons
-                        )
-                    )
-                else:  # photons in second on frame
-                    photons_in_frame[2 + tempFrame] = int(
-                        np.random.poisson(
-                            (event_sum[i] - (tempFrame + 1) * time)
-                            / time
-                            * photons
-                        )
-                    )
-            else:  # CASE 3: all photons are emitted in three or more frames
-                if j == 1:
-                    photons_in_frame[1 + tempFrame] = int(
-                        np.random.poisson(
-                            ((tempFrame + 1) * time - event_sum[i - 1])
-                            / time
-                            * photons
-                        )
-                    )  # Indexing starts with 0
-                elif j == on_frames:
-                    photons_in_frame[on_frames + tempFrame] = int(
-                        np.random.poisson(
-                            (event_sum(i) - (tempFrame + on_frames - 1) * time)
-                            / time
-                            * photons
-                        )
-                    )
-                else:
-                    photons_in_frame[tempFrame + j] = int(
-                        np.random.poisson(photons)
-                    )
+            # assign photons on each frame based on the remaining event sum for that frame
+            if (on_frames < 3 and j == 0) or (on_frames >= 3 and j == on_frames - 1):
+                # first frame
+                frame_photons = ((tempFrame + 1) * time - event_sum[i - 1]) / time * photons
+            elif (on_frames < 3 and j == 1) or (on_frames >= 3 and j == on_frames - 2):
+                # second frame
+                frame_photons = (event_sum[i] - (tempFrame + 1) * time) / time * photons
+            else:
+                # frame size is greater than 2 and at initial frames all the frames will be assigned entire photons
+                # last two frame will have photon assigned based on remaining event sum
+                frame_photons = photons
+
+            photons_in_frame[tempFrame + j + 1] = int(np.random.poisson(frame_photons))
 
         total_photons = np.sum(
             photons_in_frame[1 + tempFrame: tempFrame + 1 + on_frames]
@@ -224,7 +194,8 @@ def get_binding_site_position_distribution(binding_site_position, config):
     return binding_site_distribution
 
 
-def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started, frame_wise_noise, drifts):
+def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started,
+                    frame_wise_noise, drifts):
     device = distributed_photon.device
 
     temp_photons = distributed_photon[:, frame_id]  # Shape (number of binding event, )
@@ -235,7 +206,7 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
     photon_pos_frame = torch.zeros((int(n_photons), 2), device=device)
     # Positions where are putting some photons
     # indices that will have blinking event at this frame
-    gt_positions = torch.where(distributed_photon[:, frame_id] > 0)[0].flatten()
+    gt_positions = torch.flatten(torch.where(distributed_photon[:, frame_id] > 0)[0])
     # 0,       , 1, 2, 3     , 4     , 5        , 6,       , 7,     , 8,   9,  10
     # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
     # This will contain the gt_id, x_mean, y_mean, photons, sx, sy, noise, x, y
@@ -261,8 +232,10 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
     return photon_pos_frame, gt_infos
 
 
-def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise, binding_site_position_distribution):
-    photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started, frame_wise_noise, drifts)
+def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
+                  binding_site_position_distribution):
+    photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
+                                                 frame_started, frame_wise_noise, drifts)
 
     if len(photon_pos_frame) == 0:
         # There is no photon allocated in this frame
@@ -270,7 +243,8 @@ def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, f
         single_frame = torch.zeros((config.image_size, config.image_size), device=config.device)
     else:
         samples = (photon_pos_frame + drifts[frame_id]).cpu().numpy()
-        single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(config.image_size + 1), range(config.image_size + 1)))
+        single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(config.image_size + 1),
+                                                                                range(config.image_size + 1)))
         single_frame = torch.from_numpy(single_frame).to(config.device)
 
     return frame_id, single_frame, gt_infos
@@ -280,7 +254,3 @@ def get_scale_tril(config):
     cov = torch.tensor([[config.Imager_PSF * config.Imager_PSF, 0],
                         [0, config.Imager_PSF * config.Imager_PSF]]).to(config.device)
     return torch.linalg.cholesky(cov)
-
-
-
-

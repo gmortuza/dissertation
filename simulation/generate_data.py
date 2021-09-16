@@ -40,6 +40,7 @@ class GenerateData:
         self.binding_site_position = None  # tensor in shape (2, num_of_event)
         self.num_of_binding_site = None
         self.distributed_photon = None  # tensor in shape(num_binding_event, total frames)
+        self.binding_site_position_distribution = None
         self.drifts = get_drift(self.config).share_memory_()  # tensor of shape (num_of_frames, 2)
         self.available_cpu_core = int(self.config.num_of_process)
 
@@ -58,7 +59,9 @@ class GenerateData:
     # @show_execution_time
     def generate(self):
         self.binding_site_position = generate_binding_site_position(self.config).share_memory_()
-        self.binding_site_position_distribution = get_binding_site_position_distribution(self.binding_site_position, self.config)
+        # Assign a multivariate normal distribution for each position where the mean will be binding_site_position
+        self.binding_site_position_distribution = get_binding_site_position_distribution(self.binding_site_position,
+                                                                                         self.config)
         self.num_of_binding_site = self.binding_site_position.shape[1]
 
         self.distribute_photons()
