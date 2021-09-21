@@ -31,7 +31,7 @@ class RunningAverage():
         return self.total / float(self.steps)
 
 
-def save_checkpoint(state, is_best, checkpoint):
+def save_checkpoint(state, is_best, checkpoint, name=''):
     """Saves model and training parameters at checkpoint + 'last.pth.tar'. If is_best==True, also saves
     checkpoint + 'best.pth.tar'
     Args:
@@ -39,12 +39,12 @@ def save_checkpoint(state, is_best, checkpoint):
         is_best: (bool) True if it is the best model seen till now
         checkpoint: (string) folder where parameters are to be saved
     """
-    filepath = os.path.join(checkpoint, 'last.pth.tar')
+    filepath = os.path.join(checkpoint, name+'last.pth.tar')
     if not os.path.exists(checkpoint):
         os.mkdir(checkpoint)
     torch.save(state, filepath)
     if is_best:
-        shutil.copyfile(filepath, os.path.join(checkpoint, 'best.pth.tar'))
+        shutil.copyfile(filepath, os.path.join(checkpoint, name+'best.pth.tar'))
 
 
 def save_dict_to_json(d, json_path):
@@ -59,7 +59,7 @@ def save_dict_to_json(d, json_path):
         json.dump(d, f, indent=4)
 
 
-def load_checkpoint(checkpoint_dir, model, config, optimizer=None) -> float:
+def load_checkpoint(checkpoint_dir, model, config, optimizer=None, name='') -> float:
     """Loads model parameters (state_dict) from file_path. If optimizer is provided, loads state_dict of
     optimizer assuming it is present in checkpoint.
     Args:
@@ -67,7 +67,7 @@ def load_checkpoint(checkpoint_dir, model, config, optimizer=None) -> float:
         model: (torch.nn.Module) model for which the parameters are loaded
         optimizer: (torch.optim) optional: resume optimizer from checkpoint
     """
-    checkpoint_path = os.path.join(checkpoint_dir, "last.pth.tar")
+    checkpoint_path = os.path.join(checkpoint_dir, name+"last.pth.tar")
     if not os.path.exists(checkpoint_path):
         config.logger.info(f"Checkpoint file doesn't exists {checkpoint_path}")
         return float('-inf')

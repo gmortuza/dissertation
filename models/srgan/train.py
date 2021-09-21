@@ -1,16 +1,22 @@
+import os
+
 import torch
 import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from discriminator import Discriminator
-from generator import Generator
-from loss import fetch_disc_loss, fetch_gen_loss
+from models.srgan.discriminator import Discriminator
+from models.srgan.generator import Generator
+from models.srgan.loss import fetch_disc_loss, fetch_gen_loss
 from torch import optim
 from data_loader import fetch_data_loader
 from read_config import Config
 import matplotlib.pyplot as plt
 from models.metrics import normalized_cross_correlation
 import utils
+import numpy as np
 
+config = Config('config.yaml')
+config.tensor_board_writer = SummaryWriter(config.tensorflow_log_dir)
 
 def train(gen, disc: nn.Module, disc_optim: torch.optim, gen_optim: torch.optim, gen_loss_fn, disc_loss_fn, train_data_loader: torch.utils.data.DataLoader):
     gen_loss_history = utils.RunningAverage()
@@ -64,36 +70,44 @@ def train(gen, disc: nn.Module, disc_optim: torch.optim, gen_optim: torch.optim,
             progress_bar.set_postfix(loss=bar_text)
             progress_bar.update()
 
-    return sum(gen_loss_history) / len(gen_loss_history), sum(disc_loss_history) / len(disc_loss_history)
+    return gen_loss_history(), disc_loss_history(), accuracy_history()
 
 
 def evaluation(gen, disc, gen_loss_fn, disc_loss_fn, eval_data_loader):
     gen.eval()
     disc.eval()
-    gen_loss_history = []
-    disc_loss_history = []
+    gen_loss_history = utils.RunningAverage()
+    disc_loss_history = utils.RunningAverage()
+    accuracy_history = utils.RunningAverage()
     for low_res, high_res in eval_data_loader:
         low_res = low_res.to(config.device)
-        high_res = high_res.to(config.device).to_dense()
-        fake_img = gen(low_res)
+        high_res = high_res.to(config.device)
+        with torch.no_grad():
+            fake_img = gen(low_res)
+            disc_real = disc(high_res)
+            disc_fake = disc(fake_img.detach())
+            disc_loss = disc_loss_fn(disc_fake, disc_real)
+            gen_loss = gen_loss_fn(disc_fake, fake_img, high_res)
+            accuracy = normalized_cross_correlation(fake_img.detach(), high_res.detach())
 
-        disc_real = disc(high_res)
-        disc_fake = disc(fake_img.detach())
-        disc_loss = disc_loss_fn(disc_fake, disc_real)
+            gen_loss_history.update(gen_loss.item())
+            disc_loss_history.update(disc_loss.item())
+            accuracy_history.update(accuracy)
 
-        disc_fake = disc(fake_img)
-        gen_loss = gen_loss_fn(disc_fake, fake_img, high_res)
-
-        gen_loss_history.append(gen_loss.item())
-        disc_loss_history.append(disc_loss.item())
-    return sum(gen_loss_history) / len(gen_loss_history), sum(disc_loss_history) / len(disc_loss_history)
+    return gen_loss_history(), disc_loss_history(), accuracy_history()
 
 
 def train_evaluation():
+    best_val_acc = float('-inf')
     gen = Generator(in_channel=1).to(config.device)
     disc = Discriminator(in_channel=1).to(config.device)
     gen_optim = optim.Adam(gen.parameters(), lr=config.learning_rate)
     disc_optim = optim.Adam(disc.parameters(), lr=config.learning_rate)
+    if config.load_checkpoint:
+        config.logger.info(f"Restoring parameters from {config.checkpoint_dir}")
+        best_val_acc = utils.load_checkpoint(config.checkpoint_dir, gen, config, gen_optim, name='gen.')
+        best_val_acc = utils.load_checkpoint(config.checkpoint_dir, disc, config, disc_optim, name='disc.')
+
     gen_loss_fn = fetch_gen_loss()
     disc_loss_fn = fetch_disc_loss()
     # Data loader
@@ -101,11 +115,62 @@ def train_evaluation():
     for epoch in range(config.num_epochs):
         print(f"Epoch {epoch + 1}/{config.num_epochs}")
         train_loss = train(gen, disc, disc_optim, gen_optim, gen_loss_fn, disc_loss_fn, train_data_loader)
-        print(f"Train loss: \n \t Generator: {train_loss[0]} \n \t Discriminator: {train_loss[1]}")
+        print(f"Train loss: \n \t Generator: {train_loss[0]} \n \t Discriminator: {train_loss[1]} \n \t Accuracy: {train_loss[2]}")
+        torch.cuda.empty_cache()
         eval_loss = evaluation(gen, disc, gen_loss_fn, disc_loss_fn, val_data_loader)
-        print(f"Eval loss: \n \t Generator: {eval_loss[0]} \n \t Discriminator: {eval_loss[1]}")
+        print(f"Eval loss: \n \t Generator: {eval_loss[0]} \n \t Discriminator: {eval_loss[1]} \n \t Accuracy: {eval_loss[2]}")
+        torch.cuda.empty_cache()
+
+        config.tensor_board_writer.add_scalars(f'gen_loss', {
+            'validation': eval_loss[0],
+            'training': train_loss[0],
+        }, epoch)
+
+        config.tensor_board_writer.add_scalars(f'disc_loss', {
+            'validation': eval_loss[1],
+            'training': train_loss[1],
+        }, epoch)
+
+        config.tensor_board_writer.add_scalars(f'accuracy', {
+            'validation': eval_loss[2],
+            'training': train_loss[2],
+        }, epoch)
+
+        val_acc = eval_loss[2]
+        is_best = val_acc >= best_val_acc
+
+        # Save weights
+        utils.save_checkpoint({'epoch': epoch + 1,
+                               'state_dict': gen.state_dict(),
+                               'optim_dict': gen_optim.state_dict()},
+                              is_best=is_best,
+                              checkpoint=config.checkpoint_dir,
+                              name='gen.')
+
+        utils.save_checkpoint({'epoch': epoch + 1,
+                               'state_dict': disc.state_dict(),
+                               'optim_dict': disc_optim.state_dict()},
+                              is_best=is_best,
+                              checkpoint=config.checkpoint_dir,
+                              name='disc.')
+
+        # If best_eval, best_save_path
+        if is_best:
+            config.logger.info("Found new best accuracy")
+            best_val_acc = val_acc
+
+            # Save best val metrics in a json file in the model directory
+            best_json_path = os.path.join(
+                config.checkpoint_dir, "metrics_val_best_weights.json")
+            utils.save_dict_to_json({'accuracy': val_acc}, best_json_path)
+
+        # Save latest val metrics in a json file in the model directory
+        last_json_path = os.path.join(
+            config.checkpoint_dir, "metrics_val_last_weights.json")
+        utils.save_dict_to_json({'accuracy': val_acc}, last_json_path)
 
 
 if __name__ == '__main__':
     config = Config('../../config.yaml')
+    config.tensor_board_writer = SummaryWriter(config.tensorflow_log_dir)
     train_evaluation()
