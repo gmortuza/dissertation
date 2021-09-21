@@ -41,6 +41,7 @@ class SMLMDataset(Dataset):
                     else:
                         single_label = label_[label_[:, 0] == idx]
                         single_label_upsampled = self._get_image_from_point(single_label)
+                        # single_label_upsampled = self._convert_into_sparse_tensor(single_label)
                         # combine_training = torch.cat((single_input_upsampled, single_label_upsampled), dim=0)
                     f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{idx}.pl"
                     # save the input and label as pickle
@@ -49,6 +50,23 @@ class SMLMDataset(Dataset):
                     # torch.save(combine_training, f_name)
                     total += 1
             return total
+
+
+    def _convert_into_sparse_tensor(self, points):
+        high_res_image_size = self.config.image_size * self.config.output_resolution * 4
+        x_cor = []
+        y_cor = []
+        v = []
+        for blinker in points:
+            mu = torch.round(blinker[[1, 2]] * self.config.output_resolution * 4).int()
+            x_cor.append(int(mu[0]))
+            y_cor.append(int(mu[1]))
+            v.append(blinker[7].float())
+        sparse_tensor_i = [[0] * len(y_cor), y_cor, x_cor]
+        sparse_tensor = torch.sparse_coo_tensor(sparse_tensor_i, v, (1, high_res_image_size, high_res_image_size),
+                                                device=self.config.device)
+        return sparse_tensor
+
 
     def _get_image_from_point(self, point: torch.Tensor) -> torch.Tensor:
         # points --> [x, y, photons]

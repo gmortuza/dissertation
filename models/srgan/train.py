@@ -8,12 +8,15 @@ from torch import optim
 from data_loader import fetch_data_loader
 from read_config import Config
 import matplotlib.pyplot as plt
+from models.metrics import normalized_cross_correlation
+import utils
 
 
 def train(gen, disc: nn.Module, disc_optim: torch.optim, gen_optim: torch.optim, gen_loss_fn, disc_loss_fn, train_data_loader: torch.utils.data.DataLoader):
-    gen_loss_history = []
-    disc_loss_history = []
-    accuracy_history = []
+    gen_loss_history = utils.RunningAverage()
+    disc_loss_history = utils.RunningAverage()
+    accuracy_history = utils.RunningAverage()
+    summary = []
 
     with tqdm(total=len(train_data_loader)) as progress_bar:
         for idx, (low_res, high_res) in enumerate(train_data_loader):
@@ -45,10 +48,19 @@ def train(gen, disc: nn.Module, disc_optim: torch.optim, gen_optim: torch.optim,
             gen_loss.backward()
             gen_optim.step()
 
-            gen_loss_history.append(gen_loss.item())
-            disc_loss_history.append(disc_loss.item())
+            gen_loss_history.update(gen_loss.item())
+            disc_loss_history.update(disc_loss.item())
+            accuracy_history.update(normalized_cross_correlation(fake_img, high_res))
 
-            bar_text = f'gen : {round(sum(gen_loss_history) / len(gen_loss_history), 3)}, disc : {round(sum(disc_loss_history) / len(disc_loss_history), 3)}'
+            bar_text = f'gen : {round(gen_loss_history(), 3)}, disc : {round(disc_loss_history(), 3)} ' \
+                       f'acc {round(accuracy_history(), 3)}'
+            # if idx % config.save_summary_steps == 0:
+                # compute all metrics on this batch
+                # summary_batch = {metric: metrics[metric](fake_img, high_res)
+                #                  for metric in metrics}
+                # summary_batch['gen_loss'] = gen_loss_history()
+                # summary_batch['disc_loss'] = disc_loss_history()
+                # summary.append(summary_batch)
             progress_bar.set_postfix(loss=bar_text)
             progress_bar.update()
 
@@ -62,7 +74,7 @@ def evaluation(gen, disc, gen_loss_fn, disc_loss_fn, eval_data_loader):
     disc_loss_history = []
     for low_res, high_res in eval_data_loader:
         low_res = low_res.to(config.device)
-        high_res = high_res.to(config.device)
+        high_res = high_res.to(config.device).to_dense()
         fake_img = gen(low_res)
 
         disc_real = disc(high_res)
