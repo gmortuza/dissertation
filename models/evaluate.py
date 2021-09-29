@@ -1,8 +1,9 @@
 import torch
 import numpy as np
+from models.metrics import metrics
 
 
-def evaluate(model, loss_fn, data_loader, metrics, config) -> (float, dict):
+def evaluate(model, loss_fn, data_loader, config) -> (float, dict):
     model.eval()
     summary = []
     for data_batch, labels_batch in data_loader:

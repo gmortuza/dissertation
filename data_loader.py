@@ -7,7 +7,6 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 from read_config import Config
-from generate_target import generate_target_from_path
 
 
 class SMLMDataset(Dataset):
@@ -53,20 +52,20 @@ class SMLMDataset(Dataset):
                     total += 1
             return total
 
-    def _convert_into_sparse_tensor(self, points):
-        high_res_image_size = self.config.image_size * self.config.output_resolution * 4
-        x_cor = []
-        y_cor = []
-        v = []
-        for blinker in points:
-            mu = torch.round(blinker[[1, 2]] * self.config.output_resolution * 4).int()
-            x_cor.append(int(mu[0]))
-            y_cor.append(int(mu[1]))
-            v.append(blinker[7].float())
-        sparse_tensor_i = [[0] * len(y_cor), y_cor, x_cor]
-        sparse_tensor = torch.sparse_coo_tensor(sparse_tensor_i, v, (1, high_res_image_size, high_res_image_size),
-                                                device=self.config.device)
-        return sparse_tensor
+    # def _convert_into_sparse_tensor(self, points):
+    #     high_res_image_size = self.config.image_size * self.config.output_resolution
+    #     x_cor = []
+    #     y_cor = []
+    #     v = []
+    #     for blinker in points:
+    #         mu = torch.round(blinker[[1, 2]] * self.config.output_resolution).int()
+    #         x_cor.append(int(mu[0]))
+    #         y_cor.append(int(mu[1]))
+    #         v.append(blinker[7].float())
+    #     sparse_tensor_i = [[0] * len(y_cor), y_cor, x_cor]
+    #     sparse_tensor = torch.sparse_coo_tensor(sparse_tensor_i, v, (1, high_res_image_size, high_res_image_size),
+    #                                             device=self.config.device)
+    #     return sparse_tensor
 
     def _get_image_from_point(self, point: torch.Tensor) -> torch.Tensor:
         # points --> [x, y, photons]
@@ -74,7 +73,7 @@ class SMLMDataset(Dataset):
         high_res_movie = torch.zeros((high_res_image_size, high_res_image_size), device=self.config.device)
         # TODO: remove this for loop and vectorize this
         for blinker in point[point[:, 7] > 0.]:
-            mu = torch.round(blinker[[1, 2]] * self.config.output_resolution).int()
+            mu = torch.round(blinker[[5, 6]] * self.config.output_resolution).int()
             high_res_movie[mu[1]][mu[0]] += blinker[7]
         return high_res_movie.unsqueeze(0)
 

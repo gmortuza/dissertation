@@ -17,7 +17,7 @@ scaler = torch.cuda.amp.GradScaler()
 
 
 def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_loader: torch.utils.data.DataLoader,
-          metrics, config: Config) -> (float, float):
+          lr_scheduler, config: Config) -> (float, float):
     model.train()
     summary = []
     loss_avg = utils.RunningAverage()
@@ -26,16 +26,20 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
         for i, (train_batch, labels_batch) in enumerate(train_data_loader):
 
             # Model output and it's loss
-            with torch.cuda.amp.autocast(enabled=True):
-                output_batch = model(train_batch)
-                loss = loss_fn(output_batch, labels_batch)
+            # with torch.cuda.amp.autocast(enabled=True):
+            output_batch = model(train_batch)
+            loss = loss_fn(output_batch, labels_batch)
             # loss = loss_fn(output_batch, train_batch)
             # clear previous gradients,  computer gradients of all variable wrt loss
 
+            # optimizer.zero_grad()
+            # scaler.scale(loss).backward()
+            # scaler.step(optimizer)
+            # scaler.update()
             optimizer.zero_grad()
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            loss.backward()
+            optimizer.step()
+            lr_scheduler.step()
 
             if i % config.save_summary_steps == 0:
                 # compute all metrics on this batch
@@ -60,21 +64,18 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
     return loss_avg(), metrics_mean
 
 
-def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_fn, metrics, config):
-    best_val_acc = float('-inf')
-    if config.load_checkpoint:
-        config.logger.info(f"Restoring parameters from {config.checkpoint_dir}")
-        best_val_acc = utils.load_checkpoint(config.checkpoint_dir, model, config, optimizer)
+def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_fn, lr_scheduler, config):
+    best_val_acc = utils.load_checkpoint(model, config, optimizer)
 
     for epoch in range(config.num_epochs):
         config.logger.info("Epoch {}/{}".format(epoch + 1, config.num_epochs))
-        train_loss, train_metrics = train(model, optimizer, loss_fn, train_dataloader, metrics, config)
+        train_loss, train_metrics = train(model, optimizer, loss_fn, train_dataloader, lr_scheduler, config)
 
         # Write into tensorboard
         # config.tensor_board_writer.add_scalar("loss/train", train_loss, epoch)
         # config.tensor_board_writer.add_scalar("accuracy/train", train_metrics["accuracy"], epoch)
 
-        val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, metrics, config)
+        val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, config)
 
         config.tensor_board_writer.add_scalars(f'loss', {
             'validation': val_loss,
@@ -86,30 +87,11 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_
             'training': train_metrics["accuracy"],
         }, epoch)
 
-        val_acc = val_metrics['accuracy']
-        is_best = val_acc >= best_val_acc
-
-        # Save weights
-        utils.save_checkpoint({'epoch': epoch + 1,
-                               'state_dict': model.state_dict(),
-                               'optim_dict': optimizer.state_dict()},
-                              is_best=is_best,
-                              checkpoint=config.checkpoint_dir)
-
-        # If best_eval, best_save_path
-        if is_best:
-            config.logger.info("Found new best accuracy")
-            best_val_acc = val_acc
-
-            # Save best val metrics in a json file in the model directory
-            best_json_path = os.path.join(
-                config.checkpoint_dir, "metrics_val_best_weights.json")
-            utils.save_dict_to_json(val_metrics, best_json_path)
-
-        # Save latest val metrics in a json file in the model directory
-        last_json_path = os.path.join(
-            config.checkpoint_dir, "metrics_val_last_weights.json")
-        utils.save_dict_to_json(val_metrics, last_json_path)
+        best_val_acc = utils.save_checkpoint({'epoch': epoch + 1,
+                                              'state_dict': model.state_dict(),
+                                              'optim_dict': optimizer.state_dict()},
+                                             best_val_acc,
+                                             config, val_metrics)
 
 
 if __name__ == '__main__':
@@ -119,7 +101,8 @@ if __name__ == '__main__':
     loss_fn = dNamNNLoss(config)
     train_data_loader, val_data_loader = fetch_data_loader(config)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+    lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=.85)
 
-    train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, metrics, config)
+    train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, lr_scheduler, config)
     # from models.srgan.train import train_evaluation
     # train_evaluation()

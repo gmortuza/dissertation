@@ -44,7 +44,7 @@ class dNamNNLoss(nn.Module):
         # return self._kl_dv_loss(outputs, targets)
         # return self._cross_coreation_loss(outputs, targets)
         # return self._gmm_loss(outputs, targets)
-        return self._mse_loss(outputs, targets) + VGGLoss()(outputs, targets)
+        return self._mse_loss(outputs, targets)
         # return nn.MSELoss(reduction='mean')(outputs, targets)
 
     def _cross_entropy(self, outputs, targets):

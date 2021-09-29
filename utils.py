@@ -31,20 +31,27 @@ class RunningAverage():
         return self.total / float(self.steps)
 
 
-def save_checkpoint(state, is_best, checkpoint, name=''):
+def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
     """Saves model and training parameters at checkpoint + 'last.pth.tar'. If is_best==True, also saves
     checkpoint + 'best.pth.tar'
     Args:
         state: (dict) contains model's state_dict, may contain other keys such as epoch, optimizer state_dict
         is_best: (bool) True if it is the best model seen till now
-        checkpoint: (string) folder where parameters are to be saved
     """
-    filepath = os.path.join(checkpoint, name+'last.pth.tar')
-    if not os.path.exists(checkpoint):
-        os.mkdir(checkpoint)
+    filepath = os.path.join(config.checkpoint_dir, name+'last.pth.tar')
+    if not os.path.exists(config.checkpoint_dir):
+        os.mkdir(config.checkpoint_dir)
     torch.save(state, filepath)
-    if is_best:
-        shutil.copyfile(filepath, os.path.join(checkpoint, name+'best.pth.tar'))
+    if val_metrics['accuracy'] >= best_val_acc:
+        config.logger.info("New best accuracy found")
+        shutil.copyfile(filepath, os.path.join(config.checkpoint_dir, name+'best.pth.tar'))
+        best_json_path = os.path.join(
+            config.checkpoint_dir, name + "metrics_val_best_weights.json")
+        save_dict_to_json(val_metrics, best_json_path)
+    last_json_path = os.path.join(
+        config.checkpoint_dir, name + "metrics_val_last_weights.json")
+    save_dict_to_json(val_metrics, last_json_path)
+    return max(best_val_acc, val_metrics['accuracy'])
 
 
 def save_dict_to_json(d, json_path):
@@ -59,7 +66,7 @@ def save_dict_to_json(d, json_path):
         json.dump(d, f, indent=4)
 
 
-def load_checkpoint(checkpoint_dir, model, config, optimizer=None, name='') -> float:
+def load_checkpoint(model, config, optimizer=None, name='') -> float:
     """Loads model parameters (state_dict) from file_path. If optimizer is provided, loads state_dict of
     optimizer assuming it is present in checkpoint.
     Args:
@@ -67,19 +74,22 @@ def load_checkpoint(checkpoint_dir, model, config, optimizer=None, name='') -> f
         model: (torch.nn.Module) model for which the parameters are loaded
         optimizer: (torch.optim) optional: resume optimizer from checkpoint
     """
-    checkpoint_path = os.path.join(checkpoint_dir, name+"last.pth.tar")
-    if not os.path.exists(checkpoint_path):
-        config.logger.info(f"Checkpoint file doesn't exists {checkpoint_path}")
-        return float('-inf')
-    checkpoint = torch.load(checkpoint_path)
-    model.load_state_dict(checkpoint['state_dict'])
+    if config.load_checkpoint:
+        config.logger.info(f"Restoring parameters from {config.checkpoint_dir}")
+        checkpoint_path = os.path.join(config.checkpoint_dir, name+"last.pth.tar")
+        if not os.path.exists(checkpoint_path):
+            config.logger.info(f"Checkpoint file doesn't exists {checkpoint_path}")
+            return float('-inf')
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['state_dict'])
 
-    if optimizer:
-        optimizer.load_state_dict(checkpoint['optim_dict'])
-    # Get accuracy
-    with open(os.path.join(checkpoint_dir, "metrics_val_best_weights.json")) as f:
-        best_accuracy = json.load(f)["accuracy"]
-    return best_accuracy
+        if optimizer:
+            optimizer.load_state_dict(checkpoint['optim_dict'])
+        # Get accuracy
+        with open(os.path.join(config.checkpoint_dir, "metrics_val_best_weights.json")) as f:
+            best_accuracy = json.load(f)["accuracy"]
+        return best_accuracy
+    return float('-inf')
 
 
 def convert_device(tensors, device):
