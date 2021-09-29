@@ -27,14 +27,16 @@ class SMLMDataset(Dataset):
         else:
             total = 0
             normalize_factor = 20000.
-            upsample_fn = torch.nn.Upsample(scale_factor=self.config.output_resolution, mode='bilinear', align_corners=True)
+            upsample_fn = torch.nn.Upsample(scale_factor=self.config.output_resolution, mode='bilinear',
+                                            align_corners=True)
             for file_name in sorted(file_names):
                 start = int(file_name.split('_')[-3]) - 1
                 input_ = torch.load(file_name.replace('_gt', ''), ).unsqueeze(1) / normalize_factor
                 label_ = torch.load(file_name)
                 label_[:, 7] /= normalize_factor
-                for idx, single_input in tqdm(enumerate(input_, start), total=input_.shape[0], desc="Upsampling the data individual",
-                              disable=self.config.progress_bar_disable, leave=False):
+                for idx, single_input in tqdm(enumerate(input_, start), total=input_.shape[0],
+                                              desc="Upsampling the data individual",
+                                              disable=self.config.progress_bar_disable, leave=False):
                     single_input_upsampled = upsample_fn(single_input.unsqueeze(0)).squeeze(0)
                     if self.type_ == 'test':
                         single_label_upsampled = None
@@ -51,7 +53,6 @@ class SMLMDataset(Dataset):
                     total += 1
             return total
 
-
     def _convert_into_sparse_tensor(self, points):
         high_res_image_size = self.config.image_size * self.config.output_resolution * 4
         x_cor = []
@@ -67,14 +68,13 @@ class SMLMDataset(Dataset):
                                                 device=self.config.device)
         return sparse_tensor
 
-
     def _get_image_from_point(self, point: torch.Tensor) -> torch.Tensor:
         # points --> [x, y, photons]
-        high_res_image_size = self.config.image_size * self.config.output_resolution * 4
+        high_res_image_size = self.config.image_size * self.config.output_resolution
         high_res_movie = torch.zeros((high_res_image_size, high_res_image_size), device=self.config.device)
         # TODO: remove this for loop and vectorize this
         for blinker in point[point[:, 7] > 0.]:
-            mu = torch.round(blinker[[1, 2]] * self.config.output_resolution * 4).int()
+            mu = torch.round(blinker[[1, 2]] * self.config.output_resolution).int()
             high_res_movie[mu[1]][mu[0]] += blinker[7]
         return high_res_movie.unsqueeze(0)
 

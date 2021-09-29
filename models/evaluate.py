@@ -8,9 +8,10 @@ def evaluate(model, loss_fn, data_loader, metrics, config) -> (float, dict):
     for data_batch, labels_batch in data_loader:
 
         # compute model output
-        with torch.cuda.amp.autocast(enabled=True):
-            output_batch = model(data_batch)
-            loss = loss_fn(output_batch, labels_batch)
+        with torch.no_grad():
+            with torch.cuda.amp.autocast(enabled=True):
+                output_batch = model(data_batch)
+                loss = loss_fn(output_batch, labels_batch)
 
         # Compute all metrics on this batch
         summary_batch = {metric: metrics[metric](output_batch, labels_batch) for metric in metrics}
