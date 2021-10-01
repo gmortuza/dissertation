@@ -45,6 +45,9 @@ class UNet(nn.Module):
         self.generate_high_res_image = nn.Sequential(
             nn.ConvTranspose2d(features[0], 1, kernel_size=1, stride=1),
         )
+        self.threshold = nn.Sequential(
+            nn.Linear(262144, 1)
+        )
 
     def forward(self, x):
         skip_connections = []
@@ -64,7 +67,13 @@ class UNet(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         # x = torch.flatten(x, 1)
-        return torch.sigmoid(self.generate_high_res_image(x))
+        intensity = torch.sigmoid(self.generate_high_res_image(x))
+        location = torch.sigmoid(self.generate_high_res_image(x))
+        # x_flatten = x.flatten(1)
+        # threshold = torch.sigmoid(self.threshold(x_flatten))
+        threshold = None
+
+        return intensity, location, threshold
 
 
 if __name__ == '__main__':

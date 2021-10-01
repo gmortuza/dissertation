@@ -1,4 +1,6 @@
 import torch
+from sklearn.metrics import pairwise_distances
+from scipy.optimize import linear_sum_assignment
 
 
 def get_r2_score(prediction, target):
@@ -25,6 +27,7 @@ def normalized_cross_correlation(prediction, target, reduction='mean', eps=1e-8)
         ~torch.Tensor: Output scalar
         ~torch.Tensor: Output tensor
     """
+    prediction = prediction[0]
 
     shape = prediction.shape
     b = shape[0]
@@ -63,8 +66,41 @@ def normalized_cross_correlation(prediction, target, reduction='mean', eps=1e-8)
     return float(ncc.detach().cpu())
 
 
+def get_jaccard_index(prediction, target):
+    SMOOTH = 1e-6
+    p_intensity, p_location, _ = prediction
+    p_location = p_location.detach().round().int()
+    target = target.int()
+
+    intersection = (p_location & target).sum()
+    union = (p_location | target).sum()
+    iou = (intersection + SMOOTH) / (union + SMOOTH)  # smoothed to avoid 0/0
+    return iou.cpu()
+
+
+def get_ji_by_threshold(prediction, target):
+    p_intensity, p_location, threshold = prediction
+    p_intensity[p_intensity < threshold.unsqueeze(1).unsqueeze(1)] = 0.
+    prediction_points = torch.nonzero(p_intensity)[:, [0, 2, 3]]
+    target_points = torch.nonzero(target)[:, [0, 2, 3]]
+    total_true_positive = 0
+    for i in torch.unique(prediction_points[:, 0]):
+        frame_prediction_point = prediction_points[prediction_points[:, 0] == i].tolist()
+        frame_prediction_point = set(map(tuple, frame_prediction_point))
+        frame_target_point = target_points[target_points[:, 0] == i].tolist()
+        frame_target_point = set(map(tuple, frame_target_point))
+        total_true_positive += len(frame_target_point.intersection(frame_prediction_point))
+
+    return total_true_positive / (prediction_points.shape[0] + target_points.shape[0] - total_true_positive)
+
+
+
+
+
 metrics = {
     # 'accuracy': get_r2_score,
+    'JI': get_jaccard_index,
+    # 'JI_threshold': get_ji_by_threshold,
     'accuracy': normalized_cross_correlation
     # 'mse': get_mse
 }

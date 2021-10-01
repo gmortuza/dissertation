@@ -37,28 +37,28 @@ class dNamNNLoss(nn.Module):
         self.criterion = SamplesLoss()
 
     def forward(self, outputs, targets):
-        # creare a image from the output
-        # output_image = generate_image_from_points(outputs, self.config)
-        # Create a gaussian mixture model from target
-        # formatted_target = targets[:, :, [0, 1]].permute(1, 0, 2)
-        # return self._kl_dv_loss(outputs, targets)
-        # return self._cross_coreation_loss(outputs, targets)
-        # return self._gmm_loss(outputs, targets)
-        return self._mse_loss(outputs, targets)
-        # return nn.MSELoss(reduction='mean')(outputs, targets)
+        # output has two part,
+        #   localized prediction
+        #   counter
+        predicted_intensity, predicted_location, threshold = outputs
+        targets_zero_to_one = targets.clone()
+        targets_zero_to_one[targets_zero_to_one == 0] = 1.
+        threshold_label, _ = targets_zero_to_one.view(targets_zero_to_one.shape[0], -1).min(dim=1)
+        threshold_label = threshold_label.unsqueeze(1)
+        targets_locations = targets.clone()
+        targets_locations[targets_locations > 0.] = 1.0
+
+        return self._mse_loss(predicted_intensity, targets) + nn.BCEWithLogitsLoss()(predicted_location, targets_locations)
+        # return nn.BCEWithLogitsLoss()(predicted_location, targets_locations)
 
     def _cross_entropy(self, outputs, targets):
         targets = targets * 500000.
         targets = targets.squeeze(1).long()
         return nn.CrossEntropyLoss()(outputs, targets)
 
-    def _L1L2Loss(self, outputs, targets):
-        # TODO: fix the shape during making the target
-        # targets = targets.view(outputs.shape)
-        return nn.MSELoss(reduction='mean')(outputs, targets)
 
     def _mse_loss(self, outputs, targets):
-        return nn.MSELoss(reduction='mean')(outputs, targets)
+        return nn.MSELoss(reduction='mean')(outputs, targets) + nn.L1Loss()(outputs, targets)
 
     def _kl_dv_loss(self, outputs, targets):
         return KLDivLoss()(outputs.log_softmax(0), targets.softmax(0))

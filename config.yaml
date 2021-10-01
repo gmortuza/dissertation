@@ -2,13 +2,13 @@
 output_dir: outputs
 validation_split: .1
 test_split: .1
-batch_size: 128
+batch_size: 64
 num_epochs: 30
-learning_rate: .01
+learning_rate: .0001
 model_type: unet
 save_summary_steps: 40 # batch
 load_checkpoint: True
-output_resolution: 4  # increase the resolution of the image by x times
+output_resolution: 5  # increase the resolution of the image by x times
 
 
 # ================ General settings ===============
@@ -34,7 +34,7 @@ image_size: 32  # height and width will be the same
 # Depending on the probability distribution a frame might have more than this amount of emitter
 max_number_of_emitter_per_frame: 30
 Camera_integration_time: 300  # (ms)
-Camera_Pixelsize: 130  # (nm)
+Camera_Pixelsize: 107  # (nm)
 
 
 # ================ Origami Settings ===============

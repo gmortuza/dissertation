@@ -37,11 +37,11 @@ class SMLMDataset(Dataset):
                                               desc="Upsampling the data individual",
                                               disable=self.config.progress_bar_disable, leave=False):
                     single_input_upsampled = upsample_fn(single_input.unsqueeze(0)).squeeze(0)
-                    if self.type_ == 'test':
-                        single_label_upsampled = None
-                    else:
-                        single_label = label_[label_[:, 0] == idx]
-                        single_label_upsampled = self._get_image_from_point(single_label)
+                    # if self.type_ == 'test':
+                    #     single_label_upsampled = None
+                    # else:
+                    single_label = label_[label_[:, 0] == idx]
+                    single_label_upsampled = self._get_image_from_point(single_label)
                         # single_label_upsampled = self._convert_into_sparse_tensor(single_label)
                         # combine_training = torch.cat((single_input_upsampled, single_label_upsampled), dim=0)
                     f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{idx}.pl"
@@ -85,7 +85,9 @@ class SMLMDataset(Dataset):
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
         # if y is none then it's test. so we don't require the label
-        return x, y if y is not None else x
+        if y is None:
+            return x
+        return x, y
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):

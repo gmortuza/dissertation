@@ -39,7 +39,7 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            lr_scheduler.step()
+            # lr_scheduler.step()
 
             if i % config.save_summary_steps == 0:
                 # compute all metrics on this batch
@@ -101,8 +101,8 @@ if __name__ == '__main__':
     loss_fn = dNamNNLoss(config)
     train_data_loader, val_data_loader = fetch_data_loader(config)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
-    lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=.85)
-
+    # lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=.95)
+    lr_scheduler = None
     train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, lr_scheduler, config)
     # from models.srgan.train import train_evaluation
     # train_evaluation()

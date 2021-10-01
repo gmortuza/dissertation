@@ -7,7 +7,7 @@ import utils
 from data_loader import fetch_data_loader
 from read_config import Config
 from models.get_model import get_model
-from generate_target import generate_target_from_path
+from tqdm import tqdm
 
 
 def read_args():
@@ -28,19 +28,24 @@ def main():
     model.eval()
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
     # Restore model weights
-    config.logger.info(f"Restoring parameters from {config.checkpoint_dir}")
-    _ = utils.load_checkpoint(config.checkpoint_dir, model, config, optimizer)
+    _ = utils.load_checkpoint(model, config, optimizer)
     test_data_loader = fetch_data_loader(config, type_='test')
     output = torch.zeros((config.image_size * config.output_resolution, config.image_size * config.output_resolution),
                          device=config.device)
-    for data_batch in test_data_loader:
-        output_batch = model(data_batch)
-        output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)
+    gt = torch.zeros((config.image_size * config.output_resolution, config.image_size * config.output_resolution),
+                         device=config.device)
+    for data_batch, gt_batch in tqdm(test_data_loader, total=len(test_data_loader)):
+        # output_batch, _, _ = model(data_batch)
+        # output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)
+        gt += torch.squeeze(gt_batch.detach(), axis=1).sum(axis=0)
     # TODO: extract points from each of these frames
     # save the final output image
-    plt.rcParams['figure.dpi'] = 300
-    plt.rcParams['savefig.dpi'] = 300
-    plt.imsave("final_output.tiff", output.cpu().numpy(), cmap='gray')
+    plt.rcParams['figure.dpi'] = 600
+    plt.rcParams['savefig.dpi'] = 600
+    # plt.imsave(config.output_dir+"/final_output.tiff", output.cpu().numpy(), cmap='gray')
+    # TODO: remove this section later
+    # save the ground truth data as well for comparison
+    plt.imsave(config.output_dir+'/'+str(config.output_resolution)+'_gt_output.tiff', gt.cpu().numpy(), cmap='gray')
 
 
 if __name__ == '__main__':
