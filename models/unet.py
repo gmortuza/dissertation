@@ -23,7 +23,7 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, config, in_channel=1, features=[64, 128, 256, 512]):
+    def __init__(self, config, in_channel=1, out_channel=16, features=[64, 128, 256, 512]):
         super(UNet, self).__init__()
         self.config = config
 
@@ -42,8 +42,8 @@ class UNet(nn.Module):
 
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
 
-        self.generate_high_res_image = nn.Sequential(
-            nn.ConvTranspose2d(features[0], 1, kernel_size=1, stride=1),
+        self.output = nn.Sequential(
+            nn.ConvTranspose2d(features[0], out_channel, kernel_size=1, stride=1),
         )
         self.threshold = nn.Sequential(
             nn.Linear(262144, 1)
@@ -67,13 +67,15 @@ class UNet(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         # x = torch.flatten(x, 1)
-        intensity = torch.sigmoid(self.generate_high_res_image(x))
-        location = torch.sigmoid(self.generate_high_res_image(x))
+        intensity = torch.sigmoid(self.output(x))
+        location = torch.sigmoid(self.output(x))
         # x_flatten = x.flatten(1)
         # threshold = torch.sigmoid(self.threshold(x_flatten))
         threshold = None
 
-        return intensity, location, threshold
+        return intensity
+
+        # return intensity, location, threshold
 
 
 if __name__ == '__main__':
