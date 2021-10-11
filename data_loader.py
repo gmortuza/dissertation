@@ -4,6 +4,7 @@ import pickle
 
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
 from tqdm import tqdm
 
 from read_config import Config
@@ -15,6 +16,7 @@ class SMLMDataset(Dataset):
         self.config = config
         self.type_ = type_
         self.dataset_dir = dataset_dir
+        self.image_sizes = [32, 63, 125, 249]
         self.total_data = self._upsample_images()
 
     def _upsample_images(self):
@@ -26,8 +28,7 @@ class SMLMDataset(Dataset):
         else:
             total = 0
             normalize_factor = 20000.
-            upsample_fn = torch.nn.Upsample(scale_factor=self.config.output_resolution, mode='bilinear',
-                                            align_corners=True)
+
             for file_name in sorted(file_names):
                 start = int(file_name.split('_')[-3]) - 1
                 input_ = torch.load(file_name.replace('_gt', ''), ).unsqueeze(1) / normalize_factor
@@ -36,7 +37,7 @@ class SMLMDataset(Dataset):
                 for idx, single_input in tqdm(enumerate(input_, start), total=input_.shape[0],
                                               desc="Upsampling the data individual",
                                               disable=self.config.progress_bar_disable, leave=False):
-                    single_input_upsampled = upsample_fn(single_input.unsqueeze(0)).squeeze(0)
+                    single_input_upsampled = self._get_upsample_input(single_input)
                     # if self.type_ == 'test':
                     #     single_label_upsampled = None
                     # else:
@@ -67,18 +68,35 @@ class SMLMDataset(Dataset):
     #                                             device=self.config.device)
     #     return sparse_tensor
 
+    def _get_upsample_input(self, single_input):
+        single_input = single_input.unsqueeze(0)
+        up_scaled_images = []
+        for image_size in self.image_sizes:
+            up_scaled_image = torch.nn.Upsample(size=image_size, mode='bilinear', align_corners=True)(single_input)
+            up_scaled_images.append(up_scaled_image.squeeze(0))
+        return up_scaled_images
+
+
     def _get_image_from_point(self, point: torch.Tensor) -> torch.Tensor:
         # points --> [x, y, photons]
-        high_res_image_size = self.config.image_size * self.config.output_resolution
-        high_res_movie = torch.zeros((high_res_image_size, high_res_image_size), device=self.config.device)
-        # TODO: remove this for loop and vectorize this
-        for blinker in point[point[:, 7] > 0.]:
-            mu = torch.round(blinker[[5, 6]] * self.config.output_resolution).int()
-            high_res_movie[mu[1]][mu[0]] += blinker[7]
-        return high_res_movie.unsqueeze(0)
+        high_res_images = []
+        for image_size in self.image_sizes:
+            high_res_movie = torch.zeros((image_size, image_size), device=self.config.device)
+            res_scale = image_size / 32
+            # TODO: remove this for loop and vectorize this
+            for blinker in point[point[:, 7] > 0.]:
+                mu = torch.round(blinker[[5, 6]] * res_scale).int()
+                high_res_movie[mu[1]][mu[0]] += blinker[7]
+            high_res_images.append(high_res_movie.unsqueeze(0))
+        return high_res_images
 
     def __len__(self):
         return self.total_data
+
+    def _transform(self):
+        return transforms.Compose([
+            transforms.Normalize((0.), (1.))
+        ])
 
     def __getitem__(self, index: int):
         f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index}.pl"
@@ -87,6 +105,8 @@ class SMLMDataset(Dataset):
         # if y is none then it's test. so we don't require the label
         if y is None:
             return x
+        # Normalize x
+        x[0] -= x[0].mean()
         return x, y
 
 
