@@ -28,8 +28,8 @@ def normalized_cross_correlation(prediction, target, reduction='mean', eps=1e-8)
         ~torch.Tensor: Output tensor
     """
     # prediction = prediction[0]
-    target = target[1]
-    prediction = prediction[0]
+    target = target[3]
+    prediction = prediction[2]
 
     shape = prediction.shape
     b = shape[0]
@@ -97,8 +97,8 @@ def get_ji_by_threshold(prediction, target):
 
 
 def get_psnr(prediction, target):
-    prediction = prediction[0]
-    target = target[1]
+    prediction = prediction[2]
+    target = target[3]
     mse = torch.mean((prediction - target) ** 2)
     return 20 * torch.log10(255.0 / torch.sqrt(mse)).detach().cpu()
 

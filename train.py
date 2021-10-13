@@ -27,7 +27,7 @@ neptune_run = neptune.init(
     project="golammdmortuza/dnam-nn",
     api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ==",
     name="test name",
-    tags=['resolution_2'],
+    tags=['activation'],
     mode="debug"  # debug stop tracking
 )
 # neptune_run.create_experiment(name="test name")
@@ -132,7 +132,8 @@ if __name__ == '__main__':
         "epochs": config.num_epochs,
         "total_training_example": config.total_training_example,
         "criterion": str(loss_fn),
-        "upsample_method": 'transposed'
+        "upsample_method": 'transposed',
+        "upsampled_activation": "relu"
     }
     neptune_run['config/hyperparameters'] = neptune_param
     train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, lr_scheduler, config)

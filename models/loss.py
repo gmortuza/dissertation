@@ -42,7 +42,7 @@ class dNamNNLoss(nn.Module):
         #   counter
         output_1, output_2, output_3, output_4 = outputs
         target_1, target_2, target_3, target_4, target_5 = targets
-        return nn.L1Loss()(output_1, target_2) + nn.L1Loss()(output_2, target_3)
+        return nn.L1Loss()(output_1, target_2) + nn.L1Loss()(output_2, target_3) + nn.L1Loss()(output_3, target_4)
         # return self._mse_loss(output_1, target_5)
                # + self._mse_loss(output_2, target_3) + self._mse_loss(output_4, target_4)
 

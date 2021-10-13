@@ -25,7 +25,8 @@ class Custom(nn.Module):
         self.conv_transposed = nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2)
         self.conv = nn.Sequential(
             nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
-            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1)
+            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x: Tensor, y) -> Tensor:
@@ -40,12 +41,12 @@ class Custom(nn.Module):
         output_2 = self.unet(input_2)
         output_2 = self.conv_transposed(output_2)
         output_2 = self.conv(output_2)
-        return output_1, output_2, None, None
         #
-        # input_3 = input_3 + output_2
-        # output_3 = self.unet(input_3)
-        # output_3 = self.conv_transposed(output_3)
-        # output_3 = self.conv(output_3)
+        input_3 = input_3 + output_2
+        output_3 = self.unet(input_3)
+        output_3 = self.conv_transposed(output_3)
+        output_3 = self.conv(output_3)
+        return output_1, output_2, output_3, None
         #
         # input_4 = input_4 + output_3
         # output_4 = self.final_unet(input_4)
