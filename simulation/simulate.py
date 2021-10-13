@@ -185,25 +185,31 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
 
 
 def get_binding_site_position_distribution(binding_site_position, config):
-    binding_site_distribution = []
-    scale_tril = get_scale_tril(config)
+    scales = [i / 32 for i in [32, 63, 125, 249]]
+    binding_site_distributions = {}
     binding_site_position = binding_site_position.T
-    for mu in binding_site_position:
-        dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
-        binding_site_distribution.append(dist)
-    return binding_site_distribution
+    for scale in scales:
+        binding_site_distribution = []
+        scale_tril = get_scale_tril(config)
+        scaled_binding_site_position = binding_site_position * scale
+        for mu in scaled_binding_site_position:
+            dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
+            binding_site_distribution.append(dist)
+        binding_site_distributions[scale] = binding_site_distribution
+    return binding_site_distributions
 
 
 def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started,
                     frame_wise_noise, drifts):
     device = distributed_photon.device
-
+    scales = [i / 32 for i in [32, 63, 125, 249]]
     temp_photons = distributed_photon[:, frame_id]  # Shape (number of binding event, )
     n_photons = torch.sum(temp_photons).item()  # Total photons for this frame
     n_photons_step = torch.cumsum(temp_photons, dim=0).to(torch.int)
 
-    # Allocate memory
-    photon_pos_frame = torch.zeros((int(n_photons), 2), device=device)
+    photons_pos_frame = {}
+    for scale in scales:
+        photons_pos_frame[scale] = torch.zeros((int(n_photons), 2), device=device)
     # Positions where are putting some photons
     # indices that will have blinking event at this frame
     gt_positions = torch.flatten(torch.where(distributed_photon[:, frame_id] > 0)[0])
@@ -215,8 +221,12 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
 
     for i, gt_position in enumerate(gt_positions.tolist()):
         photon_count = int(distributed_photon[gt_position, frame_id])
-        multi_norm_dist = binding_site_position_distribution[gt_position]
-        photon_pos = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
+        for scale, distribution in binding_site_position_distribution.items():
+            multi_norm_dist = distribution[gt_position]
+            start = 0 if gt_position == 0 else n_photons_step[gt_position - 1]
+            photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
+
+        photon_pos = photons_pos_frame[1.0][start: n_photons_step[gt_position], :]
         # set x, y
         gt_infos[i, 1:3] = multi_norm_dist.mean  # This is super exact position
 
@@ -226,31 +236,28 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
         gt_infos[i, 8:10] = photon_pos.std(axis=0)
         # Extract the ground truth for this frame at this location
         gt_infos[i, 10] = frame_wise_noise[frame_id - frame_started]
-        start = 0 if gt_position == 0 else n_photons_step[gt_position-1]
-        photon_pos_frame[start: n_photons_step[gt_position], :] = photon_pos
 
-    return photon_pos_frame, gt_infos
+    return photons_pos_frame, gt_infos
 
 
 def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
                   binding_site_position_distribution):
-    photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
+    photon_pos_frames, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
                                                  frame_started, frame_wise_noise, drifts)
 
     single_frames = []
 
-    if len(photon_pos_frame) == 0:
-        # There is no photon allocated in this frame
-        # So we will return empty image
-        for frame_size in [32, 63, 125, 249]:
+    for scale, photon_pos_frame in photon_pos_frames.items():
+        frame_size = int(32 * scale)
+        if len(photon_pos_frame) == 0:
+            # There is no photon allocated in this frame
+            # So we will return empty image
             single_frame = torch.zeros((frame_size, frame_size), device=config.device)
             single_frames.append(single_frame)
-    else:
-        samples = (photon_pos_frame + drifts[frame_id]).cpu().numpy()
-        for frame_size in [32, 63, 125, 249]:
-            multiplier = frame_size / 32
-            scaled_samples = samples * multiplier
-            single_frame, _, _ = np.histogram2d(scaled_samples[:, 1], scaled_samples[:, 0], bins=(range(frame_size + 1),
+        else:
+            # TODO: fix drift
+            samples = (photon_pos_frame + drifts[frame_id]).cpu().numpy()
+            single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(frame_size + 1),
                                                                                                   range(frame_size + 1)))
             single_frame = torch.from_numpy(single_frame).to(config.device)
             single_frames.append(single_frame)
