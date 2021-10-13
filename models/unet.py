@@ -67,7 +67,7 @@ class UNet(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         # x = torch.flatten(x, 1)
-        intensity = torch.sigmoid(self.output(x))
+        intensity = torch.nn.ReLU()(self.output(x))
         location = torch.sigmoid(self.output(x))
         # x_flatten = x.flatten(1)
         # threshold = torch.sigmoid(self.threshold(x_flatten))

@@ -9,25 +9,41 @@ from models.metrics import metrics
 from models.evaluate import evaluate
 from data_loader import fetch_data_loader
 from torch.utils.tensorboard import SummaryWriter
+import neptune.new as neptune
 
 from tqdm import tqdm
 import numpy as np
 
+# seed = 0
+# torch.use_deterministic_algorithms(True)
+# torch.manual_seed(seed)
+# torch.backends.cudnn.benchmark = False
+# torch.backends.cudnn.deterministic = True
+# torch.cuda.manual_seed_all(seed)
+
 scaler = torch.cuda.amp.GradScaler()
 
+neptune_run = neptune.init(
+    project="golammdmortuza/dnam-nn",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ==",
+    name="test name",
+    tags=['resolution_2'],
+    mode="debug"  # debug stop tracking
+)
+# neptune_run.create_experiment(name="test name")
 
 def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_loader: torch.utils.data.DataLoader,
           lr_scheduler, config: Config) -> (float, float):
     model.train()
     summary = []
     loss_avg = utils.RunningAverage()
-
-    with tqdm(total=len(train_data_loader)) as progress_bar:
+    # train_batch, labels_batch = next(iter(train_data_loader))
+    with tqdm(total=len(train_data_loader), disable=config.progress_bar_disable) as progress_bar:
         for i, (train_batch, labels_batch) in enumerate(train_data_loader):
 
             # Model output and it's loss
             # with torch.cuda.amp.autocast(enabled=True):
-            output_batch = model(train_batch)
+            output_batch = model(train_batch, labels_batch)
             loss = loss_fn(output_batch, labels_batch)
             # loss = loss_fn(output_batch, train_batch)
             # clear previous gradients,  computer gradients of all variable wrt loss
@@ -42,7 +58,6 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
             # lr_scheduler.step()
 
             if i % config.save_summary_steps == 0:
-                # compute all metrics on this batch
                 summary_batch = {metric: metrics[metric](output_batch, labels_batch)
                                  for metric in metrics}
                 summary_batch['loss'] = loss.item()
@@ -57,7 +72,7 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
     # compute mean of all metrics in summary
     metrics_mean = {metric: np.mean([x[metric]
                                      for x in summary]) for metric in summary[0]}
-    metrics_string = " ; ".join("{}: {:05.3f}".format(k, v)
+    metrics_string = " ; ".join("{}: {:05.9f}".format(k, v)
                                 for k, v in metrics_mean.items())
     config.logger.info("Train metrics: " + metrics_string)
 
@@ -71,27 +86,35 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_
         config.logger.info("Epoch {}/{}".format(epoch + 1, config.num_epochs))
         train_loss, train_metrics = train(model, optimizer, loss_fn, train_dataloader, lr_scheduler, config)
 
+        # neptune_run["training/batch/loss"].log(train_loss)
+        for key, val in train_metrics.items():
+            neptune_run["training/batch/" + key].log(val)
+
+
         # Write into tensorboard
-        # config.tensor_board_writer.add_scalar("loss/train", train_loss, epoch)
-        # config.tensor_board_writer.add_scalar("accuracy/train", train_metrics["accuracy"], epoch)
+        config.tensor_board_writer.add_scalar("loss/train", train_loss, epoch)
+        config.tensor_board_writer.add_scalar("accuracy/train", train_metrics["accuracy"], epoch)
 
-        val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, config)
-
-        config.tensor_board_writer.add_scalars(f'loss', {
-            'validation': val_loss,
-            'training': train_loss,
-        }, epoch)
-
-        config.tensor_board_writer.add_scalars(f'accuracy', {
-            'validation': val_metrics["accuracy"],
-            'training': train_metrics["accuracy"],
-        }, epoch)
-
-        best_val_acc = utils.save_checkpoint({'epoch': epoch + 1,
-                                              'state_dict': model.state_dict(),
-                                              'optim_dict': optimizer.state_dict()},
-                                             best_val_acc,
-                                             config, val_metrics)
+        # val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, config)
+        #
+        # config.tensor_board_writer.add_scalars(f'loss', {
+        #     'validation': val_loss,
+        #     'training': train_loss,
+        # }, epoch)
+        #
+        # config.tensor_board_writer.add_scalars(f'accuracy', {
+        #     'validation': val_metrics["accuracy"],
+        #     'training': train_metrics["accuracy"],
+        # }, epoch)
+        #
+    val_metrics = {
+        'accuracy': .95
+    }
+    best_val_acc = utils.save_checkpoint({'epoch': epoch + 1,
+                                          'state_dict': model.state_dict(),
+                                          'optim_dict': optimizer.state_dict()},
+                                         best_val_acc,
+                                         config, val_metrics)
 
 
 if __name__ == '__main__':
@@ -103,6 +126,16 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
     # lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=.95)
     lr_scheduler = None
+    neptune_param = {
+        "learning_rate": config.learning_rate,
+        "final_activation": 'relu',
+        "epochs": config.num_epochs,
+        "total_training_example": config.total_training_example,
+        "criterion": str(loss_fn),
+        "upsample_method": 'transposed'
+    }
+    neptune_run['config/hyperparameters'] = neptune_param
     train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, lr_scheduler, config)
+    neptune_run.stop()
     # from models.srgan.train import train_evaluation
     # train_evaluation()

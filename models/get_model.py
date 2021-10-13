@@ -9,7 +9,7 @@ def get_model(config):
     elif config.model_type == 'base_model':
         model = BaseModel(config)
     elif config.model_type == 'unet':
-        model = UNet(config)
+        model = UNet(config, in_channel=1, out_channel=1)
     elif config.model_type == 'custom_model':
         model = Custom(config)
 

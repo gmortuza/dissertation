@@ -27,6 +27,8 @@ def normalized_cross_correlation(prediction, target, reduction='mean', eps=1e-8)
         ~torch.Tensor: Output scalar
         ~torch.Tensor: Output tensor
     """
+    # prediction = prediction[0]
+    target = target[1]
     prediction = prediction[0]
 
     shape = prediction.shape
@@ -94,13 +96,21 @@ def get_ji_by_threshold(prediction, target):
     return total_true_positive / (prediction_points.shape[0] + target_points.shape[0] - total_true_positive)
 
 
+def get_psnr(prediction, target):
+    prediction = prediction[0]
+    target = target[1]
+    mse = torch.mean((prediction - target) ** 2)
+    return 20 * torch.log10(255.0 / torch.sqrt(mse)).detach().cpu()
 
+def get_SSIM(prediction, target):
+    pass
 
 
 metrics = {
     # 'accuracy': get_r2_score,
-    'JI': get_jaccard_index,
+    # 'JI': get_jaccard_index,
     # 'JI_threshold': get_ji_by_threshold,
-    'accuracy': normalized_cross_correlation
+    'accuracy': normalized_cross_correlation,
+    'psnr': get_psnr
     # 'mse': get_mse
 }

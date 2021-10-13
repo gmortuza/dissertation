@@ -100,15 +100,22 @@ class GenerateData:
 
         noise_shape = (frame_end - frame_start, self.config.image_size, self.config.image_size)
         movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
+        # 32 px with noise, 32 px without noise, 63px, 125px, 249px
+        movies = [movie]
+        for image_size in [32, 63, 125, 249]:
+            movie = torch.zeros((frame_end - frame_start, image_size, image_size))
+            movies.append(movie)
         frame_wise_noise = movie.mean((1, 2))  # Tensor of shape (num_of_frames)
         p_convert_frame = partial(convert_frame, frame_started=frame_start, config=self.config, drifts=self.drifts,
                                   distributed_photon=self.distributed_photon, frame_wise_noise=frame_wise_noise,
                                   binding_site_position_distribution=self.binding_site_position_distribution)
 
         for frame_id in range(frame_start, frame_end):
-            frame_id, frame, gt_infos = p_convert_frame(frame_id=frame_id)
-            movie[frame_id - frame_start, :, :] += frame
-            # sort ground truth based on the most bright sopt
+            frame_id, frames, gt_infos = p_convert_frame(frame_id=frame_id)
+            movies[0][frame_id - frame_start, :, :] += frames[0]
+            for frame, movie in zip(frames, movies[1:]):
+                movie[frame_id - frame_start, :, :] = frame
+            # sort ground truth based on the most bright spot
             gt_infos = gt_infos[gt_infos[:, 7].sort(descending=True)[1]]
             emitter_to_keep = min(len(gt_infos), self.config.max_number_of_emitter_per_frame)
             combined_ground_truth[current_num_of_emitter: current_num_of_emitter + emitter_to_keep, :] \
@@ -119,10 +126,13 @@ class GenerateData:
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
 
         torch.save(combined_ground_truth, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_gt.pl")
-        torch.save(movie, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}.pl")
+        torch.save(movies[0], self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_{movie[0].shape[-1]}_with_noise.pl")
+        for movie in movies[1:]:
+            torch.save(movie, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_{movie.shape[-1]}.pl")
+
         # torch.save(target, self.config.simulated_file_name + f"_{frame_start+1}_{frame_end}_target.pl")
         if self.config.save_for_picasso:
-            self.save_frames_in_hdf5(movie, combined_ground_truth, frame_start, frame_end)
+            self.save_frames_in_hdf5(movie[0], combined_ground_truth, frame_start, frame_end)
 
     # @show_execution_time
     def save_frames_in_hdf5(self, movie, ground_truth, frame_start, frame_end):

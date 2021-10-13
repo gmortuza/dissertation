@@ -34,28 +34,36 @@ class dNamNNLoss(nn.Module):
     def __init__(self, config):
         super(dNamNNLoss, self).__init__()
         self.config = config
-        self.criterion = SamplesLoss()
+        # self.criterion = SamplesLoss()
 
     def forward(self, outputs, targets):
         # output has two part,
         #   localized prediction
         #   counter
-        predicted_intensity, predicted_location, threshold = outputs
-        targets_zero_to_one = targets.clone()
-        targets_zero_to_one[targets_zero_to_one == 0] = 1.
-        threshold_label, _ = targets_zero_to_one.view(targets_zero_to_one.shape[0], -1).min(dim=1)
-        threshold_label = threshold_label.unsqueeze(1)
-        targets_locations = targets.clone()
-        targets_locations[targets_locations > 0.] = 1.0
+        output_1, output_2, output_3, output_4 = outputs
+        target_1, target_2, target_3, target_4, target_5 = targets
+        return nn.L1Loss()(output_1, target_2) + nn.L1Loss()(output_2, target_3)
+        # return self._mse_loss(output_1, target_5)
+               # + self._mse_loss(output_2, target_3) + self._mse_loss(output_4, target_4)
 
-        return self._mse_loss(predicted_intensity, targets) + nn.BCEWithLogitsLoss()(predicted_location, targets_locations)
+        # predicted_intensity, predicted_location, threshold = outputs
+        # targets_zero_to_one = targets.clone()
+        # targets_zero_to_one[targets_zero_to_one == 0] = 1.
+        # threshold_label, _ = targets_zero_to_one.view(targets_zero_to_one.shape[0], -1).min(dim=1)
+        # threshold_label = threshold_label.unsqueeze(1)
+        # targets_locations = targets.clone()
+        # targets_locations[targets_locations > 0.] = 1.0
+        #
+        # return self._mse_loss(predicted_intensity, targets) + nn.BCEWithLogitsLoss()(predicted_location, targets_locations)
         # return nn.BCEWithLogitsLoss()(predicted_location, targets_locations)
+
+    def __str__(self):
+        return "L1"
 
     def _cross_entropy(self, outputs, targets):
         targets = targets * 500000.
         targets = targets.squeeze(1).long()
         return nn.CrossEntropyLoss()(outputs, targets)
-
 
     def _mse_loss(self, outputs, targets):
         return nn.MSELoss(reduction='mean')(outputs, targets) + nn.L1Loss()(outputs, targets)

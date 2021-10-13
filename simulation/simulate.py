@@ -237,17 +237,25 @@ def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, f
     photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
                                                  frame_started, frame_wise_noise, drifts)
 
+    single_frames = []
+
     if len(photon_pos_frame) == 0:
         # There is no photon allocated in this frame
         # So we will return empty image
-        single_frame = torch.zeros((config.image_size, config.image_size), device=config.device)
+        for frame_size in [32, 63, 125, 249]:
+            single_frame = torch.zeros((frame_size, frame_size), device=config.device)
+            single_frames.append(single_frame)
     else:
         samples = (photon_pos_frame + drifts[frame_id]).cpu().numpy()
-        single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(config.image_size + 1),
-                                                                                range(config.image_size + 1)))
-        single_frame = torch.from_numpy(single_frame).to(config.device)
+        for frame_size in [32, 63, 125, 249]:
+            multiplier = frame_size / 32
+            scaled_samples = samples * multiplier
+            single_frame, _, _ = np.histogram2d(scaled_samples[:, 1], scaled_samples[:, 0], bins=(range(frame_size + 1),
+                                                                                                  range(frame_size + 1)))
+            single_frame = torch.from_numpy(single_frame).to(config.device)
+            single_frames.append(single_frame)
 
-    return frame_id, single_frame, gt_infos
+    return frame_id, single_frames, gt_infos
 
 
 def get_scale_tril(config):
