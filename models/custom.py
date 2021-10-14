@@ -30,10 +30,8 @@ class Custom(nn.Module):
         )
 
     def forward(self, x: Tensor, y) -> Tensor:
-        input_1, input_2, input_3, input_4 = x
-        # input_ = torch.tensor(y[3].detach().cpu().numpy(), device=self.config.device)
+        input_1, input_2, input_3, input_4, input_5 = x
         output_0 = self.unet(input_1)  # same size
-        # return output_0, None, None, None
         output_1 = self.conv_transposed(output_0)
         output_1 = self.conv(output_1)
         #
@@ -46,14 +44,16 @@ class Custom(nn.Module):
         output_3 = self.unet(input_3)
         output_3 = self.conv_transposed(output_3)
         output_3 = self.conv(output_3)
-        return output_1, output_2, output_3, None
         #
-        # input_4 = input_4 + output_3
-        # output_4 = self.final_unet(input_4)
-        # # final_output = self.conv_transposed(final_output)
-        # # final_output = self.conv(final_output)
+        input_4 = input_4 + output_3
+        output_4 = self.unet(input_4)
+        output_4 = self.conv_transposed(output_4)
+        output_4 = self.conv(output_4)
         # return output_1, output_2, output_3, output_4
-
+        output_5 = self.final_unet(output_4)
+        # final_output = self.conv_transposed(final_output)
+        # final_output = self.conv(final_output)
+        return output_1, output_2, output_3, output_4, output_5
 
 def test():
     config_ = Config('../config.yaml')

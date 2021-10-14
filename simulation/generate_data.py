@@ -102,7 +102,7 @@ class GenerateData:
         movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
         # 32 px with noise, 32 px without noise, 63px, 125px, 249px
         movies = [movie]
-        for image_size in [32, 63, 125, 249]:
+        for image_size in self.config.resolution_slap:
             movie = torch.zeros((frame_end - frame_start, image_size, image_size))
             movies.append(movie)
         frame_wise_noise = movie.mean((1, 2))  # Tensor of shape (num_of_frames)
@@ -112,7 +112,9 @@ class GenerateData:
 
         for frame_id in range(frame_start, frame_end):
             frame_id, frames, gt_infos = p_convert_frame(frame_id=frame_id)
+            # this is the input images with the noise
             movies[0][frame_id - frame_start, :, :] += frames[0]
+            # these are the label images. There will be multiple label images based on the user configuration
             for frame, movie in zip(frames, movies[1:]):
                 movie[frame_id - frame_start, :, :] = frame
             # sort ground truth based on the most bright spot
@@ -126,7 +128,7 @@ class GenerateData:
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
 
         torch.save(combined_ground_truth, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_gt.pl")
-        torch.save(movies[0], self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_{movie[0].shape[-1]}_with_noise.pl")
+        torch.save(movies[0], self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_{movies[0].shape[-1]}_with_noise.pl")
         for movie in movies[1:]:
             torch.save(movie, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_{movie.shape[-1]}.pl")
 

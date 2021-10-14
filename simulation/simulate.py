@@ -185,7 +185,7 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
 
 
 def get_binding_site_position_distribution(binding_site_position, config):
-    scales = [i / 32 for i in [32, 63, 125, 249]]
+    scales = [i / config.resolution_slap[0] for i in config.resolution_slap]
     binding_site_distributions = {}
     binding_site_position = binding_site_position.T
     for scale in scales:
@@ -200,9 +200,9 @@ def get_binding_site_position_distribution(binding_site_position, config):
 
 
 def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started,
-                    frame_wise_noise, drifts):
+                    frame_wise_noise, drifts, config):
     device = distributed_photon.device
-    scales = [i / 32 for i in [32, 63, 125, 249]]
+    scales = [i / config.resolution_slap[0] for i in config.resolution_slap]
     temp_photons = distributed_photon[:, frame_id]  # Shape (number of binding event, )
     n_photons = torch.sum(temp_photons).item()  # Total photons for this frame
     n_photons_step = torch.cumsum(temp_photons, dim=0).to(torch.int)
@@ -243,12 +243,12 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
 def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
                   binding_site_position_distribution):
     photon_pos_frames, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
-                                                 frame_started, frame_wise_noise, drifts)
+                                                 frame_started, frame_wise_noise, drifts, config)
 
     single_frames = []
 
     for scale, photon_pos_frame in photon_pos_frames.items():
-        frame_size = int(32 * scale)
+        frame_size = int(config.resolution_slap[0] * scale)
         if len(photon_pos_frame) == 0:
             # There is no photon allocated in this frame
             # So we will return empty image

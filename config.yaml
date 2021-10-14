@@ -9,8 +9,13 @@ model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: True
 output_resolution: 5  # increase the resolution of the image by x times
-total_training_example: 32
-
+total_training_example: 4
+resolution_slap:
+  - 32
+  - 63
+  - 125
+  - 249
+  - 497
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model

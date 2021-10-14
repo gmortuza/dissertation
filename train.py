@@ -27,7 +27,7 @@ neptune_run = neptune.init(
     project="golammdmortuza/dnam-nn",
     api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ==",
     name="test name",
-    tags=['activation'],
+    tags=['normalizing factor'],
     mode="debug"  # debug stop tracking
 )
 # neptune_run.create_experiment(name="test name")
@@ -40,6 +40,8 @@ def train(model: torch.nn.Module, optimizer: torch.optim, loss_fn, train_data_lo
     # train_batch, labels_batch = next(iter(train_data_loader))
     with tqdm(total=len(train_data_loader), disable=config.progress_bar_disable) as progress_bar:
         for i, (train_batch, labels_batch) in enumerate(train_data_loader):
+            train_batch = [tb.to(config.device) for tb in train_batch]
+            labels_batch = [lb.to(config.device) for lb in labels_batch]
 
             # Model output and it's loss
             # with torch.cuda.amp.autocast(enabled=True):
@@ -121,6 +123,8 @@ if __name__ == '__main__':
     config = Config("config.yaml")
     config.tensor_board_writer = SummaryWriter(config.tensorflow_log_dir)
     model = get_model(config)
+    model_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Model parameters: {model_param}")
     loss_fn = dNamNNLoss(config)
     train_data_loader, val_data_loader = fetch_data_loader(config)
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -133,7 +137,11 @@ if __name__ == '__main__':
         "total_training_example": config.total_training_example,
         "criterion": str(loss_fn),
         "upsample_method": 'transposed',
-        "upsampled_activation": "relu"
+        "upsampled_activation": "relu",
+        "model_param": model_param,
+        "input_normalize_factor": -1,
+        "output_normalize_factor": 10.,
+        "threshold": 50.
     }
     neptune_run['config/hyperparameters'] = neptune_param
     train_and_evaluate(model, train_data_loader, val_data_loader, optimizer, loss_fn, lr_scheduler, config)

@@ -47,10 +47,9 @@ class SMLMDataset(Dataset):
                 # convert the value between 0 and 1
                 input_mean = input_.view(input_.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1)
                 input_ = input_ - input_mean
-                label_32 = self._normalize(torch.load(file_name.replace('_gt', '_32')).to(self.config.device)).unsqueeze(1)
-                label_63 = self._normalize(torch.load(file_name.replace('_gt', '_63')).to(self.config.device)).unsqueeze(1)
-                label_125 = self._normalize(torch.load(file_name.replace('_gt', '_125')).to(self.config.device)).unsqueeze(1)
-                label_249 = self._normalize(torch.load(file_name.replace('_gt', '_249')).to(self.config.device)).unsqueeze(1)
+                all_label = []
+                for image_sizes in self.config.resolution_slap:
+                    all_label.append(self._normalize(torch.load(file_name.replace('_gt', '_'+str(image_sizes))).to(self.config.device)).unsqueeze(1))
 
                 label_ = torch.load(file_name)
                 # label_[:, 7] /= normalize_factor
@@ -59,20 +58,15 @@ class SMLMDataset(Dataset):
                                               disable=self.config.progress_bar_disable, leave=False):
                     single_input_upsampled = self._get_upsample_input(single_input)
                     labels = [
-                        torch.tensor(label_32.data[idx - start].cpu().numpy(), device=self.config.device),
-                        torch.tensor(label_63.data[idx - start].cpu().numpy(), device=self.config.device),
-                        torch.tensor(label_125.data[idx - start].cpu().numpy(), device=self.config.device),
-                        torch.tensor(label_249.data[idx - start].cpu().numpy(), device=self.config.device),
+                        torch.tensor(label.data[idx - start].cpu().numpy(), device=self.config.device) for label in all_label
                     ]
 
                     # if self.type_ == 'test':
                     #     single_label_upsampled = None
                     # else:
                     single_label = label_[label_[:, 0] == idx]
-                    single_label_upsampled = self._get_image_from_point(single_label, [249])
-                    labels.append(self._normalize(single_label_upsampled[0]))
-                        # single_label_upsampled = self._convert_into_sparse_tensor(single_label)
-                        # combine_training = torch.cat((single_input_upsampled, single_label_upsampled), dim=0)
+                    single_label_upsampled = self._get_image_from_point(single_label, [self.config.resolution_slap[-1]])
+                    labels.append(single_label_upsampled[0])
                     f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{idx}.pl"
                     # save the input and label as pickle
                     with open(f_name, 'wb') as handle:
@@ -99,7 +93,7 @@ class SMLMDataset(Dataset):
     def _get_upsample_input(self, single_input):
         single_input = single_input.unsqueeze(0).unsqueeze(0)
         up_scaled_images = []
-        for image_size in self.image_sizes:
+        for image_size in self.config.resolution_slap:
             up_scaled_image = torch.nn.Upsample(size=image_size, mode='bilinear', align_corners=True)(single_input)
             up_scaled_images.append(up_scaled_image.squeeze(0))
         return up_scaled_images
@@ -111,8 +105,9 @@ class SMLMDataset(Dataset):
         high_res_images = []
         for image_size in image_sizes:
             high_res_movie = torch.zeros((image_size, image_size), device=self.config.device)
-            res_scale = image_size / 32
+            res_scale = image_size / self.config.resolution_slap[0]
             # TODO: remove this for loop and vectorize this
+            # point[:, 7] /= 10.
             for blinker in point[point[:, 7] > 0.]:
                 mu = torch.round(blinker[[5, 6]] * res_scale).int()
                 high_res_movie[mu[1]][mu[0]] += blinker[7]
@@ -135,6 +130,7 @@ class SMLMDataset(Dataset):
         # if y is none then it's test. so we don't require the label
         if y is None:
             return x
+        # y[-1] /= 10.
         return x, y
 
 
