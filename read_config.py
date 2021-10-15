@@ -109,6 +109,7 @@ class Config:
             "input_normalize_factor": -1,
             "output_normalize_factor": self.last_layer_normalization_factor,
             "threshold": self.detection_threshold,
+            "last_layer_input": "output"
         }
         return neptune_run
 

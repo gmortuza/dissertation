@@ -9,7 +9,7 @@ model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: False
 output_resolution: 5  # increase the resolution of the image by x times
-total_training_example: -1
+total_training_example: 5
 resolution_slap:
   - 32
   - 63
@@ -109,7 +109,7 @@ neptune_name: "test name"
 neptune_description: "Neptune Description"
 neptune_project: "golammdmortuza/dnam-nn"
 neptune_api_key: "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ=="
-neptune_mode: 'debug'  # async / sync / offline / read-only / debug /
+neptune_mode: 'async'  # async / sync / offline / read-only / debug /
 neptune_code_snapshot:
   - train.py
 neptune_tags:

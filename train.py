@@ -79,10 +79,10 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_
         # config.tensor_board_writer.add_scalar("loss/train", train_loss, epoch)
         # config.tensor_board_writer.add_scalar("accuracy/train", train_metrics["accuracy"], epoch)
 
-        val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, config)
-        config.neptune["validation/epoch/loss"].log(val_loss)
-        for key, val in val_metrics.items():
-            config.neptune["validation/epoch/" + key].log(val)
+        # val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, config)
+        # config.neptune["validation/epoch/loss"].log(val_loss)
+        # for key, val in val_metrics.items():
+        #     config.neptune["validation/epoch/" + key].log(val)
 
         # config.tensor_board_writer.add_scalars(f'loss', {
         #     'validation': val_loss,
@@ -94,11 +94,11 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_
         #     'training': train_metrics["accuracy"],
         # }, epoch)
 
-        best_val_acc = utils.save_checkpoint({'epoch': epoch + 1,
-                                              'state_dict': model.state_dict(),
-                                              'optim_dict': optimizer.state_dict()},
-                                             best_val_acc,
-                                             config, val_metrics)
+        # best_val_acc = utils.save_checkpoint({'epoch': epoch + 1,
+        #                                       'state_dict': model.state_dict(),
+        #                                       'optim_dict': optimizer.state_dict()},
+        #                                      best_val_acc,
+        #                                      config, val_metrics)
 
 
 if __name__ == '__main__':
