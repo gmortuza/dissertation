@@ -13,4 +13,6 @@ def get_model(config):
     elif config.model_type == 'custom_model':
         model = Custom(config)
 
+    # log num parameters to neptune
+    config.log_param('model_params', sum(p.numel() for p in model.parameters() if p.requires_grad))
     return model.to(config.device)

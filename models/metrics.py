@@ -1,6 +1,9 @@
 import torch
 from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment
+from read_config import Config
+
+# config = Config("config.yaml")
 
 
 def get_r2_score(prediction, target):
@@ -69,21 +72,24 @@ def cross_correlation(pred_level, target_level):
         return float(ncc.detach().cpu())
     return normalized_cross_correlation
 
-def get_jaccard_index(prediction, target):
-    prediction = prediction[-1].detach().squeeze(1)
-    target = target[-1].squeeze(1)
-    SMOOTH = 1e-6
-    pred_loc = torch.where(prediction > 50.)
-    pred_loc = set(zip(map(int, pred_loc[0]), map(int, pred_loc[1]), map(int, pred_loc[2])))
-    target_loc = torch.where(target > 0.)
-    target_loc = set(zip(map(int, target_loc[0]), map(int, target_loc[1]), map(int, target_loc[2])))
-    intersection = len(pred_loc.intersection(target_loc))
-    union = len(pred_loc.union(target_loc))
-    iou = (intersection + SMOOTH) / (union + SMOOTH)
-    # intersection = (p_location & target).sum()
-    # union = (p_location | target).sum()
-    # iou = (intersection + SMOOTH) / (union + SMOOTH)  # smoothed to avoid 0/0
-    return iou
+
+def get_jaccard_index(config):
+    def jaccard_index(prediction, target):
+        prediction = prediction[-1].detach().squeeze(1)
+        target = target[-1].squeeze(1)
+        SMOOTH = 1e-6
+        pred_loc = torch.where(prediction > config.detection_threshold)
+        pred_loc = set(zip(map(int, pred_loc[0]), map(int, pred_loc[1]), map(int, pred_loc[2])))
+        target_loc = torch.where(target > 0.)
+        target_loc = set(zip(map(int, target_loc[0]), map(int, target_loc[1]), map(int, target_loc[2])))
+        intersection = len(pred_loc.intersection(target_loc))
+        union = len(pred_loc.union(target_loc))
+        iou = (intersection + SMOOTH) / (union + SMOOTH)
+        # intersection = (p_location & target).sum()
+        # union = (p_location | target).sum()
+        # iou = (intersection + SMOOTH) / (union + SMOOTH)  # smoothed to avoid 0/0
+        return iou
+    return jaccard_index
 
 
 def get_ji_by_threshold(prediction, target):
@@ -114,12 +120,14 @@ def get_SSIM(prediction, target):
     pass
 
 
-metrics = {
-    # 'accuracy': get_r2_score,
-    'JI': get_jaccard_index,
-    # 'JI_threshold': get_ji_by_threshold,
-    'accuracy_last': cross_correlation(-1, -1),
-    'psnr': get_psnr(-1, -1),
-    'accuracy': cross_correlation(-2, -2)
-    # 'mse': get_mse
-}
+def get_metrics(config):
+    return {
+        # 'accuracy': get_r2_score,
+        'JI': get_jaccard_index(config),
+        # 'JI_threshold': get_ji_by_threshold,
+        'accuracy_last': cross_correlation(-1, -1),
+        'psnr_last': get_psnr(-1, -1),
+        'psnr': get_psnr(-2, -2),
+        'accuracy': cross_correlation(-2, -2)
+        # 'mse': get_mse
+    }

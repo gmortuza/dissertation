@@ -51,14 +51,16 @@ class SMLMDataset(Dataset):
                 for image_sizes in self.config.resolution_slap:
                     all_label.append(self._normalize(torch.load(file_name.replace('_gt', '_'+str(image_sizes))).to(self.config.device)).unsqueeze(1))
 
-                label_ = torch.load(file_name)
+                # TODO: set the device according to config
+                label_ = torch.load(file_name).to(torch.device('cpu'))
                 # label_[:, 7] /= normalize_factor
                 for idx, single_input in tqdm(enumerate(input_, start), total=input_.shape[0],
                                               desc="Upsampling the data individual",
                                               disable=self.config.progress_bar_disable, leave=False):
                     single_input_upsampled = self._get_upsample_input(single_input)
                     labels = [
-                        torch.tensor(label.data[idx - start].cpu().numpy(), device=self.config.device) for label in all_label
+                        # TODO: set device according to config
+                        torch.tensor(label.data[idx - start].cpu().numpy(), device=torch.device('cpu')) for label in all_label
                     ]
 
                     # if self.type_ == 'test':
@@ -95,16 +97,17 @@ class SMLMDataset(Dataset):
         up_scaled_images = []
         for image_size in self.config.resolution_slap:
             up_scaled_image = torch.nn.Upsample(size=image_size, mode='bilinear', align_corners=True)(single_input)
-            up_scaled_images.append(up_scaled_image.squeeze(0))
+            # TODO: set device according to config
+            up_scaled_images.append(up_scaled_image.squeeze(0).to(torch.device('cpu')))
         return up_scaled_images
-
 
     def _get_image_from_point(self, point: torch.Tensor, image_sizes: list=None) -> torch.Tensor:
         # points --> [x, y, photons]
         image_sizes = self.image_sizes if image_sizes is None else image_sizes
         high_res_images = []
         for image_size in image_sizes:
-            high_res_movie = torch.zeros((image_size, image_size), device=self.config.device)
+            # TODO: set device according to config
+            high_res_movie = torch.zeros((image_size, image_size), device=torch.device('cpu'))
             res_scale = image_size / self.config.resolution_slap[0]
             # TODO: remove this for loop and vectorize this
             # point[:, 7] /= 10.
@@ -118,10 +121,6 @@ class SMLMDataset(Dataset):
         return self.total_data if self.config.total_training_example == -1 else self.config.total_training_example
         # return self.total_data
 
-    def _transform(self):
-        return transforms.Compose([
-            transforms.Normalize((0.), (1.))
-        ])
 
     def __getitem__(self, index: int):
         f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index}.pl"
@@ -130,7 +129,7 @@ class SMLMDataset(Dataset):
         # if y is none then it's test. so we don't require the label
         if y is None:
             return x
-        # y[-1] /= 10.
+        y[-1] /= self.config.last_layer_normalization_factor
         return x, y
 
 
@@ -147,6 +146,8 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
         val_dir = os.path.join(config.input_dir, "validation")
         train_dataset = SMLMDataset(train_dir, config)
         val_dataset = SMLMDataset(val_dir, config)
+        config.log_param("num_training", len(train_dataset))
+        config.log_param("num_validation", len(val_dataset))
         train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle)
         valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle)
 

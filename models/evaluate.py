@@ -1,18 +1,20 @@
 import torch
 import numpy as np
-from models.metrics import metrics
+from models.metrics import get_metrics
 
 
 def evaluate(model, loss_fn, data_loader, config) -> (float, dict):
+    metrics = get_metrics(config)
     model.eval()
     summary = []
-    for data_batch, labels_batch in data_loader:
-
+    for train_batch, labels_batch in data_loader:
+        train_batch = [tb.to(config.device) for tb in train_batch]
+        labels_batch = [lb.to(config.device) for lb in labels_batch]
         # compute model output
         with torch.no_grad():
-            with torch.cuda.amp.autocast(enabled=True):
-                output_batch = model(data_batch)
-                loss = loss_fn(output_batch, labels_batch)
+            # with torch.cuda.amp.autocast(enabled=True):
+            output_batch = model(train_batch, labels_batch)
+            loss = loss_fn(output_batch, labels_batch)
 
         # Compute all metrics on this batch
         summary_batch = {metric: metrics[metric](output_batch, labels_batch) for metric in metrics}

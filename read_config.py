@@ -4,6 +4,7 @@ import logging
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import time
+import neptune.new as neptune
 
 torch.manual_seed(1234)
 
@@ -36,6 +37,7 @@ class Config:
         self.logger = self.get_logger()
         self.verbose = 1 if self.log_level == 'info' else 0
         self.logger.info("Finish reading the configuration file")
+        self.neptune = self._setup_neptune()
 
     def _additional_parameter(self):
         """
@@ -86,6 +88,33 @@ class Config:
     def dict(self):
         """Gives dict-like access to Params instance by `params.dict['learning_rate']`"""
         return self.__dict__
+
+    def _setup_neptune(self):
+        neptune_run = neptune.init(
+            project=self.neptune_project,
+            api_token=self.neptune_api_key,
+            name=self.neptune_name,
+            tags=self.neptune_tags,
+            description=self.neptune_description,
+            source_files=self.neptune_code_snapshot,
+            mode=self.neptune_mode  # debug stop tracking
+        )
+        # Setup the hyper-parameters
+        neptune_run['parameters'] = {
+            "learning_rate": self.learning_rate,
+            "final_activation": 'relu',
+            "epochs": self.num_epochs,
+            "upsample_method": 'transposed',
+            "upsampled_activation": "relu",
+            "input_normalize_factor": -1,
+            "output_normalize_factor": self.last_layer_normalization_factor,
+            "threshold": self.detection_threshold,
+        }
+        return neptune_run
+
+    def log_param(self, key, val):
+        self.neptune['parameters'][key] = val
+
 
     def get_logger(self):
 

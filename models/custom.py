@@ -50,7 +50,7 @@ class Custom(nn.Module):
         output_4 = self.conv_transposed(output_4)
         output_4 = self.conv(output_4)
         # return output_1, output_2, output_3, output_4
-        output_5 = self.final_unet(output_4)
+        output_5 = self.final_unet(y[4])
         # final_output = self.conv_transposed(final_output)
         # final_output = self.conv(final_output)
         return output_1, output_2, output_3, output_4, output_5
