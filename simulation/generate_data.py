@@ -11,6 +11,7 @@ from simulation.simulate import generate_binding_site_position, distribute_photo
     get_binding_site_position_distribution
 from simulation.noise import get_noise
 from simulation.drift import get_drift
+import pandas as pd
 
 
 from tqdm import tqdm, trange
@@ -128,6 +129,12 @@ class GenerateData:
         combined_ground_truth = combined_ground_truth[: current_num_of_emitter, :]
 
         torch.save(combined_ground_truth, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_gt.pl")
+        # extract the frame average info into csv
+        # TODO: Move this during creating the frame
+        df = pd.DataFrame(combined_ground_truth[:, [0, 7]].cpu().numpy(), columns=['frame_number', 'photons_count'])
+        df.groupby('frame_number').agg({'frame_number': 'count', 'photons_count': 'sum'}).rename(
+            columns={'frame_number': 'emitter_count'}).reset_index().to_csv(self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}.csv", index=False)
+
         torch.save(movies[0], self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_{movies[0].shape[-1]}_with_noise.pl")
         for movie in movies[1:]:
             torch.save(movie, self.config.file_name_to_save + f"_{frame_start + 1}_{frame_end}_{movie.shape[-1]}.pl")
