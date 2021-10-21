@@ -12,7 +12,6 @@ def evaluate(model, loss_fn, data_loader, config) -> (float, dict):
         labels_batch = [lb.to(config.device) for lb in labels_batch]
         # compute model output
         with torch.no_grad():
-            # with torch.cuda.amp.autocast(enabled=True):
             output_batch = model(train_batch, labels_batch)
             loss = loss_fn(output_batch, labels_batch)
 

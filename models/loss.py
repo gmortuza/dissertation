@@ -40,12 +40,13 @@ class dNamNNLoss(nn.Module):
         # output has two part,
         #   localized prediction
         #   counter
-        output_1, output_2, output_3, output_4, output_5 = outputs
-        target_1, target_2, target_3, target_4, target_5, target_6 = targets
+        # output_1, output_2, output_3, output_4, output_5 = outputs
+        # target_1, target_2, target_3, target_4, target_5, target_6 = targets
         # return nn.L1Loss()(output_5, target_6)
         self.config.log_param("criterion", "L1")
-        return nn.L1Loss()(output_1, target_2) + nn.L1Loss()(output_2, target_3) + nn.L1Loss()(output_3, target_4) \
-               + nn.L1Loss()(output_4, target_5) + nn.L1Loss()(output_5, target_6)
+        return sum(nn.L1Loss()(outputs[i], targets[i]) for i in range(len(outputs)))
+        # return nn.L1Loss()(output_1, target_2) + nn.L1Loss()(output_2, target_3) + nn.L1Loss()(output_3, target_4) \
+        #        + nn.L1Loss()(output_4, target_5) + nn.L1Loss()(output_5, target_6)
         # return self._mse_loss(output_1, target_5)
                # + self._mse_loss(output_2, target_3) + self._mse_loss(output_4, target_4)
 

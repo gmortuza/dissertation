@@ -9,7 +9,7 @@ model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: False
 output_resolution: 5  # increase the resolution of the image by x times
-total_training_example: 5
+total_training_example: -1
 resolution_slap:
   - 32
   - 63
@@ -19,6 +19,7 @@ resolution_slap:
 last_layer_normalization_factor: 10.
 detection_threshold: 50.
 last_model_input: 'label'
+save_model_based_on: psnr_16
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model

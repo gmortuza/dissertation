@@ -109,10 +109,8 @@ def get_ji_by_threshold(prediction, target):
 
 
 def get_psnr(pred_level, target_level):
-    def psnr(prediction, target):
-        prediction = prediction[pred_level]
-        target = target[target_level]
-        mse = torch.mean((prediction - target) ** 2)
+    def psnr(predictions, targets):
+        mse = torch.mean((predictions[pred_level] - targets[target_level]) ** 2)
         return 20 * torch.log10(1.0 / torch.sqrt(mse)).detach().cpu()
     return psnr
 
@@ -122,12 +120,12 @@ def get_SSIM(prediction, target):
 
 def get_metrics(config):
     return {
-        # 'accuracy': get_r2_score,
-        'JI': get_jaccard_index(config),
-        # 'JI_threshold': get_ji_by_threshold,
-        'accuracy_last': cross_correlation(-1, -1),
-        'psnr_last': get_psnr(-1, -1),
-        'psnr': get_psnr(-2, -2),
-        'accuracy': cross_correlation(-2, -2)
-        # 'mse': get_mse
+        'psnr_2': get_psnr(0, 0),
+        'psnr_4': get_psnr(1, 1),
+        'psnr_8': get_psnr(2, 2),
+        'psnr_16': get_psnr(3, 3),
+        'cc_2': cross_correlation(0, 0),
+        'cc_4': cross_correlation(1, 1),
+        'cc_8': cross_correlation(2, 2),
+        'cc_16': cross_correlation(3, 3)
     }

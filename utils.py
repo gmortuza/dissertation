@@ -42,7 +42,7 @@ def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
     if not os.path.exists(config.checkpoint_dir):
         os.mkdir(config.checkpoint_dir)
     torch.save(state, filepath)
-    if val_metrics['accuracy'] >= best_val_acc:
+    if val_metrics[config.save_model_based_on] >= best_val_acc:
         config.logger.info("New best accuracy found")
         shutil.copyfile(filepath, os.path.join(config.checkpoint_dir, name+'best.pth.tar'))
         best_json_path = os.path.join(
@@ -51,7 +51,7 @@ def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
     last_json_path = os.path.join(
         config.checkpoint_dir, name + "metrics_val_last_weights.json")
     save_dict_to_json(val_metrics, last_json_path)
-    return max(best_val_acc, val_metrics['accuracy'])
+    return max(best_val_acc, val_metrics[config.save_model_based_on])
 
 
 def save_dict_to_json(d, json_path):
@@ -87,7 +87,7 @@ def load_checkpoint(model, config, optimizer=None, name='') -> float:
             optimizer.load_state_dict(checkpoint['optim_dict'])
         # Get accuracy
         with open(os.path.join(config.checkpoint_dir, "metrics_val_best_weights.json")) as f:
-            best_accuracy = json.load(f)["accuracy"]
+            best_accuracy = json.load(f)[config.save_model_based_on]
         return best_accuracy
     return float('-inf')
 

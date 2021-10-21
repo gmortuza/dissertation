@@ -71,7 +71,7 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_
         config.logger.info("Epoch {}/{}".format(epoch + 1, config.num_epochs))
         train_loss, train_metrics = train(model, optimizer, loss_fn, train_dataloader, lr_scheduler, config)
 
-        config.neptune["training/batch/loss"].log(train_loss)
+        config.neptune["training/epoch/loss"].log(train_loss)
         for key, val in train_metrics.items():
             config.neptune["training/epoch/" + key].log(val)
 
@@ -79,10 +79,10 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer, loss_
         # config.tensor_board_writer.add_scalar("loss/train", train_loss, epoch)
         # config.tensor_board_writer.add_scalar("accuracy/train", train_metrics["accuracy"], epoch)
 
-        # val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, config)
-        # config.neptune["validation/epoch/loss"].log(val_loss)
-        # for key, val in val_metrics.items():
-        #     config.neptune["validation/epoch/" + key].log(val)
+        val_loss, val_metrics = evaluate(model, loss_fn, val_dataloader, config)
+        config.neptune["validation/epoch/loss"].log(val_loss)
+        for key, val in val_metrics.items():
+            config.neptune["validation/epoch/" + key].log(val)
 
         # config.tensor_board_writer.add_scalars(f'loss', {
         #     'validation': val_loss,

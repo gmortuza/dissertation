@@ -38,8 +38,6 @@ class SMLMDataset(Dataset):
             return len(upsampled_file_names)
         else:
             total = 0
-            normalize_factor = 20000.
-
             for file_name in sorted(file_names):
                 start = int(file_name.split('_')[-3]) - 1
                 input_ = torch.load(file_name.replace('_gt', '_32_with_noise'), )
@@ -50,10 +48,8 @@ class SMLMDataset(Dataset):
                 all_label = []
                 for image_sizes in self.config.resolution_slap:
                     all_label.append(self._normalize(torch.load(file_name.replace('_gt', '_'+str(image_sizes))).to(self.config.device)).unsqueeze(1))
-
                 # TODO: set the device according to config
                 label_ = torch.load(file_name).to(torch.device('cpu'))
-                # label_[:, 7] /= normalize_factor
                 for idx, single_input in tqdm(enumerate(input_, start), total=input_.shape[0],
                                               desc="Upsampling the data individual",
                                               disable=self.config.progress_bar_disable, leave=False):
@@ -62,10 +58,6 @@ class SMLMDataset(Dataset):
                         # TODO: set device according to config
                         torch.tensor(label.data[idx - start].cpu().numpy(), device=torch.device('cpu')) for label in all_label
                     ]
-
-                    # if self.type_ == 'test':
-                    #     single_label_upsampled = None
-                    # else:
                     single_label = label_[label_[:, 0] == idx]
                     single_label_upsampled = self._get_image_from_point(single_label, [self.config.resolution_slap[-1]])
                     labels.append(single_label_upsampled[0])
@@ -77,20 +69,6 @@ class SMLMDataset(Dataset):
                     total += 1
             return total
 
-    # def _convert_into_sparse_tensor(self, points):
-    #     high_res_image_size = self.config.image_size * self.config.output_resolution
-    #     x_cor = []
-    #     y_cor = []
-    #     v = []
-    #     for blinker in points:
-    #         mu = torch.round(blinker[[1, 2]] * self.config.output_resolution).int()
-    #         x_cor.append(int(mu[0]))
-    #         y_cor.append(int(mu[1]))
-    #         v.append(blinker[7].float())
-    #     sparse_tensor_i = [[0] * len(y_cor), y_cor, x_cor]
-    #     sparse_tensor = torch.sparse_coo_tensor(sparse_tensor_i, v, (1, high_res_image_size, high_res_image_size),
-    #                                             device=self.config.device)
-    #     return sparse_tensor
 
     def _get_upsample_input(self, single_input):
         single_input = single_input.unsqueeze(0).unsqueeze(0)
@@ -130,7 +108,7 @@ class SMLMDataset(Dataset):
         if y is None:
             return x
         y[-1] /= self.config.last_layer_normalization_factor
-        return x, y
+        return x, y[1:]
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
