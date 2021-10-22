@@ -1,14 +1,8 @@
-import os
-import torch
-from read_config import Config
-import torch.optim as optim
 import utils
-from models.get_model import get_model
-from data_loader import fetch_data_loader
-from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 
 # seed = 0
 # torch.use_deterministic_algorithms(True)
