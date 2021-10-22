@@ -2,13 +2,9 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 from torch import distributions as D
-from geomloss import SamplesLoss
 from torch.nn import KLDivLoss
 from torchvision import models
 import matplotlib.pyplot as plt
-# from .metrics import normalized_cross_correlation
-
-from utils import generate_image_from_points
 
 
 class VGGLoss(nn.Module):
@@ -30,9 +26,9 @@ class VGGLoss(nn.Module):
         return nn.MSELoss()(output_features, target_features)
 
 
-class dNamNNLoss(nn.Module):
+class Loss(nn.Module):
     def __init__(self, config):
-        super(dNamNNLoss, self).__init__()
+        super(Loss, self).__init__()
         self.config = config
         # self.criterion = SamplesLoss()
 

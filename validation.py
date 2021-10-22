@@ -1,22 +1,22 @@
 import torch
 import numpy as np
-from models.metrics import get_metrics
+
+import utils
 
 
-def evaluate(model, loss_fn, data_loader, config) -> (float, dict):
-    metrics = get_metrics(config)
+def validation(model, data_loader, criterion, metrics, config) -> dict:
     model.eval()
     summary = []
-    for train_batch, labels_batch in data_loader:
-        train_batch = [tb.to(config.device) for tb in train_batch]
-        labels_batch = [lb.to(config.device) for lb in labels_batch]
+    for inputs, labels in data_loader:
+        inputs = utils.convert_device(inputs, config.device)
+        labels = utils.convert_device(labels, config.device)
         # compute model output
         with torch.no_grad():
-            output_batch = model(train_batch, labels_batch)
-            loss = loss_fn(output_batch, labels_batch)
+            outputs = model(inputs, labels)
+            loss = criterion(outputs, labels)
 
         # Compute all metrics on this batch
-        summary_batch = {metric: metrics[metric](output_batch, labels_batch) for metric in metrics}
+        summary_batch = {metric: metrics[metric](outputs, labels) for metric in metrics}
         summary_batch['loss'] = loss.item()
         summary.append(summary_batch)
     # compute mean of all metrics in summary
@@ -26,4 +26,4 @@ def evaluate(model, loss_fn, data_loader, config) -> (float, dict):
                                 for k, v in metrics_mean.items())
     config.logger.info("Eval metrics : " + metrics_string)
 
-    return float(loss.item()), metrics_mean
+    return metrics_mean
