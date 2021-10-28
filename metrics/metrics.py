@@ -18,7 +18,7 @@ def get_mse(prediction, target):
 
 # Source: https://github.com/yuta-hi/pytorch_similarity
 def cross_correlation(pred_level, target_level):
-    def normalized_cross_correlation(prediction, target, reduction='mean', eps=1e-8):
+    def normalized_cross_correlation(predictions, targets, reduction='mean', eps=1e-8):
         """ N-dimensional normalized cross correlation (NCC)
         Args:
             prediction (~torch.Tensor): Input tensor.
@@ -31,9 +31,9 @@ def cross_correlation(pred_level, target_level):
             ~torch.Tensor: Output scalar
             ~torch.Tensor: Output tensor
         """
-        # prediction = prediction[0]
-        target = target[target_level]
-        prediction = prediction[pred_level]
+        predictions = predictions[0]
+        target = targets[target_level]
+        prediction = predictions[pred_level]
 
         shape = prediction.shape
         b = shape[0]
@@ -69,7 +69,7 @@ def cross_correlation(pred_level, target_level):
         else:
             raise KeyError('unsupported reduction type: %s' % reduction)
 
-        return float(ncc.detach().cpu())
+        return float(ncc.detach().cpu()) * 100
     return normalized_cross_correlation
 
 
@@ -110,12 +110,22 @@ def get_ji_by_threshold(prediction, target):
 
 def get_psnr(pred_level, target_level):
     def psnr(predictions, targets):
+        predictions = predictions[0]
         mse = torch.mean((predictions[pred_level] - targets[target_level]) ** 2)
         return 20 * torch.log10(1.0 / torch.sqrt(mse)).detach().cpu()
     return psnr
 
 def get_SSIM(prediction, target):
     pass
+
+
+def get_ji_by_loc(level):
+    def ji(predictions, targets):
+        prediction = (predictions[1][level] > .5).to(torch.uint8)
+        prediction = set(map(tuple, torch.nonzero(prediction)))
+        target = set(map(tuple, torch.nonzero(targets[level])))
+        return len(prediction.intersection(target)) * 100 / len(prediction.union(target))
+    return ji
 
 
 def get_metrics(config):
@@ -127,5 +137,9 @@ def get_metrics(config):
         'cc_2': cross_correlation(0, 0),
         'cc_4': cross_correlation(1, 1),
         'cc_8': cross_correlation(2, 2),
-        'cc_16': cross_correlation(3, 3)
+        'cc_16': cross_correlation(3, 3),
+        'JI_2': get_ji_by_loc(0),
+        'JI_4': get_ji_by_loc(1),
+        'JI_8': get_ji_by_loc(2),
+        'JI_16': get_ji_by_loc(3)
     }

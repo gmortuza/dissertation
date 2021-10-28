@@ -33,18 +33,13 @@ class Loss(nn.Module):
         # self.criterion = SamplesLoss()
 
     def forward(self, outputs, targets):
-        # output has two part,
-        #   localized prediction
-        #   counter
-        # output_1, output_2, output_3, output_4, output_5 = outputs
-        # target_1, target_2, target_3, target_4, target_5, target_6 = targets
-        # return nn.L1Loss()(output_5, target_6)
+        outputs_intensity, outputs_pos = outputs
+        # Generate target pos
+        target_pos = [(target > 0).to(outputs_pos[0].dtype) for target in targets]
         self.config.log_param("criterion", "L1")
-        return sum(nn.L1Loss()(outputs[i], targets[i]) for i in range(len(outputs)))
-        # return nn.L1Loss()(output_1, target_2) + nn.L1Loss()(output_2, target_3) + nn.L1Loss()(output_3, target_4) \
-        #        + nn.L1Loss()(output_4, target_5) + nn.L1Loss()(output_5, target_6)
-        # return self._mse_loss(output_1, target_5)
-               # + self._mse_loss(output_2, target_3) + self._mse_loss(output_4, target_4)
+        return sum(nn.L1Loss()(outputs_intensity[i], targets[i]) for i in range(len(outputs_intensity)))
+            # sum(nn.BCELoss()(outputs_pos[i], target_pos[i]) for i in range(len(outputs_pos)))
+
 
         # predicted_intensity, predicted_location, threshold = outputs
         # targets_zero_to_one = targets.clone()

@@ -44,7 +44,7 @@ def train(model, data_loader, criterion, optimizer, metrics, config) -> dict:
     # compute mean of all metrics in summary
     metrics_mean = {metric: np.mean([x[metric]
                                      for x in summary]) for metric in summary[0]}
-    metrics_string = " ; ".join("{}: {:05.9f}".format(k, v)
+    metrics_string = " ; ".join("{}: {:05.3f}".format(k, v)
                                 for k, v in metrics_mean.items())
     config.logger.info("Train metrics: " + metrics_string)
 
