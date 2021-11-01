@@ -4,6 +4,9 @@ import shutil
 
 import torch
 import numpy as np
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+import cv2
 
 
 class RunningAverage():
@@ -88,6 +91,102 @@ def load_checkpoint(model, config, optimizer=None, name='') -> float:
             best_accuracy = json.load(f)[config.save_model_based_on]
         return best_accuracy
     return float('-inf')
+
+
+def create_random_labels_map(classes: int):
+    labels_map = {}
+    for i in classes:
+        labels_map[i] = torch.randint(0, 255, (3,))
+    labels_map[0] = torch.zeros(3)
+    return labels_map
+
+
+def labels_to_image(img_labels: torch.Tensor, labels_map):
+    """Function that given an image with labels ids and their pixels intrensity mapping, creates a RGB
+    representation for visualisation purposes."""
+    assert len(img_labels.shape) == 2, img_labels.shape
+    H, W = img_labels.shape
+    out = torch.empty(3, H, W, dtype=torch.uint8)
+    for label_id, label_val in labels_map.items():
+        mask = (img_labels == label_id)
+        for i in range(3):
+            out[i].masked_fill_(mask, label_val[i])
+    return out
+
+
+def show_components(img, labels):
+    img = img.numpy()
+    color_ids = torch.unique(labels)
+    labels_map = create_random_labels_map(color_ids)
+    labels_img = labels_to_image(labels, labels_map)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 12))
+
+    # Showing Original Image
+    ax1.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    ax1.axis("off")
+    ax1.set_title("Orginal Image")
+
+    # Showing Image after Component Labeling
+    ax2.imshow(labels_img.permute(1, 2, 0).squeeze().numpy())
+    ax2.axis('off')
+    ax2.set_title("Component Labeling")
+    plt.show()
+
+
+def connected_components(image: torch.Tensor, num_iterations: int = 100) -> torch.Tensor:
+    r"""Computes the Connected-component labelling (CCL) algorithm.
+
+    .. image:: https://github.com/kornia/data/raw/main/cells_segmented.png
+
+    The implementation is an adaptation of the following repository:
+
+    https://gist.github.com/efirdc/5d8bd66859e574c683a504a4690ae8bc
+
+    .. warning::
+        This is an experimental API subject to changes and optimization improvements.
+
+    .. note::
+       See a working example `here <https://kornia-tutorials.readthedocs.io/en/latest/
+       connected_components.html>`__.
+
+    Args:
+        image: the binarized input image with shape :math:`(*, 1, H, W)`.
+          The image must be in floating point with range [0, 1].
+        num_iterations: the number of iterations to make the algorithm to converge.
+
+    Return:
+        The labels image with the same shape of the input image.
+
+    Example:
+        >>> img = torch.rand(2, 1, 4, 5)
+        >>> img_labels = connected_components(img, num_iterations=100)
+    """
+    if not isinstance(image, torch.Tensor):
+        raise TypeError(f"Input imagetype is not a torch.Tensor. Got: {type(image)}")
+
+    if not isinstance(num_iterations, int) or num_iterations < 1:
+        raise TypeError("Input num_iterations must be a positive integer.")
+
+    if len(image.shape) < 3 or image.shape[-3] != 1:
+        raise ValueError(f"Input image shape must be (*,1,H,W). Got: {image.shape}")
+
+    H, W = image.shape[-2:]
+    image_view = image.view(-1, 1, H, W)
+
+    # precompute a mask with the valid values
+    mask = image_view == 1
+
+    # allocate the output tensors for labels
+    B, _, _, _ = image_view.shape
+    out = torch.arange(B * H * W, device=image.device, dtype=image.dtype).view((-1, 1, H, W))
+    out[~mask] = 0
+
+    for _ in range(num_iterations):
+        out[mask] = F.max_pool2d(out, kernel_size=3, stride=1, padding=1)[mask]
+
+    return out.view_as(image)
+
 
 
 def convert_device(tensors, device):

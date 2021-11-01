@@ -228,7 +228,7 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
 
         photon_pos = photons_pos_frame[1.0][start: n_photons_step[gt_position], :]
         # set x, y
-        gt_infos[i, 1:3] = multi_norm_dist.mean  # This is super exact position
+        gt_infos[i, 1:3] = binding_site_position_distribution[scales[0]][gt_position].mean  # This is super exact position
 
         gt_infos[i, 3:5] = photon_pos.mean(axis=0)
         gt_infos[i, 5:7] = gt_infos[i, 3:5] + drifts[frame_id]  # Will add drift in later method

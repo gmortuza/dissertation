@@ -9,6 +9,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from read_config import Config
+import utils
 
 
 class SMLMDataset(Dataset):
@@ -64,6 +65,7 @@ class SMLMDataset(Dataset):
                     single_label = label_[label_[:, 0] == idx]
                     single_label_upsampled = self._get_image_from_point(single_label, [self.config.resolution_slap[-1]])
                     labels.append(single_label_upsampled[0])
+                    labels.append(single_label)
                     f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{idx}.pl"
                     # save the input and label as pickle
                     with open(f_name, 'wb') as handle:
@@ -90,7 +92,6 @@ class SMLMDataset(Dataset):
             high_res_movie = torch.zeros((image_size, image_size), device=torch.device('cpu'))
             res_scale = image_size / self.config.resolution_slap[0]
             # TODO: remove this for loop and vectorize this
-            # point[:, 7] /= 10.
             for blinker in point[point[:, 7] > 0.]:
                 mu = torch.round(blinker[[5, 6]] * res_scale).int()
                 high_res_movie[mu[1]][mu[0]] += blinker[7]
@@ -108,8 +109,23 @@ class SMLMDataset(Dataset):
         # if y is none then it's test. so we don't require the label
         if y is None:
             return x
-        y[-1] /= self.config.last_layer_normalization_factor
-        return x, y[1:-1]
+        # y[-1][7] /= self.config.last_layer_normalization_factor
+        return x, y[1:-2]
+
+
+def get_patches(images, ground_truth):
+    binary_images = (images > 0.).float().unsqueeze(0)
+    labels = utils.connected_components(binary_images).squeeze(0).squeeze(0)
+    unique_label = labels.unique()
+    x, y = torch.where(labels == 50398.)
+    x_mean = x.float().mean().round().int()
+    y_mean = y.float().mean().round().int()
+    image_patch = images[:, x_mean - 5: x_mean + 5, y_mean - 5: y_mean + 5]
+
+    # extract the ground truth
+    plt.imshow(image_patch, cmap='gray')
+
+    utils.show_components(images, labels)
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
