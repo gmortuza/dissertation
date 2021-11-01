@@ -19,7 +19,7 @@ resolution_slap:
 last_layer_normalization_factor: 10.
 detection_threshold: 50.
 last_model_input: 'label'
-save_model_based_on: psnr_16
+save_model_based_on: JI_16
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model

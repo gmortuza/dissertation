@@ -7,6 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 
 from read_config import Config
 import utils
@@ -110,7 +111,8 @@ class SMLMDataset(Dataset):
         if y is None:
             return x
         # y[-1][7] /= self.config.last_layer_normalization_factor
-        return x, y[1:-2]
+        y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
+        return x, y[1:]
 
 
 def get_patches(images, ground_truth):

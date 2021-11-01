@@ -2,6 +2,7 @@ import torch
 from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment
 from read_config import Config
+import extract_points
 
 # config = Config("config.yaml")
 
@@ -128,18 +129,40 @@ def get_ji_by_loc(level):
     return ji
 
 
+def get_ji_by_points(level, config):
+    def ji(predictions, targets):
+        predictions = predictions[0][level]
+        targets = targets[-1].cpu().numpy()
+        frames = targets[:, 0, 0]
+        predicted_points = []
+        gt_points = []
+        for frame_number, frame in zip(frames, predictions):
+            frame_target = targets[targets[:, 0, 0] == frame_number][0]
+            frame_target = frame_target[frame_target[:, 0] == frame_number]
+            predicted_point = extract_points.get_points(frame, frame_number)
+            gt_point = extract_points.get_points_from_gt(frame_target)
+            if len(predicted_point):
+                predicted_points.extend(predicted_point)
+            if len(gt_point):
+                gt_points.extend(gt_point)
+
+        return extract_points.get_accuracy(predicted_points, gt_points)
+
+    return ji
+
+
 def get_metrics(config):
     return {
-        'psnr_2': get_psnr(0, 0),
-        'psnr_4': get_psnr(1, 1),
-        'psnr_8': get_psnr(2, 2),
-        'psnr_16': get_psnr(3, 3),
+        # 'psnr_2': get_psnr(0, 0),
+        # 'psnr_4': get_psnr(1, 1),
+        # 'psnr_8': get_psnr(2, 2),
+        # 'psnr_16': get_psnr(3, 3),
         'cc_2': cross_correlation(0, 0),
         'cc_4': cross_correlation(1, 1),
         'cc_8': cross_correlation(2, 2),
         'cc_16': cross_correlation(3, 3),
-        'JI_2': get_ji_by_loc(0),
-        'JI_4': get_ji_by_loc(1),
-        'JI_8': get_ji_by_loc(2),
-        'JI_16': get_ji_by_loc(3)
+        # 'JI_2': get_ji_by_points(0, config),
+        # 'JI_4': get_ji_by_points(1, config),
+        # 'JI_8': get_ji_by_points(2, config),
+        'JI_16': get_ji_by_points(3, config)
     }
