@@ -139,3 +139,4 @@ outputs/
 *.jpeg
 generated_data/
 .neptune
+log*
