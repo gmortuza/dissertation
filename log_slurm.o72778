@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "main.py", line 56, in <module>
+    config_ = Config("config.yaml")
+  File "/bsuhome/gmortuza/dissertation/read_config.py", line 40, in __init__
+    self.neptune = self._setup_neptune()
+  File "/bsuhome/gmortuza/dissertation/read_config.py", line 99, in _setup_neptune
+    source_files=self.neptune_code_snapshot,
+AttributeError: 'Config' object has no attribute 'neptune_code_snapshot'
