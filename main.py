@@ -1,3 +1,7 @@
+import os
+import random
+
+import numpy as np
 import torch
 from torch.optim import Adam
 
@@ -11,16 +15,27 @@ from data_loader import fetch_data_loader
 import utils
 
 
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    # torch.use_deterministic_algorithms(False)
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
+
 def main(config: Config):
     criterion = Loss(config)
     model = get_model(config)
     config.log_param('model_params', sum(p.numel() for p in model.parameters() if p.requires_grad))
     optimizer = Adam(model.parameters(), lr=config.learning_rate)
-    metrics = get_metrics(config)
     train_loader, val_loader = fetch_data_loader(config)
     best_val_acc = utils.load_checkpoint(model, config, optimizer)
 
     for epoch in range(1, config.num_epochs + 1):
+        metrics = get_metrics(config, epoch)
         config.logger.info(f"Epoch {epoch}/{config.num_epochs}")
         train_metrics = train(model, train_loader, criterion, optimizer, metrics, config)
         for key, val in train_metrics.items():
@@ -39,4 +54,6 @@ def main(config: Config):
 
 if __name__ == '__main__':
     config_ = Config("config.yaml")
+    if config_.use_seed:
+        set_seed(1)
     main(config_)

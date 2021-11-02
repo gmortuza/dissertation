@@ -151,18 +151,30 @@ def get_ji_by_points(level, config):
     return ji
 
 
-def get_metrics(config):
-    return {
-        # 'psnr_2': get_psnr(0, 0),
-        # 'psnr_4': get_psnr(1, 1),
-        # 'psnr_8': get_psnr(2, 2),
-        # 'psnr_16': get_psnr(3, 3),
-        'cc_2': cross_correlation(0, 0),
-        'cc_4': cross_correlation(1, 1),
-        'cc_8': cross_correlation(2, 2),
-        'cc_16': cross_correlation(3, 3),
-        # 'JI_2': get_ji_by_points(0, config),
-        # 'JI_4': get_ji_by_points(1, config),
-        # 'JI_8': get_ji_by_points(2, config),
-        'JI_16': get_ji_by_points(3, config)
-    }
+def get_metrics(config, epoch):
+    if epoch > 40:
+        return {
+            # 'psnr_2': get_psnr(0, 0),
+            # 'psnr_4': get_psnr(1, 1),
+            # 'psnr_8': get_psnr(2, 2),
+            # 'psnr_16': get_psnr(3, 3),
+            'cc_2': cross_correlation(0, 0),
+            'cc_4': cross_correlation(1, 1),
+            'cc_8': cross_correlation(2, 2),
+            'cc_16': cross_correlation(3, 3),
+            # 'JI_2': get_ji_by_points(0, config),
+            # 'JI_4': get_ji_by_points(1, config),
+            'JI_8': get_ji_by_points(2, config),
+            'JI_16': get_ji_by_points(3, config)
+        }
+    else:
+        return {
+            # 'psnr_2': get_psnr(0, 0),
+            # 'psnr_4': get_psnr(1, 1),
+            # 'psnr_8': get_psnr(2, 2),
+            # 'psnr_16': get_psnr(3, 3),
+            'cc_2': cross_correlation(0, 0),
+            'cc_4': cross_correlation(1, 1),
+            'cc_8': cross_correlation(2, 2),
+            'cc_16': cross_correlation(3, 3),
+        }

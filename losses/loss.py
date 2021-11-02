@@ -35,7 +35,7 @@ class Loss(nn.Module):
     def forward(self, outputs, targets):
         outputs_intensity, outputs_pos = outputs
         # Generate target pos
-        target_pos = [(target > 0).to(outputs_pos[0].dtype) for target in targets]
+        # target_pos = [(target > 0).to(outputs_pos[0].dtype) for target in targets]
         self.config.log_param("criterion", "L1")
         return sum(nn.L1Loss()(outputs_intensity[i], targets[i]) for i in range(len(outputs_intensity)))
             # sum(nn.BCELoss()(outputs_pos[i], target_pos[i]) for i in range(len(outputs_pos)))
