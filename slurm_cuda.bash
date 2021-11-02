@@ -12,4 +12,4 @@ module load slurm
 module load cuda10.0
 
 # python generate_data.py
-python train.py
+python main.py
