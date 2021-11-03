@@ -112,6 +112,8 @@ class SMLMDataset(Dataset):
             return x
         # y[-1][7] /= self.config.last_layer_normalization_factor
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
+        # for i in range(len(y) - 1):
+        #     y[i] *= 255.
         return x, y[1:]
 
 
@@ -145,8 +147,8 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
         val_dataset = SMLMDataset(val_dir, config)
         config.log_param("num_training", len(train_dataset))
         config.log_param("num_validation", len(val_dataset))
-        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle)
-        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle)
+        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=4, pin_memory=True)
+        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=4, pin_memory=True)
 
         return train_loader, valid_loader
     else:

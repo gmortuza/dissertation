@@ -32,7 +32,6 @@ def cross_correlation(pred_level, target_level):
             ~torch.Tensor: Output scalar
             ~torch.Tensor: Output tensor
         """
-        predictions = predictions[0]
         target = targets[target_level]
         prediction = predictions[pred_level]
 
@@ -111,7 +110,7 @@ def get_ji_by_threshold(prediction, target):
 
 def get_psnr(pred_level, target_level):
     def psnr(predictions, targets):
-        predictions = predictions[0]
+        predictions = predictions
         mse = torch.mean((predictions[pred_level] - targets[target_level]) ** 2)
         return 20 * torch.log10(1.0 / torch.sqrt(mse)).detach().cpu()
     return psnr
@@ -131,7 +130,7 @@ def get_ji_by_loc(level):
 
 def get_ji_by_points(level, config):
     def ji(predictions, targets):
-        predictions = predictions[0][level]
+        predictions = predictions[level]
         targets = targets[-1].cpu().numpy()
         frames = targets[:, 0, 0]
         predicted_points = []
@@ -152,7 +151,7 @@ def get_ji_by_points(level, config):
 
 
 def get_metrics(config, epoch):
-    if epoch > 40:
+    if epoch > 0:
         return {
             # 'psnr_2': get_psnr(0, 0),
             # 'psnr_4': get_psnr(1, 1),
@@ -163,7 +162,7 @@ def get_metrics(config, epoch):
             'cc_8': cross_correlation(2, 2),
             'cc_16': cross_correlation(3, 3),
             # 'JI_2': get_ji_by_points(0, config),
-            # 'JI_4': get_ji_by_points(1, config),
+            'JI_4': get_ji_by_points(1, config),
             'JI_8': get_ji_by_points(2, config),
             'JI_16': get_ji_by_points(3, config)
         }

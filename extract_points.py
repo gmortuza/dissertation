@@ -13,6 +13,8 @@ def get_accuracy(predicted_points, gt_points):
     # intersection = len(predicted_points_set.intersection(gt_points_set))
     # union = len(predicted_points_set.union(gt_points_set))
     # return intersection / union, 0.
+    if not len(predicted_points) or not len(gt_points):
+        return 0.
     radius = 10.
     predicted_points = np.asarray(predicted_points)
     gt_points = np.asarray(gt_points)
