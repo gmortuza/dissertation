@@ -1,4 +1,5 @@
 import os
+import sys
 
 from simulation.generate_data import GenerateData
 from read_config import Config
@@ -38,6 +39,7 @@ def simulate(config: Config):
 
 
 if __name__ == '__main__':
-    config = Config("config.yaml")
+    from_borah = True if len(sys.argv) > 1 else False
+    config = Config("config.yaml", from_borah)
 
     simulate(config)

@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 
 import numpy as np
 import torch
@@ -53,7 +54,8 @@ def main(config: Config):
 
 
 if __name__ == '__main__':
-    config_ = Config("config.yaml")
+    from_borah = True if len(sys.argv) > 1 else False
+    config_ = Config("config.yaml", from_borah)
     if config_.use_seed:
         set_seed(1)
     main(config_)

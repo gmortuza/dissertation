@@ -147,8 +147,8 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
         val_dataset = SMLMDataset(val_dir, config)
         config.log_param("num_training", len(train_dataset))
         config.log_param("num_validation", len(val_dataset))
-        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=4, pin_memory=True)
-        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=4, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0)
+        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0)
 
         return train_loader, valid_loader
     else:

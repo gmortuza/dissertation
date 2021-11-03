@@ -151,7 +151,7 @@ def get_ji_by_points(level, config):
 
 
 def get_metrics(config, epoch):
-    if epoch > 0:
+    if epoch >= config.JI_metrics_from_epoch:
         return {
             # 'psnr_2': get_psnr(0, 0),
             # 'psnr_4': get_psnr(1, 1),

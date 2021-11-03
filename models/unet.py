@@ -23,7 +23,7 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, config, in_channel=1, out_channel=16, features=[64, 128, 256, 512]):
+    def __init__(self, config, in_channel=1, out_channel=16, features=[64, 128, 256]):
         super(UNet, self).__init__()
         self.config = config
 
@@ -45,9 +45,6 @@ class UNet(nn.Module):
         self.output = nn.Sequential(
             nn.ConvTranspose2d(features[0], out_channel, kernel_size=1, stride=1),
         )
-        self.threshold = nn.Sequential(
-            nn.Linear(262144, 1)
-        )
 
     def forward(self, x):
         skip_connections = []
@@ -66,16 +63,9 @@ class UNet(nn.Module):
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ups[idx + 1](concat_skip)
 
-        # x = torch.flatten(x, 1)
         intensity = torch.nn.ReLU()(self.output(x))
-        location = torch.sigmoid(self.output(x))
-        # x_flatten = x.flatten(1)
-        # threshold = torch.sigmoid(self.threshold(x_flatten))
-        threshold = None
 
         return intensity
-
-        # return intensity, location, threshold
 
 
 if __name__ == '__main__':

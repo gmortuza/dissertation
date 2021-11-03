@@ -8,6 +8,7 @@ learning_rate: .0001
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: True
+save_model_after_epoch_end: True
 output_resolution: 5  # increase the resolution of the image by x times
 total_training_example: -1
 resolution_slap:
@@ -20,6 +21,7 @@ last_layer_normalization_factor: 10.
 detection_threshold: 50.
 last_model_input: 'label'
 save_model_based_on: cc_16
+JI_metrics_from_epoch: 5
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model

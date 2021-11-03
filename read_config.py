@@ -2,9 +2,9 @@ import os
 import yaml
 import logging
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import time
 import neptune.new as neptune
+from datetime import datetime
 
 torch.manual_seed(1234)
 
@@ -19,8 +19,10 @@ class Config:
     ```
     """
 
-    def __init__(self, config_file_path):
+    def __init__(self, config_file_path, from_borah=False):
         self.update(config_file_path)
+        if from_borah:
+            self._run_from_borah()
         self._additional_parameter()
 
         # Initially it will be false
@@ -36,8 +38,20 @@ class Config:
         # set logger
         self.logger = self.get_logger()
         self.verbose = 1 if self.log_level == 'info' else 0
-        self.logger.info("Finish reading the configuration file")
         self.neptune = self._setup_neptune()
+        self.logger.info("Finish reading the configuration file")
+
+    def _run_from_borah(self):
+        # Override some of the configuration here
+        # We want to track everything while running from borah
+        self.log_level = 'error'  # disable console
+        self.neptune_model = 'async'  # always enable neptune
+        self.progress_bar_disable = True
+        self.simulated_data = '/bsuscratch/gmortuza/simulated_data'
+        self.output_dir = 'outputs_' + datetime.now().strftime("%H_%M_%S")
+        self.load_checkpoint = False
+        self.save_model_after_epoch_end = False
+        self.JI_metrics_from_epoch = 5
 
     def _additional_parameter(self):
         """
@@ -48,9 +62,9 @@ class Config:
         self.device = torch.device(self.device)
         # Calculate background model
         self.bg_model = torch.tensor(
-                (self.laserc_default + self.imagec_default * self.PAINT_imager)
-                * self.Imager_Laserpower * self.power_density_conversion
-                * self.Camera_integration_time * self.noise_level, device=self.device
+            (self.laserc_default + self.imagec_default * self.PAINT_imager)
+            * self.Imager_Laserpower * self.power_density_conversion
+            * self.Camera_integration_time * self.noise_level, device=self.device
         )
         # Calculate tau_d
         self.tau_d = round(1 / (self.PAINT_k_on * self.PAINT_imager * 1 / 10 ** 9) * 1000)
@@ -59,7 +73,6 @@ class Config:
         self.Imager_photon_slope_std = self.Imager_Photonslope / self.std_factor
         self.Imager_photon_rate = self.Imager_Photonslope * self.Imager_Laserpower
         self.Imager_photon_rate_std = self.Imager_photon_slope_std * self.Imager_Laserpower
-
 
     def _make_absolute_directory(self):
         # prepend this base directory with other parameter so that we won't get any error for the path
@@ -115,7 +128,6 @@ class Config:
 
     def log_param(self, key, val):
         self.neptune['parameters'][key] = val
-
 
     def get_logger(self):
 
