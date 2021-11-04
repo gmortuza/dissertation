@@ -5,6 +5,7 @@ from torch import distributions as D
 from torch.nn import KLDivLoss
 from torchvision import models
 import matplotlib.pyplot as plt
+from kornia.filters import gaussian_blur2d
 
 
 class VGGLoss(nn.Module):
@@ -35,7 +36,29 @@ class Loss(nn.Module):
     def forward(self, outputs, targets):
         # Generate target pos
         self.config.log_param("criterion", "L1")
-        return sum(nn.L1Loss()(output, target) for output, target in zip(outputs, targets))
+        return self._l1_loss(outputs, targets)
+        # return self._dice_loss(outputs, targets) + self._l1_loss(outputs, targets)
+
+    def _l1_loss(self, outputs, targets):
+        losses = []
+        for output, target in zip(outputs, targets):
+            output = gaussian_blur2d(output, (7, 7), (1., 1.))
+            target = gaussian_blur2d(target, (7, 7), (1., 1.))
+            loss = nn.L1Loss()(output, target)
+            losses.append(loss)
+        return sum(losses)
+
+    def _dice_loss(self, outputs, targets):
+        losses = []
+        smooth = 1
+        for output, target in zip(outputs, targets):
+            iflat = output.view(-1)
+            tflat = target.view(-1)
+            intersection = (iflat * tflat).sum()
+            loss = 1 - ((2. * intersection + smooth) /
+                        (iflat.sum() + tflat.sum() + smooth))
+            losses.append(loss)
+        return sum(losses)
 
     def __str__(self):
         return "L1"
@@ -54,7 +77,7 @@ class Loss(nn.Module):
     def _gmm_loss(self, outputs, targets):
         output_gmm = self._create_gaussian_mixture(outputs)
         target_gmm = self._create_gaussian_mixture(targets)
-        loss = output_gmm.log_prob(target_gmm.sample((10000, ))).mean()
+        loss = output_gmm.log_prob(target_gmm.sample((10000,))).mean()
         return loss
 
     def _create_gaussian_mixture(self, source):

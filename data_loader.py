@@ -112,8 +112,8 @@ class SMLMDataset(Dataset):
             return x
         # y[-1][7] /= self.config.last_layer_normalization_factor
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
-        # for i in range(len(y) - 1):
-        #     y[i] *= 255.
+        for i in range(len(y) - 1):
+            y[i] *= 255.
         return x, y[1:]
 
 
