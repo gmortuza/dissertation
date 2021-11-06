@@ -8,7 +8,7 @@ def generate_binding_site_position(config):
     grid_position = generate_grid_pos(config)
     unique_origamies = get_unique_origami(config)
 
-    return get_binding_site_pos_from_origamies(config, grid_position, unique_origamies)   # in nanometer
+    return get_binding_site_pos_from_origamies(config, grid_position, unique_origamies)  # in nanometer
 
 
 def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
@@ -33,7 +33,7 @@ def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
     # Choose some random position from the whole movie to put the always on event
     if config.num_gold_nano_particle > 0:
         uniform_distribution = torch.distributions.uniform.Uniform(
-            low=config.frame_padding, high=config.image_size - config.frame_padding)
+            low=config.frame_padding, high=config.resolution_slap[-1] - config.frame_padding)
         fixed_structure = uniform_distribution.sample((2, config.num_gold_nano_particle))
         structures = torch.cat(tensors=(structures, fixed_structure), dim=1)
 
@@ -41,7 +41,6 @@ def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
 
 
 def rotate_structure(structure):
-
     angle_rad = torch.rand(1) * 2 * np.pi
     structure = torch.stack(
         [
@@ -63,7 +62,7 @@ def generate_grid_pos(config) -> torch.Tensor:
     """
     Generate a set of positions where structures will be placed
     """
-    number, image_size, frame_padding, arrangement = convert_device([config.total_origami, config.image_size,
+    number, image_size, frame_padding, arrangement = convert_device([config.total_origami, config.resolution_slap[-1],
                                                                      config.frame_padding, config.origami_arrangement],
                                                                     config.device)
 
@@ -110,8 +109,8 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
 
     if always_on > 0:
         # return it with id
-        return binding_site_id, torch.distributions.normal.\
-            Normal(torch.tensor(always_on / frames), torch.tensor(photon_rate_std)).sample((frames, )).clip(min=0)
+        return binding_site_id, torch.distributions.normal. \
+            Normal(torch.tensor(always_on / frames), torch.tensor(photon_rate_std)).sample((frames,)).clip(min=0)
     dark_times = np.random.exponential(mean_dark, num_of_blinking_event)
     bright_times = np.random.exponential(mean_bright, num_of_blinking_event)
 
@@ -185,34 +184,27 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
 
 
 def get_binding_site_position_distribution(binding_site_position, config):
-    scales = [i / config.resolution_slap[0] for i in config.resolution_slap]
-    binding_site_distributions = {}
+    binding_site_distribution = []
+    scale_tril = get_scale_tril(config)
     binding_site_position = binding_site_position.T
-    for scale in scales:
-        binding_site_distribution = []
-        scale_tril = get_scale_tril(config)
-        scaled_binding_site_position = binding_site_position * scale
-        for mu in scaled_binding_site_position:
-            dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
-            binding_site_distribution.append(dist)
-        binding_site_distributions[scale] = binding_site_distribution
-    return binding_site_distributions
+    for mu in binding_site_position:
+        dist = torch.distributions.multivariate_normal.MultivariateNormal(mu, scale_tril=scale_tril)
+        binding_site_distribution.append(dist)
+    return binding_site_distribution
 
 
-def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started,
-                    frame_wise_noise, drifts, config):
+def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started, frame_wise_noise, drifts):
     device = distributed_photon.device
-    scales = [i / config.resolution_slap[0] for i in config.resolution_slap]
+
     temp_photons = distributed_photon[:, frame_id]  # Shape (number of binding event, )
     n_photons = torch.sum(temp_photons).item()  # Total photons for this frame
     n_photons_step = torch.cumsum(temp_photons, dim=0).to(torch.int)
 
-    photons_pos_frame = {}
-    for scale in scales:
-        photons_pos_frame[scale] = torch.zeros((int(n_photons), 2), device=device)
+    # Allocate memory
+    photon_pos_frame = torch.zeros((int(n_photons), 2), device=device)
     # Positions where are putting some photons
     # indices that will have blinking event at this frame
-    gt_positions = torch.flatten(torch.where(distributed_photon[:, frame_id] > 0)[0])
+    gt_positions = torch.where(distributed_photon[:, frame_id] > 0)[0].flatten()
     # 0,       , 1, 2, 3     , 4     , 5        , 6,       , 7,     , 8,   9,  10
     # frame_num, x, y, x_mean, y_mean, x_drifted, y_drifted, photons, s_x, s_y, noise
     # This will contain the gt_id, x_mean, y_mean, photons, sx, sy, noise, x, y
@@ -221,14 +213,10 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
 
     for i, gt_position in enumerate(gt_positions.tolist()):
         photon_count = int(distributed_photon[gt_position, frame_id])
-        for scale, distribution in binding_site_position_distribution.items():
-            multi_norm_dist = distribution[gt_position]
-            start = 0 if gt_position == 0 else n_photons_step[gt_position - 1]
-            photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
-
-        photon_pos = photons_pos_frame[1.0][start: n_photons_step[gt_position], :]
+        multi_norm_dist = binding_site_position_distribution[gt_position]
+        photon_pos = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
         # set x, y
-        gt_infos[i, 1:3] = binding_site_position_distribution[scales[0]][gt_position].mean  # This is super exact position
+        gt_infos[i, 1:3] = multi_norm_dist.mean  # This is super exact position
 
         gt_infos[i, 3:5] = photon_pos.mean(axis=0)
         gt_infos[i, 5:7] = gt_infos[i, 3:5] + drifts[frame_id]  # Will add drift in later method
@@ -236,33 +224,48 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
         gt_infos[i, 8:10] = photon_pos.std(axis=0)
         # Extract the ground truth for this frame at this location
         gt_infos[i, 10] = frame_wise_noise[frame_id - frame_started]
+        start = 0 if gt_position == 0 else n_photons_step[gt_position-1]
+        photon_pos_frame[start: n_photons_step[gt_position], :] = photon_pos
 
-    return photons_pos_frame, gt_infos
+    return photon_pos_frame, gt_infos
 
 
-def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
-                  binding_site_position_distribution):
-    photon_pos_frames, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
-                                                 frame_started, frame_wise_noise, drifts, config)
-
-    single_frames = []
-
-    for scale, photon_pos_frame in photon_pos_frames.items():
-        frame_size = int(config.resolution_slap[0] * scale)
-        if len(photon_pos_frame) == 0:
-            # There is no photon allocated in this frame
-            # So we will return empty image
-            single_frame = torch.zeros((frame_size, frame_size), device=config.device)
-            single_frames.append(single_frame)
-        else:
-            # TODO: fix drift
-            samples = (photon_pos_frame + drifts[frame_id]).cpu().numpy()
-            single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(frame_size + 1),
-                                                                                                  range(frame_size + 1)))
-            single_frame = torch.from_numpy(single_frame).to(config.device)
-            single_frames.append(single_frame)
-
+def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise, binding_site_position_distribution):
+    photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started, frame_wise_noise, drifts)
+    image_size = config.resolution_slap[-1]
+    if len(photon_pos_frame) == 0:
+        # There is no photon allocated in this frame
+        # So we will return empty image
+        single_frame = torch.zeros((image_size, image_size), device=config.device)
+    else:
+        samples = (photon_pos_frame + drifts[frame_id]).cpu().numpy()
+        single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(image_size + 1), range(image_size + 1)))
+        single_frame = torch.from_numpy(single_frame).to(config.device)
+    single_frames = get_different_sizes_frames(single_frame, gt_infos, config.resolution_slap)
     return frame_id, single_frames, gt_infos
+
+
+def get_different_sizes_frames(frame, gt_infos, target_sizes):
+    # First extract the patch where there are binding events
+    single_frames = []
+    # Extract the patches from the image
+    patches = {}
+    for gt_info in gt_infos:
+        y, x = torch.round(gt_info[[1, 2]]).int().tolist()
+        patch = frame[x - 4: x + 4, y - 4: y + 4]
+        patches[(float(gt_info[2]), float(gt_info[1]), float(gt_info[7]))] = patch
+
+    # Create empty frame
+    for image_size in target_sizes[:-1]:
+        scale = target_sizes[-1] / image_size
+        single_frame = torch.zeros((image_size, image_size), device=frame.device)
+        for key, value in patches.items():
+            x, y = key[:2]
+            x, y = int(round(x / scale)), int(round(y / scale))
+            single_frame[x - 4: x + 4, y - 4: y + 4] += value
+        single_frames.append(single_frame)
+    single_frames.append(frame)
+    return single_frames
 
 
 def get_scale_tril(config):
