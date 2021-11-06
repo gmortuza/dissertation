@@ -74,6 +74,8 @@ class Config:
         self.Imager_photon_rate = self.Imager_Photonslope * self.Imager_Laserpower
         self.Imager_photon_rate_std = self.Imager_photon_slope_std * self.Imager_Laserpower
 
+        self.frame_padding = self.frame_padding * self.resolution_slap[-1] / self.resolution_slap[0]
+
     def _make_absolute_directory(self):
         # prepend this base directory with other parameter so that we won't get any error for the path
         # As those directory will be accessed from different file. which are in different location
@@ -110,7 +112,10 @@ class Config:
             tags=self.neptune_tags,
             description=self.neptune_description,
             source_files=self.neptune_code_snapshot,
-            mode=self.neptune_mode  # debug stop tracking
+            mode=self.neptune_mode,  # debug stop tracking
+            capture_stdout=False,
+            capture_stderr=False,
+            capture_hardware_metrics=False
         )
         # Setup the hyper-parameters
         neptune_run['parameters'] = {

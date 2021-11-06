@@ -38,7 +38,7 @@ def get_point(frame, labels, label_number):
     x, y = torch.where(labels == label_number)
     if len(x) < 10 or len(y) < 10:
         return None
-    scale = frame.shape[-1] / 32
+    # scale = frame.shape[-1] / 32
     weights = frame[0][x, y]
     # TODO: do these things using pytorch
     x_mean = torch.sum(x * weights) / torch.sum(weights)
@@ -48,8 +48,8 @@ def get_point(frame, labels, label_number):
     image_patch = frame[:, int(x_mean.round()) - 5: int(x_mean.round()) + 5,
                   int(y_mean.round()) - 5: int(y_mean.round()) + 5]
     photon_count = torch.sum(image_patch)
-    x_nm = x_mean * 107 / scale
-    y_nm = y_mean * 107 / scale
+    x_nm = x_mean * 107 * 32 / 512
+    y_nm = y_mean * 107 * 32 / 512
     # x, y, s_x, s_y, photons
     return [float(x_nm), float(y_nm), 0, 0, float(photon_count)]
 
@@ -72,7 +72,7 @@ def get_points_from_gt(gt):
     points = []
     for point in gt:
         # mu = torch.round(point[[5, 6]] * scale).int().tolist()
-        points.append([int(point[0]), float(point[2] * 107), float(point[1] * 107), 0, 0, float(point[7])])
+        points.append([int(point[0]), float(point[2] * 107 * 32 / 497), float(point[1] * 107 * 32 / 497), 0, 0, float(point[7])])
     return points
 
 

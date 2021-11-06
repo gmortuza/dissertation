@@ -20,27 +20,27 @@ class Custom(nn.Module):
     def __init__(self, config):
         super(Custom, self).__init__()
         self.config = config
-        self.layers = nn.ModuleList()
-
         # self.unet = UNet(self.config, in_channel=1, out_channel=16)
         self.intensity_conv = nn.ModuleList()
         for _ in range(4):
             self.intensity_conv.append(nn.Sequential(
-                UNet(self.config, in_channel=1, out_channel=16),
-                nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
-                nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
-                nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
-                nn.ReLU(inplace=True)
+                UNet(self.config, in_channel=1, out_channel=1),
+                # nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
+                # nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
+                # nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
+                # nn.ReLU(inplace=True)
             ))
 
     def forward(self, x: Tensor, y) -> Tensor:
         # input_1, input_2, input_3, input_4, input_5 = x
         outputs = []
         output = torch.zeros_like(x[0])
-        for model, inputs in zip(self.intensity_conv, x):
+        test_input = x[:1] + y[:3]
+        for model, inputs in zip(self.intensity_conv, test_input):
             # output = self.unet(inputs+output)
             # output = self.intensity_conv(output)
-            output = model(inputs+output)
+            inputs = inputs / 255. if inputs.max() > 1 else inputs
+            output = model(inputs)
             outputs.append(output)
         return outputs
 
