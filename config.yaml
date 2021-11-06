@@ -32,7 +32,7 @@ JI_metrics_from_epoch: 5
 input_dir: simulated_data  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cuda:1
+device: cuda:0
 log_level: info  # info, debug, warning, error
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
@@ -44,8 +44,8 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 1000  # Total Number of frames
-split_into: 1 # Total number of frames will be splitted into this amount of files
+total_frames: 20000  # Total Number of frames
+split_into: 4 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
@@ -119,9 +119,6 @@ neptune_project: "golammdmortuza/dnam-nn"
 neptune_api_key: "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ=="
 neptune_mode: 'async'  # async / sync / offline / read-only / debug /
 neptune_code_snapshot:
-  - models/unet.py
-  - models/custom.py
-  - data_loader.py
 neptune_tags:
   - multi_output
   - intensity
