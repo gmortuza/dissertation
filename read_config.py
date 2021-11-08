@@ -55,7 +55,7 @@ class Config:
         self.JI_metrics_from_epoch = 10
 
         repo = Repo(os.path.dirname(os.path.abspath(__file__)))
-        self.neptune_code_snapshot = repo.index.diff(repo.head.commit)
+        self.neptune_code_snapshot = [item.a_path for item in repo.index.diff(None)]
 
     def _additional_parameter(self):
         """
