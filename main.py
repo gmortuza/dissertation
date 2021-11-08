@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import torch
 from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from train import train
 from validation import validation
@@ -31,7 +32,8 @@ def main(config: Config):
     criterion = Loss(config)
     model = get_model(config)
     config.log_param('model_params', sum(p.numel() for p in model.parameters() if p.requires_grad))
-    optimizer = Adam(model.parameters(), lr=config.learning_rate)
+    optimizer = Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=5)
     train_loader, val_loader = fetch_data_loader(config)
     best_val_acc = utils.load_checkpoint(model, config, optimizer)
 
@@ -45,6 +47,9 @@ def main(config: Config):
         val_metrics = validation(model, val_loader, criterion, metrics, config)
         for key, val in val_metrics.items():
             config.neptune["validation/epoch/" + key].log(val)
+
+        scheduler.step(val_metrics['loss'])
+        config.neptune['epoch/lr'].log(optimizer.param_groups[0]['lr'])
 
         best_val_acc = utils.save_checkpoint({'epoch': epoch,
                                               'state_dict': model.state_dict(),
