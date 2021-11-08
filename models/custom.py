@@ -25,15 +25,16 @@ class Custom(nn.Module):
         self.outputs = nn.ModuleList()
         for _ in range(4):
             self.unets.append(nn.Sequential(
-                UNet(self.config, in_channel=3, out_channel=16),
+                UNet(self.config, in_channel=3, out_channel=8),
             ))
             self.outputs.append(nn.Sequential(
-                nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2),
-                nn.BatchNorm2d(8),
-                nn.Conv2d(8, 4, kernel_size=1, stride=1),
+                nn.ConvTranspose2d(8, 4, kernel_size=4, stride=2),
                 nn.BatchNorm2d(4),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(4, 1, kernel_size=5, padding=1, stride=1),
+                nn.Conv2d(4, 2, kernel_size=1, stride=1),
+                nn.BatchNorm2d(2),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(2, 1, kernel_size=5, padding=1, stride=1),
                 nn.ReLU(inplace=True),
             ))
 
