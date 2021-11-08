@@ -47,7 +47,7 @@ class Config:
         self.log_level = 'error'  # disable console
         self.neptune_model = 'async'  # always enable neptune
         self.progress_bar_disable = True
-        self.simulated_data = '/bsuscratch/gmortuza/simulated_data'
+        self.input_dir = '/bsuscratch/gmortuza/simulated_data'
         self.output_dir = 'outputs_' + datetime.now().strftime("%H_%M_%S")
         self.load_checkpoint = False
         self.save_model_after_epoch_end = False

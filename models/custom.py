@@ -23,7 +23,7 @@ class Custom(nn.Module):
         # self.unet = UNet(self.config, in_channel=1, out_channel=16)
         self.unets = nn.ModuleList()
         self.outputs = nn.ModuleList()
-        for _ in range(4):
+        for _ in range(1):
             self.unets.append(nn.Sequential(
                 UNet(self.config, in_channel=3, out_channel=16),
             ))
@@ -41,13 +41,13 @@ class Custom(nn.Module):
         # input_1, input_2, input_3, input_4, input_5 = x
         outputs = []
         output = torch.zeros_like(x[0])
-        test_input = x[:1] + y[:3]
-        for unet_model, output_model, inputs in zip(self.unets, self.outputs, x):
+        # test_input = x[:1] + y[:3]
+        for inputs in x[:-1]:
             # output = self.unet(inputs+output)
             # output = self.intensity_conv(output)
             inputs = inputs / 255. if inputs.max() > 1 else inputs
-            output = unet_model(inputs + output)
-            output = output_model(output)
+            output = self.unets[0](inputs + output)
+            output = self.outputs[0](output)
             outputs.append(output)
         return outputs
 
@@ -57,10 +57,10 @@ def test():
     model = Custom(config_)
     # [32, 63, 125, 249]
     images = []
-    for image_size in [32, 63, 125, 249]:
-        image = torch.rand((64, 1, image_size, image_size))
+    for image_size in [32, 64, 128, 256]:
+        image = torch.rand((64, 3, image_size, image_size))
         images.append(image)
-    output = model(images)
+    output = model(images, images)
     expected_shape = (64, 16, 16, 16)
     print(output.shape)
     # assert output.shape == expected_shape, 'Shape did not match.\n\toutput shape is: ' + str(output.shape) + \
