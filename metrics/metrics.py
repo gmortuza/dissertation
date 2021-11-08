@@ -18,7 +18,7 @@ def get_mse(prediction, target):
 
 
 # Source: https://github.com/yuta-hi/pytorch_similarity
-def cross_correlation(pred_level, target_level):
+def cross_correlation(level):
     def normalized_cross_correlation(predictions, targets, reduction='mean', eps=1e-8):
         """ N-dimensional normalized cross correlation (NCC)
         Args:
@@ -32,8 +32,8 @@ def cross_correlation(pred_level, target_level):
             ~torch.Tensor: Output scalar
             ~torch.Tensor: Output tensor
         """
-        target = targets[target_level]
-        prediction = predictions[pred_level]
+        target = targets[level]
+        prediction = predictions[level]
 
         shape = prediction.shape
         b = shape[0]
@@ -108,11 +108,11 @@ def get_ji_by_threshold(prediction, target):
     return total_true_positive / (prediction_points.shape[0] + target_points.shape[0] - total_true_positive)
 
 
-def get_psnr(pred_level, target_level):
+def get_psnr(level):
     def psnr(predictions, targets):
         predictions = predictions
-        mse = torch.mean((predictions[pred_level] - targets[target_level]) ** 2)
-        return 20 * torch.log10(255.0 / torch.sqrt(mse)).detach().cpu()
+        mse = torch.mean((predictions[level] - targets[level]) ** 2)
+        return 20 * torch.log10(255.0 * (level + 1) / torch.sqrt(mse)).detach().cpu()
     return psnr
 
 def get_SSIM(prediction, target):
@@ -151,16 +151,16 @@ def get_ji_by_points(level, config):
 
 
 def get_metrics(config, epoch):
-    if epoch >= 100000:
+    if epoch >= config.JI_metrics_from_epoch:
         return {
             # 'psnr_2': get_psnr(0, 0),
             # 'psnr_4': get_psnr(1, 1),
             # 'psnr_8': get_psnr(2, 2),
             # 'psnr_16': get_psnr(3, 3),
-            'cc_2': cross_correlation(0, 0),
-            'cc_4': cross_correlation(1, 1),
-            'cc_8': cross_correlation(2, 2),
-            'cc_16': cross_correlation(3, 3),
+            'cc_2': cross_correlation(0),
+            'cc_4': cross_correlation(1),
+            'cc_8': cross_correlation(2),
+            'cc_16': cross_correlation(3),
             # 'JI_2': get_ji_by_points(0, config),
             'JI_4': get_ji_by_points(1, config),
             'JI_8': get_ji_by_points(2, config),
@@ -168,12 +168,12 @@ def get_metrics(config, epoch):
         }
     else:
         return {
-            'psnr_2': get_psnr(0, 0),
-            'psnr_4': get_psnr(1, 1),
-            'psnr_8': get_psnr(2, 2),
-            'psnr_16': get_psnr(3, 3),
-            'cc_2': cross_correlation(0, 0),
-            'cc_4': cross_correlation(1, 1),
-            'cc_8': cross_correlation(2, 2),
-            'cc_16': cross_correlation(3, 3),
+            'psnr_2': get_psnr(0),
+            'psnr_4': get_psnr(1),
+            'psnr_8': get_psnr(2),
+            'psnr_16': get_psnr(3),
+            'cc_2': cross_correlation(0),
+            'cc_4': cross_correlation(1),
+            'cc_8': cross_correlation(2),
+            'cc_16': cross_correlation(3),
         }
