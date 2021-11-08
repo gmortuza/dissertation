@@ -129,8 +129,8 @@ class SMLMDataset(Dataset):
             inputs.append(torch.cat((x_prev_, x_, x_next_), dim=0))
 
         # y[-1][7] /= self.config.last_layer_normalization_factor
-        for i in range(len(y) - 1):
-            y[i] *= 255. * (i + 1)
+        # for i in range(len(y) - 2):
+        #     y[i] *= 255. * (i + 1)
         return inputs, y[1:]
 
 

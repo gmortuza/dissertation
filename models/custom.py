@@ -46,7 +46,7 @@ class Custom(nn.Module):
         for unet_model, output_model, inputs in zip(self.unets, self.outputs, x):
             # output = self.unet(inputs+output)
             # output = self.intensity_conv(output)
-            inputs = inputs / 255. if inputs.max() > 1 else inputs
+
             output = unet_model(inputs + output)
             output = output_model(output)
             outputs.append(output)

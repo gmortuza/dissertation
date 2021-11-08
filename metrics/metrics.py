@@ -110,9 +110,9 @@ def get_ji_by_threshold(prediction, target):
 
 def get_psnr(level):
     def psnr(predictions, targets):
-        predictions = predictions
         mse = torch.mean((predictions[level] - targets[level]) ** 2)
-        return 20 * torch.log10(255.0 * (level + 1) / torch.sqrt(mse)).detach().cpu()
+        max_number = torch.max(targets[level])
+        return 20 * torch.log10(max_number / torch.sqrt(mse)).detach().cpu()
     return psnr
 
 def get_SSIM(prediction, target):
