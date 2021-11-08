@@ -11,5 +11,5 @@
 module load slurm
 module load cuda10.0
 
-python generate_data.py 1
-# python main.py 1
+# python generate_data.py 1
+python main.py 1

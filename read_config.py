@@ -51,7 +51,7 @@ class Config:
         self.output_dir = 'outputs_' + datetime.now().strftime("%H_%M_%S")
         self.load_checkpoint = False
         self.save_model_after_epoch_end = False
-        self.JI_metrics_from_epoch = 5
+        self.JI_metrics_from_epoch = 10
 
     def _additional_parameter(self):
         """

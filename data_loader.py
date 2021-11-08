@@ -19,7 +19,6 @@ class SMLMDataset(Dataset):
         self.config = config
         self.type_ = type_
         self.dataset_dir = dataset_dir
-        self.image_sizes = [32, 63, 125, 249]
         self.total_data = self._upsample_images()
 
     def _normalize(self, x):
@@ -86,7 +85,7 @@ class SMLMDataset(Dataset):
 
     def _get_image_from_point(self, point: torch.Tensor, image_sizes: list = None) -> torch.Tensor:
         # points --> [x, y, photons]
-        image_sizes = self.image_sizes if image_sizes is None else image_sizes
+        image_sizes = self.config.resolution_slap if image_sizes is None else image_sizes
         high_res_images = []
         for image_size in image_sizes:
             # TODO: set device according to config
@@ -104,17 +103,35 @@ class SMLMDataset(Dataset):
         # return self.total_data
 
     def __getitem__(self, index: int):
+        f_name_prev = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index - 1}.pl"
         f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index}.pl"
+        f_name_next = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index + 1}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
-        # if y is none then it's test. so we don't require the label
-        if y is None:
-            return x
-        # y[-1][7] /= self.config.last_layer_normalization_factor
+
+        try:
+            with open(f_name_prev, 'rb') as handle:
+                x_prev, _ = pickle.load(handle)
+        except FileNotFoundError:
+            x_prev = [torch.zeros_like(x_) for x_ in x]
+
+        try:
+            with open(f_name_next, 'rb') as handle:
+                x_next, _ = pickle.load(handle)
+        except FileNotFoundError:
+            x_next = [torch.zeros_like(x_) for x_ in x]
+
+        # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
+
+        inputs = []
+        for x_prev_, x_, x_next_ in zip(x_prev, x, x_next):
+            inputs.append(torch.cat((x_prev_, x_, x_next_), dim=0))
+
+        # y[-1][7] /= self.config.last_layer_normalization_factor
         for i in range(len(y) - 1):
-            y[i] *= 255.
-        return x, y[1:]
+            y[i] *= 255. * (i + 1)
+        return inputs, y[1:]
 
 
 def get_patches(images, ground_truth):

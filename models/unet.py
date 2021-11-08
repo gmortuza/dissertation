@@ -10,10 +10,10 @@ class DoubleConv(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channel, out_channel, kernel_size=5, stride=1, padding=1, bias=False),
+            nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channel),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channel, out_channel, kernel_size=5, stride=1, padding=1, bias=False),
+            nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channel),
             nn.ReLU(inplace=True)
         )
@@ -23,7 +23,7 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, config, in_channel=1, out_channel=16, features=[64, 128]):
+    def __init__(self, config, in_channel=1, out_channel=16, features=[32, 64, 128, 256]):
         super(UNet, self).__init__()
         self.config = config
 
@@ -43,36 +43,9 @@ class UNet(nn.Module):
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
 
         self.output = nn.Sequential(
-            nn.Conv2d(features[0], features[0], kernel_size=1, stride=1),
-            nn.BatchNorm2d(features[0]),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(features[0], 32, kernel_size=4, stride=2),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, 32, kernel_size=5, padding=3, stride=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, 16, kernel_size=5, padding=3, stride=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(16, 16, kernel_size=5, padding=3, stride=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(16, 8, kernel_size=5, padding=3, stride=1),
-            nn.BatchNorm2d(8),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(8, 4, kernel_size=5, padding=3, stride=1),
-            nn.BatchNorm2d(4),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(4, 2, kernel_size=5, padding=3, stride=1),
-            nn.BatchNorm2d(2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(2, 1, kernel_size=5, padding=3, stride=1),
-            nn.ReLU()
-            # nn.Tanh()
-            # nn.tanh(inplace=True)
-            # DoubleConv(features[0] // 2, out_channel)
-            # nn.ConvTranspose2d(features[0], out_channel, kernel_size=1, stride=1),
+            nn.Conv2d(features[0], out_channel, kernel_size=1, stride=1),
+            nn.BatchNorm2d(out_channel),
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x):

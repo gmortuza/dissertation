@@ -112,7 +112,7 @@ def get_psnr(pred_level, target_level):
     def psnr(predictions, targets):
         predictions = predictions
         mse = torch.mean((predictions[pred_level] - targets[target_level]) ** 2)
-        return 20 * torch.log10(1.0 / torch.sqrt(mse)).detach().cpu()
+        return 20 * torch.log10(255.0 / torch.sqrt(mse)).detach().cpu()
     return psnr
 
 def get_SSIM(prediction, target):
