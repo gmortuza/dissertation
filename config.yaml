@@ -5,7 +5,7 @@ test_split: .1
 batch_size: 128
 num_epochs: 100
 learning_rate: .0001
-weight_decay: 0.0005
+weight_decay: 0
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: False
