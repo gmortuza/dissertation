@@ -27,7 +27,7 @@ class Custom(nn.Module):
         self.outputs = nn.ModuleList()
         # Set unets for previous frames
         self.unets = nn.ModuleList()
-        for in_channel in [24, 2, 2, 2]:
+        for in_channel in [24, 4, 4, 4]:
             self.unets.append(UNet(self.config, in_channel=in_channel, out_channel=16))
             # Final output
             self.outputs.append(nn.Sequential(
@@ -56,34 +56,24 @@ class Custom(nn.Module):
         outputs.append(output)
 
         # 4x
-        inputs = torch.cat([output, x[1][:, [1], :, :]], dim=1)
+        inputs = torch.cat([output, x[1]], dim=1)
         output = self.unets[1](inputs)
         output = self.outputs[1](output)
         outputs.append(output)
 
         # 8x
-        inputs = torch.cat([output, x[2][:, [1], :, :]], dim=1)
+        inputs = torch.cat([output, x[2]], dim=1)
         output = self.unets[2](inputs)
         output = self.outputs[2](output)
         outputs.append(output)
 
         # 16x
-        inputs = torch.cat([output, x[3][:, [1], :, :]], dim=1)
+        inputs = torch.cat([output, x[3]], dim=1)
         output = self.unets[3](inputs)
         output = self.outputs[3](output)
         outputs.append(output)
 
         return outputs
-
-
-
-
-        # for
-
-        # Pass all frames through unets
-
-
-        # Concat the output of the unets
 
         # Pass the concat output through the final output
         # for unet_model, output_model, inputs in zip(self.unets, self.outputs, x):
