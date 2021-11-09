@@ -46,7 +46,7 @@ class Config:
         # Override some of the configuration here
         # We want to track everything while running from borah
         self.log_level = 'error'  # disable console
-        self.neptune_model = 'async'  # always enable neptune
+        self.neptune_mode = 'async'  # always enable neptune
         self.progress_bar_disable = True
         self.input_dir = '/bsuscratch/gmortuza/simulated_data'
         self.output_dir = 'outputs_' + datetime.now().strftime("%d_%m_%H_%M_%S")
