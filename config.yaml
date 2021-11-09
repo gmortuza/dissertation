@@ -8,7 +8,7 @@ learning_rate: .0001
 weight_decay: 0.0005
 model_type: custom_model
 save_summary_steps: 40 # batch
-load_checkpoint: True
+load_checkpoint: False
 save_model_after_epoch_end: True
 output_resolution: 5  # increase the resolution of the image by x times
 total_training_example: -1 # -1 means all the training examples
@@ -113,7 +113,10 @@ neptune_name: "single_model"
 neptune_description: "Different model for different sizes"
 neptune_project: "golammdmortuza/dnam-nn"
 neptune_api_key: "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ=="
-neptune_mode: 'async'  # async / sync / offline / read-only / debug /
+neptune_mode: 'debug'  # async / sync / offline / read-only / debug /
 neptune_code_snapshot:
+  - models/custom.py
+  - models/unet.py
+  - data_loader.py
 neptune_tags:
   - multiple_model

@@ -20,52 +20,98 @@ class Custom(nn.Module):
     def __init__(self, config):
         super(Custom, self).__init__()
         self.config = config
-        # self.unet = UNet(self.config, in_channel=1, out_channel=16)
-        self.unets = nn.ModuleList()
+        # self.unets = UNet(self.config, in_channel=1, out_channel=16)
+        self.prev_unets = UNet(self.config, in_channel=1, out_channel=8)
+        self.first_unets = UNet(self.config, in_channel=1, out_channel=8)
+        self.next_unets = UNet(self.config, in_channel=1, out_channel=8)
         self.outputs = nn.ModuleList()
-        for _ in range(4):
-            self.unets.append(nn.Sequential(
-                UNet(self.config, in_channel=3, out_channel=8),
-            ))
+        # Set unets for previous frames
+        self.unets = nn.ModuleList()
+        for in_channel in [24, 2, 2, 2]:
+            self.unets.append(UNet(self.config, in_channel=in_channel, out_channel=16))
+            # Final output
             self.outputs.append(nn.Sequential(
-                nn.ConvTranspose2d(8, 4, kernel_size=4, stride=2),
-                nn.BatchNorm2d(4),
+                nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2),
+                nn.BatchNorm2d(16),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(4, 2, kernel_size=1, stride=1),
-                nn.BatchNorm2d(2),
+                nn.Conv2d(16, 8, kernel_size=1, stride=1),
+                nn.BatchNorm2d(8),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(2, 1, kernel_size=5, padding=1, stride=1),
+                nn.Conv2d(8, 1, kernel_size=5, padding=1, stride=1),
                 nn.ReLU(inplace=True),
             ))
 
     def forward(self, x: Tensor, y) -> Tensor:
         # input_1, input_2, input_3, input_4, input_5 = x
         outputs = []
-        output = torch.zeros_like(x[0])
-        # test_input = x[:1] + y[:3]
-        for unet_model, output_model, inputs in zip(self.unets, self.outputs, x):
-            # output = self.unet(inputs+output)
-            # output = self.intensity_conv(output)
+        # output = torch.zeros_like(x[0])
+        previous_output = self.prev_unets(x[0][:, [0], :, :])
+        current_output = self.first_unets(x[0][:, [1], :, :])
+        next_output = self.next_unets(x[0][:, [2], :, :])
 
-            output = unet_model(inputs + output)
-            output = output_model(output)
-            outputs.append(output)
+        # 2x
+        inputs = torch.cat([previous_output, current_output, next_output], dim=1)
+        output = self.unets[0](inputs)
+        output = self.outputs[0](output)
+        outputs.append(output)
+
+        # 4x
+        inputs = torch.cat([output, x[1][:, [1], :, :]], dim=1)
+        output = self.unets[1](inputs)
+        output = self.outputs[1](output)
+        outputs.append(output)
+
+        # 8x
+        inputs = torch.cat([output, x[2][:, [1], :, :]], dim=1)
+        output = self.unets[2](inputs)
+        output = self.outputs[2](output)
+        outputs.append(output)
+
+        # 16x
+        inputs = torch.cat([output, x[3][:, [1], :, :]], dim=1)
+        output = self.unets[3](inputs)
+        output = self.outputs[3](output)
+        outputs.append(output)
+
         return outputs
+
+
+
+
+        # for
+
+        # Pass all frames through unets
+
+
+        # Concat the output of the unets
+
+        # Pass the concat output through the final output
+        # for unet_model, output_model, inputs in zip(self.unets, self.outputs, x):
+        #     # output = self.unet(inputs+output)
+        #     # output = self.intensity_conv(output)
+        #     inputs = torch.cat([inputs, output], dim=1)
+        #     output = unet_model(inputs)
+        #     output = output_model(output)
+        #     outputs.append(output)
+        # return outputs
 
 
 def test():
     config_ = Config('../config.yaml')
     model = Custom(config_)
+    # get model parameters
+    print(f"Model parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     # [32, 63, 125, 249]
-    images = []
-    for image_size in [32, 64, 128, 256]:
-        image = torch.rand((64, 3, image_size, image_size))
-        images.append(image)
-    output = model(images, images)
-    expected_shape = (64, 16, 16, 16)
-    print(output.shape)
+    # images = []
+    # for image_size in [32, 64, 128, 256]:
+    #     image = torch.rand((64, 3, image_size, image_size))
+    #     images.append(image)
+    # output = model(images, images)
+    # expected_shape = (64, 16, 16, 16)
+    # print(output.shape)
     # assert output.shape == expected_shape, 'Shape did not match.\n\toutput shape is: ' + str(output.shape) + \
     #                                        '\n\texpected shape is: ' + str(expected_shape)
+
     return
 
 
