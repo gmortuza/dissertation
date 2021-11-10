@@ -9,7 +9,7 @@ weight_decay: 0
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: False
-save_model_after_epoch_end: True
+save_model_after_each_epoch: 10
 output_resolution: 5  # increase the resolution of the image by x times
 total_training_example: -1 # -1 means all the training examples
 resolution_slap:

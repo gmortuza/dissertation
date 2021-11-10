@@ -39,7 +39,7 @@ def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
         state: (dict) contains model's state_dict, may contain other keys such as epoch, optimizer state_dict
         is_best: (bool) True if it is the best model seen till now
     """
-    if not config.save_model_after_epoch_end:
+    if config.save_model_after_epoch_end == 0 or config.save_model_after_each_epoch % state['epoch'] == 0:
         return float('-inf')
     filepath = os.path.join(config.checkpoint_dir, name+'last.pth.tar')
     if not os.path.exists(config.checkpoint_dir):

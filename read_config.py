@@ -51,7 +51,7 @@ class Config:
         self.input_dir = '/bsuscratch/gmortuza/simulated_data'
         self.output_dir = 'outputs_' + datetime.now().strftime("%d_%m_%H_%M_%S")
         self.load_checkpoint = False
-        self.save_model_after_epoch_end = True
+        self.save_model_after_each_epoch = 5
         self.JI_metrics_from_epoch = 10
 
         repo = Repo(os.path.dirname(os.path.abspath(__file__)))
