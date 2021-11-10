@@ -27,7 +27,7 @@ class Custom(nn.Module):
         self.outputs = nn.ModuleList()
         # Set unets for previous frames
         self.unets = nn.ModuleList()
-        for in_channel in [24, 4, 4, 4]:
+        for in_channel in [24, 2, 2, 2]:
             self.unets.append(UNet(self.config, in_channel=in_channel, out_channel=16))
             # Final output
             self.outputs.append(nn.Sequential(
@@ -48,42 +48,15 @@ class Custom(nn.Module):
         previous_output = self.prev_unets(x[0][:, [0], :, :])
         current_output = self.first_unets(x[0][:, [1], :, :])
         next_output = self.next_unets(x[0][:, [2], :, :])
-
-        # 2x
-        inputs = torch.cat([previous_output, current_output, next_output], dim=1)
-        output = self.unets[0](inputs)
-        output = self.outputs[0](output)
-        outputs.append(output)
-
-        # 4x
-        inputs = torch.cat([output, x[1]], dim=1)
-        output = self.unets[1](inputs)
-        output = self.outputs[1](output)
-        outputs.append(output)
-
-        # 8x
-        inputs = torch.cat([output, x[2]], dim=1)
-        output = self.unets[2](inputs)
-        output = self.outputs[2](output)
-        outputs.append(output)
-
-        # 16x
-        inputs = torch.cat([output, x[3]], dim=1)
-        output = self.unets[3](inputs)
-        output = self.outputs[3](output)
-        outputs.append(output)
-
+        for idx, (unet_model, output_model) in enumerate(zip(self.unets, self.outputs)):
+            if idx == 0:
+                inputs = torch.cat([previous_output, current_output, next_output], dim=1)
+            else:
+                inputs = torch.cat([output, x[idx][:, [1], :, :]], dim=1)
+            output = unet_model(inputs)
+            output = output_model(output)
+            outputs.append(output)
         return outputs
-
-        # Pass the concat output through the final output
-        # for unet_model, output_model, inputs in zip(self.unets, self.outputs, x):
-        #     # output = self.unet(inputs+output)
-        #     # output = self.intensity_conv(output)
-        #     inputs = torch.cat([inputs, output], dim=1)
-        #     output = unet_model(inputs)
-        #     output = output_model(output)
-        #     outputs.append(output)
-        # return outputs
 
 
 def test():
