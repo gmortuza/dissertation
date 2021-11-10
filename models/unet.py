@@ -23,7 +23,7 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, config, in_channel=1, out_channel=16, features=[16, 32, 64]):
+    def __init__(self, config, in_channel=1, out_channel=16, features=[16, 32, 64, 128]):
         super(UNet, self).__init__()
         self.config = config
 

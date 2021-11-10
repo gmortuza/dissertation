@@ -52,7 +52,7 @@ class Custom(nn.Module):
             if idx == 0:
                 inputs = torch.cat([previous_output, current_output, next_output], dim=1)
             else:
-                inputs = torch.cat([output, x[idx][:, [1], :, :]], dim=1)
+                inputs = output + x[idx][:, [1], :, :]
             output = unet_model(inputs)
             output = output_model(output)
             outputs.append(output)
