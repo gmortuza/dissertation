@@ -24,19 +24,18 @@ class Custom(nn.Module):
         self.prev_unets = UNet(self.config, in_channel=1, out_channel=8)
         self.first_unets = UNet(self.config, in_channel=1, out_channel=8)
         self.next_unets = UNet(self.config, in_channel=1, out_channel=8)
-        self.outputs = nn.ModuleList()
-        # Set unets for previous frames
-        self.unets = nn.ModuleList()
-        for in_channel in [24, 1, 1, 1]:
-            self.unets.append(UNet(self.config, in_channel=in_channel, out_channel=16))
-            # Final output
-            self.outputs.append(nn.Sequential(
+        self.outputs = nn.Sequential(
                 nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2),
                 nn.BatchNorm2d(8),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(8, 1, kernel_size=5, padding=1, stride=1),
                 nn.ReLU(inplace=True),
-            ))
+            )
+        # Set unets for previous frames
+        self.unets = nn.ModuleList()
+        for in_channel in [24, 1]:
+            self.unets.append(UNet(self.config, in_channel=in_channel, out_channel=16))
+            # Final output
 
     def forward(self, x: Tensor, y) -> Tensor:
         # input_1, input_2, input_3, input_4, input_5 = x
@@ -45,13 +44,14 @@ class Custom(nn.Module):
         previous_output = self.prev_unets(x[0][:, [0], :, :])
         current_output = self.first_unets(x[0][:, [1], :, :])
         next_output = self.next_unets(x[0][:, [2], :, :])
-        for idx, (unet_model, output_model) in enumerate(zip(self.unets, self.outputs)):
+        for idx in range(4):
             if idx == 0:
                 inputs = torch.cat([previous_output, current_output, next_output], dim=1)
+                output = self.unets[idx](inputs)
             else:
                 inputs = output + x[idx][:, [1], :, :]
-            output = unet_model(inputs)
-            output = output_model(output)
+                output = self.unets[1](inputs)
+            output = self.outputs(output)
             outputs.append(output)
         return outputs
 
