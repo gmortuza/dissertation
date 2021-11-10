@@ -33,7 +33,7 @@ class Custom(nn.Module):
             )
         # Set unets for previous frames
         self.unets = nn.ModuleList()
-        for in_channel in [24, 1]:
+        for in_channel in [24, 2]:
             self.unets.append(UNet(self.config, in_channel=in_channel, out_channel=16))
             # Final output
 
@@ -49,7 +49,7 @@ class Custom(nn.Module):
                 inputs = torch.cat([previous_output, current_output, next_output], dim=1)
                 output = self.unets[idx](inputs)
             else:
-                inputs = output + x[idx][:, [1], :, :]
+                inputs = torch.cat([output + x[idx][:, [1], :, :]], dim=1)
                 output = self.unets[1](inputs)
             output = self.outputs(output)
             outputs.append(output)
