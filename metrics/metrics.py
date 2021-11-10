@@ -138,8 +138,8 @@ def get_ji_by_points(level, config):
         for frame_number, frame in zip(frames, predictions):
             frame_target = targets[targets[:, 0, 0] == frame_number][0]
             frame_target = frame_target[frame_target[:, 0] == frame_number]
-            predicted_point = extract_points.get_points(frame, frame_number)
-            gt_point = extract_points.get_points_from_gt(frame_target)
+            predicted_point = extract_points.get_points(frame, frame_number, config)
+            gt_point = extract_points.get_points_from_gt(frame_target, config)
             if len(predicted_point):
                 predicted_points.extend(predicted_point)
             if len(gt_point):

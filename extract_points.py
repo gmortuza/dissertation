@@ -34,7 +34,7 @@ def get_accuracy(predicted_points, gt_points):
     return true_positive * 100 / (len(predicted_points) + len(gt_points) - true_positive)
 
 
-def get_point(frame, labels, label_number):
+def get_point(frame, labels, label_number, config):
     x, y = torch.where(labels == label_number)
     if len(x) < 10 or len(y) < 10:
         return None
@@ -48,31 +48,31 @@ def get_point(frame, labels, label_number):
     image_patch = frame[:, int(x_mean.round()) - 5: int(x_mean.round()) + 5,
                   int(y_mean.round()) - 5: int(y_mean.round()) + 5]
     photon_count = torch.sum(image_patch)
-    x_nm = x_mean * 107 * 32 / 512
-    y_nm = y_mean * 107 * 32 / 512
+    x_nm = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+    y_nm = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
     # x, y, s_x, s_y, photons
     return [float(x_nm), float(y_nm), 0, 0, float(photon_count)]
 
 
-def get_points(frame, frame_number):
+def get_points(frame, frame_number, config):
     points = []
     # Get connected points
     binary_frame = (frame > 0.).float().unsqueeze(0)
     labels = connected_components(binary_frame).squeeze(0).squeeze(0)
     unique_label = labels.unique()
     for label_number in unique_label[1:]:
-        point = get_point(frame, labels, label_number)
+        point = get_point(frame, labels, label_number, config)
         if point is not None:
             point = [frame_number] + point
             points.append(point)
     return points
 
 
-def get_points_from_gt(gt):
+def get_points_from_gt(gt, config):
     points = []
     for point in gt:
         # mu = torch.round(point[[5, 6]] * scale).int().tolist()
-        points.append([int(point[0]), float(point[2] * 107 * 32 / 497), float(point[1] * 107 * 32 / 497), 0, 0, float(point[7])])
+        points.append([int(point[0]), float(point[2] * config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]), float(point[1] * config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]), 0, 0, float(point[7])])
     return points
 
 
