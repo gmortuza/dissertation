@@ -27,14 +27,11 @@ class Custom(nn.Module):
         self.outputs = nn.ModuleList()
         # Set unets for previous frames
         self.unets = nn.ModuleList()
-        for in_channel in [24, 2, 2, 2]:
+        for in_channel in [24, 1, 1, 1]:
             self.unets.append(UNet(self.config, in_channel=in_channel, out_channel=16))
             # Final output
             self.outputs.append(nn.Sequential(
-                nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2),
-                nn.BatchNorm2d(16),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(16, 8, kernel_size=1, stride=1),
+                nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2),
                 nn.BatchNorm2d(8),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(8, 1, kernel_size=5, padding=1, stride=1),
