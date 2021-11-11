@@ -1,10 +1,13 @@
 import pickle
 import torch
+
+from read_config import Config
 from utils import connected_components
 import numpy as np
 from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment
 import torch.nn.functional as F
+import cv2
 
 
 def get_accuracy(predicted_points, gt_points):
@@ -55,10 +58,24 @@ def get_point(frame, labels, label_number, config):
 
 
 def get_points(frame, frame_number, config):
+    ## Some test code
+    # px_to_nm = config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
+    binary_frame = (frame[0] > 0).cpu().numpy().astype(np.int8)
+    *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
+    # numLabels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_frame, connectivity=4)
+    # points = []
+    # Calculate the details for each points
+    # for stat, centroid in zip(stats[1:], centroids[1:]):
+    #     photon_intensity = torch.sum(frame[0][stat[1]: stat[1] + stat[2], stat[0]: stat[0] + stat[3]])
+    #     x_nm = centroid[1] * px_to_nm
+    #     y_nm = centroid[0] * px_to_nm
+    #     points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_intensity)])
+    # return points
+    labels = torch.tensor(labels)
     points = []
     # Get connected points
-    binary_frame = (frame > 0.).float().unsqueeze(0)
-    labels = connected_components(binary_frame).squeeze(0).squeeze(0)
+    # binary_frame = (frame > 0).float().unsqueeze(0)
+    # labels = connected_components(binary_frame).squeeze(0).squeeze(0)
     unique_label = labels.unique()
     for label_number in unique_label[1:]:
         point = get_point(frame, labels, label_number, config)
@@ -81,15 +98,16 @@ def main():
     gt_points = []
     frames = []
     gts = []
-    for frame_number in range(50):
+    config_ = Config("config.yaml")
+    for frame_number in range(49, 50):
         f_name = f"simulated_data/train/up_5_{frame_number}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
         y_gt, frame = y[-1], y[-3]
         gts.append(F.pad(y_gt, (0, 0, 0, 30 - y_gt.shape[0])))
         # inputs, labels = generate_labels(frame, frame_number, y_gt)
-        predicted_point = get_points(frame, frame_number)
-        gt_point = get_points_from_gt(y_gt)
+        predicted_point = get_points(frame, frame_number, config_)
+        gt_point = get_points_from_gt(y_gt, config_)
         predicted_points.extend(predicted_point)
         gt_points.extend(gt_point)
 
