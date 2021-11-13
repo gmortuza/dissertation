@@ -121,7 +121,7 @@ def get_SSIM(prediction, target):
 
 def get_ji_by_loc(level):
     def ji(predictions, targets):
-        prediction = (predictions[1][level] > .5).to(torch.uint8)
+        prediction = (predictions[1][level] > 0.5).to(torch.uint8)
         prediction = set(map(tuple, torch.nonzero(prediction)))
         target = set(map(tuple, torch.nonzero(targets[level])))
         return len(prediction.intersection(target)) * 100 / len(prediction.union(target))
