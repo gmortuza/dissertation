@@ -21,20 +21,11 @@ class SMLMDataset(Dataset):
         self.dataset_dir = dataset_dir
         self.total_data = self._upsample_images()
 
-    def _normalize(self, x):
-        x_flatten = x.view(x.shape[0], -1)
-        x_min, _ = x_flatten.min(1)
-        x_max, _ = x_flatten.max(1)
-        x_min = x_min.unsqueeze(1).unsqueeze(1)
-        x_max = x_max.unsqueeze(1).unsqueeze(1)
-        # convert the value between 0 and 1
-        x = (x - x_min) / (x_max - x_min)
-        return torch.nan_to_num(x, 0.)
 
     def _upsample_images(self):
         file_names = glob.glob(f"{self.dataset_dir}/data_*_gt.pl")
         # If there are already upsampled images we will return the number of images
-        upsampled_file_names = glob.glob(f"{self.dataset_dir}/up_{self.config.output_resolution}_*")
+        upsampled_file_names = glob.glob(f"{self.dataset_dir}/db_*")
         if len(upsampled_file_names) > 0:
             return len(upsampled_file_names)
         else:
@@ -42,13 +33,10 @@ class SMLMDataset(Dataset):
             for file_name in sorted(file_names):
                 start = int(file_name.split('_')[-3]) - 1
                 input_ = torch.load(file_name.replace('_gt', '_32_with_noise'), )
-                input_ = self._normalize(input_)
-                # convert the value between 0 and 1
-                input_mean = input_.view(input_.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1)
-                input_ = input_ - input_mean
+                input_ = utils.normalize(input_)
                 all_label = []
                 for image_sizes in self.config.resolution_slap:
-                    all_label.append(self._normalize(
+                    all_label.append(utils.normalize(
                         torch.load(file_name.replace('_gt', '_' + str(image_sizes))).to(self.config.device)).unsqueeze(
                         1))
                 # TODO: set the device according to config
@@ -66,7 +54,7 @@ class SMLMDataset(Dataset):
                     single_label_upsampled = self._get_image_from_point(single_label, [self.config.resolution_slap[-1]])
                     labels.append(single_label_upsampled[0])
                     labels.append(single_label)
-                    f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{idx}.pl"
+                    f_name = f"{self.dataset_dir}/db_{idx}.pl"
                     # save the input and label as pickle
                     with open(f_name, 'wb') as handle:
                         pickle.dump([single_input_upsampled, labels], handle)
@@ -103,50 +91,14 @@ class SMLMDataset(Dataset):
         # return self.total_data
 
     def __getitem__(self, index: int):
-        f_name_prev = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index - 1}.pl"
-        f_name = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index}.pl"
-        f_name_next = f"{self.dataset_dir}/up_{self.config.output_resolution}_{index + 1}.pl"
+        f_name = f"{self.dataset_dir}/db_{index}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
-
-        try:
-            with open(f_name_prev, 'rb') as handle:
-                x_prev, _ = pickle.load(handle)
-        except FileNotFoundError:
-            x_prev = [torch.zeros_like(x_) for x_ in x]
-
-        try:
-            with open(f_name_next, 'rb') as handle:
-                x_next, _ = pickle.load(handle)
-        except FileNotFoundError:
-            x_next = [torch.zeros_like(x_) for x_ in x]
 
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
 
-        inputs = []
-        for x_prev_, x_, x_next_ in zip(x_prev, x, x_next):
-            inputs.append(torch.cat((x_prev_, x_, x_next_), dim=0))
-
-        # y[-1][7] /= self.config.last_layer_normalization_factor
-        # for i in range(len(y) - 2):
-        #     y[i] *= 255. * (i + 1)
-        return inputs, y[1:]
-
-
-def get_patches(images, ground_truth):
-    binary_images = (images > 0.).float().unsqueeze(0)
-    labels = utils.connected_components(binary_images).squeeze(0).squeeze(0)
-    unique_label = labels.unique()
-    x, y = torch.where(labels == 50398.)
-    x_mean = x.float().mean().round().int()
-    y_mean = y.float().mean().round().int()
-    image_patch = images[:, x_mean - 5: x_mean + 5, y_mean - 5: y_mean + 5]
-
-    # extract the ground truth
-    plt.imshow(image_patch, cmap='gray')
-
-    utils.show_components(images, labels)
+        return x, y[1:]
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
