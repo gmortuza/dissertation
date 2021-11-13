@@ -24,7 +24,7 @@ class EDSR(nn.Module):
         self.input_conv = nn.Conv2d(1, 128, 3, 1, 1, bias=False)
         # Residual layer
         self.res_blocks = []
-        for _ in range(8):
+        for _ in range(16):
             self.res_blocks.append(ResBlock())
         self.res_blocks = nn.Sequential(*self.res_blocks)
         # Middle conv
