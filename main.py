@@ -33,7 +33,7 @@ def main(config: Config):
     model = get_model(config)
     config.log_param('model_params', sum(p.numel() for p in model.parameters() if p.requires_grad))
     optimizer = Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=5)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, min_lr=1e-6)
     train_loader, val_loader = fetch_data_loader(config)
     best_val_acc = utils.load_checkpoint(model, config, optimizer)
 
