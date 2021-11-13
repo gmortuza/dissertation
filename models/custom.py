@@ -11,7 +11,7 @@ class Custom(nn.Module):
         self.config = config
         self.layers = nn.ModuleList()
         self.models = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=16),
+            UNet(self.config, in_channel=1, out_channel=16),
             nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2),
             nn.Conv2d(8, 1, kernel_size=5, padding=1, stride=1),
         )
@@ -20,7 +20,8 @@ class Custom(nn.Module):
         output = torch.zeros_like(x[0])
         outputs = []
         for idx in range(4):
-            inputs = torch.cat([output, x[idx]], dim=1)
+            # inputs = torch.cat([output, x[idx]], dim=1)
+            inputs = output + x[idx]
             # Mean shift of the inputs
             inputs = inputs - inputs.view(inputs.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
             output = self.models(inputs)
