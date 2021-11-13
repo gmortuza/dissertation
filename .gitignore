@@ -140,3 +140,4 @@ outputs/
 generated_data/
 .neptune
 log*
+outputs_*/
