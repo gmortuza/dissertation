@@ -11,21 +11,17 @@ class Custom(nn.Module):
     def __init__(self, config):
         super(Custom, self).__init__()
         self.config = config
-        self.models = nn.ModuleList()
-        for _ in range(4):
-            self.models.append(nn.Sequential(
-                EDSR()
-            ))
+        self.model = EDSR()
 
     def forward(self, x: Tensor, y) -> Tensor:
         output = torch.zeros_like(x[0])
         outputs = []
-        for idx, model in enumerate(self.models):
+        for idx in range(4):
             # inputs = torch.cat([output, x[idx]], dim=1)
             inputs = output + x[idx]
             # Mean shift of the inputs
             inputs = inputs - inputs.view(inputs.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
-            output = model(inputs)
+            output = self.model(inputs)
             # Add mean to the output
             output = output + output.view(output.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
             outputs.append(output)

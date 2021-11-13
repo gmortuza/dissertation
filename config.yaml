@@ -116,4 +116,5 @@ neptune_code_snapshot:
   - data_loader.py
 neptune_tags:
   - sum_input
-  - multi_model
+  - edsr
+  - single_model
