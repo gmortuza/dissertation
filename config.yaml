@@ -2,10 +2,10 @@
 output_dir: outputs
 validation_split: .1
 test_split: .1
-batch_size: 64
+batch_size: 128
 num_epochs: 100
 learning_rate: 0.001
-weight_decay: 0.001
+weight_decay: 0.
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: False
@@ -18,7 +18,7 @@ resolution_slap:
   - 256
   - 512
 save_model_based_on: cc_16
-JI_metrics_from_epoch: 500
+JI_metrics_from_epoch: 10
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model
@@ -115,4 +115,6 @@ neptune_code_snapshot:
   - models/unet.py
   - data_loader.py
 neptune_tags:
-  - concat_input
+  - sum_input
+  - weight_decay
+  - bn_bias
