@@ -39,7 +39,7 @@ def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
         state: (dict) contains model's state_dict, may contain other keys such as epoch, optimizer state_dict
         is_best: (bool) True if it is the best model seen till now
     """
-    if config.save_model_after_each_epoch == 0 or config.save_model_after_each_epoch % state['epoch'] == 0:
+    if config.save_model_after_each_epoch == 0 or state['epoch'] % config.save_model_after_each_epoch == 0:
         return float('-inf')
     filepath = os.path.join(config.checkpoint_dir, name+'last.pth.tar')
     if not os.path.exists(config.checkpoint_dir):
@@ -188,6 +188,17 @@ def connected_components(image: torch.Tensor, num_iterations: int = 100) -> torc
         out[mask] = F.max_pool2d(out, kernel_size=3, stride=1, padding=1)[mask]
 
     return out.view_as(image)
+
+
+def normalize(x):
+    x_flatten = x.view(x.shape[0], -1)
+    x_min, _ = x_flatten.min(1)
+    x_max, _ = x_flatten.max(1)
+    x_min = x_min.unsqueeze(1).unsqueeze(1)
+    x_max = x_max.unsqueeze(1).unsqueeze(1)
+    # convert the value between 0 and 1
+    x = (x - x_min) / (x_max - x_min)
+    return torch.nan_to_num(x, 0.) * 255.
 
 
 
