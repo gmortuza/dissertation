@@ -71,7 +71,7 @@ def get_points(frame, frame_number, config):
     #     y_nm = centroid[0] * px_to_nm
     #     points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_intensity)])
     # return points
-    labels = torch.tensor(labels)
+    labels = torch.tensor(labels, device=frame.device)
     points = []
     # Get connected points
     # binary_frame = (frame > 0).float().unsqueeze(0)

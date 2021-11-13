@@ -116,5 +116,4 @@ neptune_code_snapshot:
   - data_loader.py
 neptune_tags:
   - sum_input
-  - weight_decay
-  - bn_bias
+  - multi_model

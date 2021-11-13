@@ -10,11 +10,11 @@ class DoubleConv(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=True),
-            # nn.BatchNorm2d(out_channel),
+            nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(out_channel),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=True),
-            # nn.BatchNorm2d(out_channel),
+            nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(out_channel),
             nn.ReLU(inplace=True)
         )
 
@@ -43,8 +43,8 @@ class UNet(nn.Module):
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
 
         self.output = nn.Sequential(
-            nn.Conv2d(features[0], out_channel, kernel_size=1, stride=1, bias=True),
-            # nn.BatchNorm2d(out_channel),
+            nn.Conv2d(features[0], out_channel, kernel_size=1, stride=1, bias=False),
+            nn.BatchNorm2d(out_channel),
             nn.ReLU(inplace=True)
         )
 
