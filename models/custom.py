@@ -1,6 +1,8 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
+
+from models.edsr import EDSR
 from read_config import Config
 from models.unet import UNet
 
@@ -12,9 +14,7 @@ class Custom(nn.Module):
         self.models = nn.ModuleList()
         for _ in range(4):
             self.models.append(nn.Sequential(
-                UNet(self.config, in_channel=1, out_channel=16),
-                nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2),
-                nn.Conv2d(8, 1, kernel_size=5, padding=1, stride=1),
+                EDSR()
             ))
 
     def forward(self, x: Tensor, y) -> Tensor:
