@@ -88,11 +88,11 @@ class Config:
         self.output_dir = os.path.join(self.base_dir, self.output_dir)
 
         self.checkpoint_dir = os.path.join(self.output_dir, "checkpoint")
-        self.log_dir = os.path.join(self.output_dir, "logs")
+        # self.log_dir = os.path.join(self.output_dir, "logs")
         # Create a directory for this run
-        self.tensorflow_log_dir = os.path.join(self.log_dir, time.strftime("%l:%M%p - %b %d, %Y"))
-        if not os.path.exists(self.tensorflow_log_dir):
-            os.makedirs(self.tensorflow_log_dir)
+        # self.tensorflow_log_dir = os.path.join(self.log_dir, time.strftime("%l:%M%p - %b %d, %Y"))
+        if not os.path.exists(self.checkpoint_dir):
+            os.makedirs(self.checkpoint_dir)
 
     def save(self, json_path):
         """Saves parameters to json file"""
@@ -125,14 +125,10 @@ class Config:
         # Setup the hyper-parameters
         neptune_run['parameters'] = {
             "learning_rate": self.learning_rate,
-            "final_activation": 'relu',
             "epochs": self.num_epochs,
             "upsample_method": 'transposed',
-            "upsampled_activation": "relu",
-            "input_normalize_factor": -1,
-            "output_normalize_factor": self.last_layer_normalization_factor,
-            "threshold": self.detection_threshold,
-            "last_layer_input": "output"
+            "output_directory": self.output_dir,
+            "weight_decay": self.weight_decay,
         }
         return neptune_run
 
