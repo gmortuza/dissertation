@@ -43,8 +43,8 @@ class Loss(nn.Module):
     def _l1_loss(self, outputs, targets):
         losses = []
         for output, target in zip(outputs, targets):
-            # output = gaussian_blur2d(output, (7, 7), (1., 1.))
-            # target = gaussian_blur2d(target, (7, 7), (1., 1.))
+            output = gaussian_blur2d(output, (7, 7), (1., 1.))
+            target = gaussian_blur2d(target, (7, 7), (1., 1.))
             loss = nn.L1Loss()(output, target)
             losses.append(loss)
         return sum(losses)
