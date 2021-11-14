@@ -8,8 +8,8 @@ learning_rate: 0.001
 weight_decay: 0.
 model_type: custom_model
 save_summary_steps: 40 # batch
-load_checkpoint: False
-save_model_after_each_epoch: 1
+load_checkpoint: True
+save_model_after_each_epoch: 10
 total_training_example: -1  # -1 means all the training examples
 resolution_slap:
   - 32
@@ -17,7 +17,7 @@ resolution_slap:
   - 128
   - 256
   - 512
-save_model_based_on: cc_16
+save_model_based_on: cc_0
 JI_metrics_from_epoch: 10
 
 # ================ General settings ===============

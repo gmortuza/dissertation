@@ -43,9 +43,9 @@ class UNet(nn.Module):
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
 
         self.output = nn.Sequential(
-            nn.Conv2d(features[0], out_channel, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm2d(out_channel),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(features[0], 8, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1, bias=True),
         )
 
     def forward(self, x):
