@@ -43,9 +43,7 @@ class UNet(nn.Module):
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
 
         self.output = nn.Sequential(
-            nn.Conv2d(features[0], 8, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.Conv2d(features[0], out_channel, kernel_size=1, stride=1, bias=True),
         )
 
     def forward(self, x):
@@ -72,7 +70,7 @@ class UNet(nn.Module):
 def test():
     model = UNet(Config("../config.yaml"), out_channel=1)
     print(f"Model param {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
-    x = torch.randn(8, 1, 32, 32)
+    x = torch.randn(16, 1, 32, 32)
     y = model(x)
     print(y.shape)
 

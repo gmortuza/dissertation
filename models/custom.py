@@ -12,7 +12,22 @@ class Custom(nn.Module):
         super(Custom, self).__init__()
         self.config = config
         self.models = nn.ModuleList()
-        self.remove_noise = UNet(config, in_channel=1, out_channel=1)
+        self.remove_noise = nn.Sequential(
+            UNet(config, in_channel=1, out_channel=16),
+            nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1, bias=True)
+        )
+        self.model = nn.Sequential(
+                UNet(config, in_channel=1, out_channel=16),
+                nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
+                nn.BatchNorm2d(16),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1),
+            )
         # for _ in range(4):
         #     self.models.append(nn.Sequential(
         #         UNet(config, in_channel=1, out_channel=16),
@@ -29,7 +44,11 @@ class Custom(nn.Module):
         # output = torch.zeros_like(x[0])
         outputs = []
         inputs = x[0]
-        return [self.remove_noise(inputs)]
+        output = self.remove_noise(inputs)
+        outputs.append(output)
+        output = self.model(output)
+        outputs.append(output)
+        return outputs
         # for idx, model in enumerate(self.models):
         #     # inputs = torch.cat([output, x[idx]], dim=1)
         #     # inputs = y[idx] + x[idx]
