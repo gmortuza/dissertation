@@ -157,8 +157,8 @@ def get_metrics(config, epoch):
             # 'psnr_4': get_psnr(1, 1),
             # 'psnr_8': get_psnr(2, 2),
             # 'psnr_16': get_psnr(3, 3),
-            'cc_0': cross_correlation(0),
-            'cc_2': cross_correlation(1),
+            # 'cc_0': cross_correlation(0),
+            'cc_2': cross_correlation(0),
             # 'cc_4': cross_correlation(1),
             # 'cc_8': cross_correlation(2),
             # 'cc_16': cross_correlation(3),
@@ -169,12 +169,12 @@ def get_metrics(config, epoch):
         }
     else:
         return {
-            'cc_0': cross_correlation(0),
+            # 'cc_0': cross_correlation(0),
             # 'psnr_2': get_psnr(0),
             # 'psnr_4': get_psnr(1),
             # 'psnr_8': get_psnr(2),
             # 'psnr_16': get_psnr(3),
-            'cc_2': cross_correlation(1),
+            'cc_2': cross_correlation(0),
             # 'cc_4': cross_correlation(1),
             # 'cc_8': cross_correlation(2),
             # 'cc_16': cross_correlation(3),

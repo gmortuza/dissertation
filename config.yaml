@@ -17,7 +17,7 @@ resolution_slap:
   - 128
   - 256
   - 512
-save_model_based_on: cc_0
+save_model_based_on: cc_2
 JI_metrics_from_epoch: 10
 
 # ================ General settings ===============

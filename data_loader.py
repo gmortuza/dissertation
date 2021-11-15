@@ -98,7 +98,7 @@ class SMLMDataset(Dataset):
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
 
-        return x, y
+        return x, y[1:]
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
