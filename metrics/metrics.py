@@ -164,7 +164,7 @@ def get_metrics(config, epoch):
             'cc_16': cross_correlation(3),
             # # 'JI_2': get_ji_by_points(0, config),
             # 'JI_4': get_ji_by_points(1, config),
-            # 'JI_8': get_ji_by_points(2, config),
+            'JI_8': get_ji_by_points(2, config),
             'JI_16': get_ji_by_points(3, config)
         }
     else:
