@@ -40,9 +40,8 @@ class Custom(nn.Module):
                 nn.BatchNorm2d(16),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
-                nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
-                nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=1),
-                nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(8, 1, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(inplace=True)
             ))
 
     def forward(self, x: Tensor, y) -> Tensor:
