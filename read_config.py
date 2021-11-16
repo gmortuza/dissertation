@@ -53,6 +53,7 @@ class Config:
         self.load_checkpoint = False
         self.save_model_after_each_epoch = 5
         self.JI_metrics_from_epoch = 10
+        self.total_training_example = -1
 
         repo = Repo(os.path.dirname(os.path.abspath(__file__)))
         self.neptune_description = repo.head.reference.commit.message
