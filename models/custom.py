@@ -53,11 +53,11 @@ class Custom(nn.Module):
                 inputs = x[0]
             else:
                 inputs = torch.cat([output, x[idx]], dim=1)
-            inputs = inputs - inputs.view(inputs.shape[0], inputs.shape[1], -1).mean(2).unsqueeze(-1).unsqueeze(-1)
+            # inputs = inputs - inputs.view(inputs.shape[0], inputs.shape[1], -1).mean(2).unsqueeze(-1).unsqueeze(-1)
             # Mean shift of the inputs
             output = model(inputs)
             # Add mean to the output
-            output = output + output.view(output.shape[0], output.shape[1], -1).mean(2).unsqueeze(-1).unsqueeze(-1)
+            # output = output + output.view(output.shape[0], output.shape[1], -1).mean(2).unsqueeze(-1).unsqueeze(-1)
             outputs.append(output)
         return outputs
 

@@ -24,10 +24,11 @@ def train(model, data_loader, criterion, optimizer, metrics, config) -> dict:
             inputs = utils.convert_device(inputs, config.device)
             labels = utils.convert_device(labels, config.device)
 
+            optimizer.zero_grad()
+
             outputs = model(inputs, labels)
             loss = criterion(outputs, labels)
 
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
