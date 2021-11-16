@@ -90,6 +90,7 @@ def extract_label_from_folder(folder, config):
                     max_ = max(patch.shape[0], patch.shape[1])
                     print(patch.shape)
 
+
         print(max_)
 
 

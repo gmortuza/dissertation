@@ -2,7 +2,7 @@
 output_dir: outputs
 validation_split: .1
 test_split: .1
-batch_size: 16
+batch_size: 64
 num_epochs: 100
 learning_rate: 0.001
 weight_decay: 0.005
@@ -17,7 +17,7 @@ resolution_slap:
   - 128
   - 256
   - 512
-save_model_based_on: cc_2
+save_model_based_on: cc_4
 JI_metrics_from_epoch: 10
 
 # ================ General settings ===============

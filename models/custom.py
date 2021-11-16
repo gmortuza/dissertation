@@ -18,17 +18,16 @@ class Custom(nn.Module):
         #     nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1, bias=True),
         #     nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1, bias=True)
         # )
-        # self.model = nn.Sequential(
-        #         UNet(config, in_channel=1, out_channel=16),
-        #         nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
-        #         nn.BatchNorm2d(16),
-        #         nn.ReLU(inplace=True),
-        #         nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
-        #         nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
-        #         nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=1),
-        #         nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1),
-        #     )
-        self.model = EDSR()
+        self.model = nn.Sequential(
+                UNet(config, in_channel=1, out_channel=16),
+                nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
+                nn.BatchNorm2d(16),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1),
+            )
         # for _ in range(4):
         #     self.models.append(nn.Sequential(
         #         UNet(config, in_channel=1, out_channel=16),
@@ -45,22 +44,19 @@ class Custom(nn.Module):
         # output = torch.zeros_like(x[0])
         outputs = []
         inputs = x[0]
+        output = torch.zeros_like(x[0])
         # output = self.remove_noise(inputs)
         # outputs.append(output)
-        output = self.model(inputs)
-        outputs.append(output)
+        for idx in range(4):
+            # inputs = torch.cat([output, x[idx]], dim=1)
+            inputs = x[idx] + output
+            # Mean shift of the inputs
+            inputs = inputs - inputs.view(inputs.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
+            output = self.model(inputs)
+            # Add mean to the output
+            output = output + output.view(output.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
+            outputs.append(output)
         return outputs
-        # for idx, model in enumerate(self.models):
-        #     # inputs = torch.cat([output, x[idx]], dim=1)
-        #     # inputs = y[idx] + x[idx]
-        #     # Mean shift of the inputs
-        #     inputs = inputs - inputs.view(inputs.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
-        #     output = model(inputs)
-        #     # Add mean to the output
-        #     output = output + output.view(output.shape[0], -1).mean(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
-        #     inputs = y[idx]
-        #     outputs.append(output)
-        # return outputs
 
 
 def test():

@@ -100,7 +100,7 @@ def main():
     gts = []
     config_ = Config("config.yaml")
     for frame_number in range(49, 50):
-        f_name = f"simulated_data/train/up_5_{frame_number}.pl"
+        f_name = f"simulated_data/train/db_{frame_number}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
         y_gt, frame = y[-1], y[-3]
