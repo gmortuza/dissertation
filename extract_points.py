@@ -39,7 +39,7 @@ def get_accuracy(predicted_points, gt_points):
 
 def get_point(frame, labels, label_number, config):
     x, y = torch.where(labels == label_number)
-    if len(x) < 10 or len(y) < 10:
+    if len(x) < 10 or len(x) > 65:
         return None
     # scale = frame.shape[-1] / 32
     weights = frame[0][x, y]
@@ -99,7 +99,7 @@ def main():
     frames = []
     gts = []
     config_ = Config("config.yaml")
-    for frame_number in range(49, 50):
+    for frame_number in range(100):
         f_name = f"simulated_data/train/db_{frame_number}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
