@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+
 
 def get_unique_origami(config):
     """
@@ -29,12 +32,8 @@ def get_unique_origami(config):
             single_origami_x = single_origami_x - torch.mean(single_origami_x)
             single_origami_y = single_origami_y - torch.mean(single_origami_y)
         # Convert pixel to nanometer
-        # We will create the higher resolution image first then downsample that image to
-        # get our main training image
-        scale = config.resolution_slap[-1] / config.resolution_slap[0]
-        nm_per_pixel = config.Camera_Pixelsize / scale
-        single_origami_x = single_origami_x / nm_per_pixel
-        single_origami_y = single_origami_y / nm_per_pixel
+        single_origami_x = single_origami_x / config.Camera_Pixelsize
+        single_origami_y = single_origami_y / config.Camera_Pixelsize
         #
         unique_origamies.append(torch.stack((single_origami_x, single_origami_y)))
     return unique_origamies
