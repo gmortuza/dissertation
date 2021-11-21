@@ -1,9 +1,6 @@
 import numpy as np
 import torch
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-
 
 def get_unique_origami(config):
     """

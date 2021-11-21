@@ -1,7 +1,5 @@
 import torch
 
-torch.manual_seed(1234)
-
 
 def get_gaussian_noise(mu, sigma):
     return torch.distributions.normal.Normal(mu, sigma)

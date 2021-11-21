@@ -7,8 +7,6 @@ import neptune.new as neptune
 from datetime import datetime
 from git import Repo
 
-torch.manual_seed(1234)
-
 
 class Config:
     """Class that loads hyper parameters from a json file.
@@ -58,6 +56,7 @@ class Config:
         self.device = 'cuda:0'
         self.total_frames = 200000
         self.total_origami = 100
+        self.split_into = 20
 
         repo = Repo(os.path.dirname(os.path.abspath(__file__)))
         self.neptune_description = repo.head.reference.commit.message
