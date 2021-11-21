@@ -49,8 +49,8 @@ class Config:
         self.input_dir = '/bsuscratch/gmortuza/simulated_data_497_old'
         self.output_dir = 'outputs_' + datetime.now().strftime("%d_%m_%H_%M_%S")
         self.load_checkpoint = False
-        self.save_model_after_each_epoch = 5
-        self.JI_metrics_from_epoch = 10
+        self.save_model_after_each_epoch = 1
+        self.JI_metrics_from_epoch = 3
         self.total_training_example = -1
         self.test_split = 0.0
         self.device = 'cuda:0'
