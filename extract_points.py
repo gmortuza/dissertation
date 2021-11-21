@@ -61,8 +61,8 @@ def get_points(frame, frame_number, config):
     ## Some test code
     # px_to_nm = config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
     # dialate the frames
-    dialated_frame = cv2.erode(frame.detach().cpu().numpy(), np.ones((3, 3), np.uint8))
-    binary_frame = (dialated_frame[0] > config.output_threshold).astype(np.int8)
+    # dialated_frame = cv2.erode(frame.detach().cpu().numpy(), np.ones((3, 3), np.uint8))
+    binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
     *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
     # numLabels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_frame, connectivity=4)
     # points = []

@@ -83,7 +83,7 @@ class Config:
         self.Imager_photon_rate = self.Imager_Photonslope * self.Imager_Laserpower
         self.Imager_photon_rate_std = self.Imager_photon_slope_std * self.Imager_Laserpower
 
-        self.frame_padding = self.frame_padding * self.resolution_slap[-1] / self.resolution_slap[0]
+        # self.frame_padding = self.frame_padding * self.resolution_slap[-1] / self.resolution_slap[0]
 
     def _make_absolute_directory(self):
         # prepend this base directory with other parameter so that we won't get any error for the path
