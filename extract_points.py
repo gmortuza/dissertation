@@ -60,7 +60,9 @@ def get_point(frame, labels, label_number, config):
 def get_points(frame, frame_number, config):
     ## Some test code
     # px_to_nm = config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
-    binary_frame = (frame[0] > 0.05).cpu().numpy().astype(np.int8)
+    # dialate the frames
+    dialated_frame = cv2.erode(frame.detach().cpu().numpy(), np.ones((3, 3), np.uint8))
+    binary_frame = (dialated_frame[0] > config.output_threshold).astype(np.int8)
     *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
     # numLabels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_frame, connectivity=4)
     # points = []
@@ -89,7 +91,7 @@ def get_points_from_gt(gt, config):
     points = []
     for point in gt:
         # mu = torch.round(point[[5, 6]] * scale).int().tolist()
-        points.append([int(point[0]), float(point[2] * config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]), float(point[1] * config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]), 0, 0, float(point[7])])
+        points.append([int(point[0]), float(point[2] * config.Camera_Pixelsize), float(point[1] * config.Camera_Pixelsize), 0, 0, float(point[7])])
     return points
 
 
