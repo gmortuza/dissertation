@@ -15,7 +15,7 @@ def simulate(config: Config):
     """
     if isinstance(config, str):
         config = Config(config)
-    for sim_type in ['train', 'test', 'validation']:
+    for sim_type in ['train', 'validation', 'test']:
         if sim_type == 'train':
             config.frame_to_generate = int(config.total_frames * (1 - config.validation_split - config.test_split))
             config.simulated_data_dir = os.path.join(config.input_dir, "train")
@@ -25,6 +25,9 @@ def simulate(config: Config):
         else:  # validation split
             config.frame_to_generate = int(config.total_frames * config.validation_split)
             config.simulated_data_dir = os.path.join(config.input_dir, "validation")
+
+        if config.frame_to_generate < 1:
+            continue
 
         if not os.path.exists(config.simulated_data_dir):
             os.makedirs(config.simulated_data_dir)
