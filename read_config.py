@@ -54,6 +54,10 @@ class Config:
         self.save_model_after_each_epoch = 5
         self.JI_metrics_from_epoch = 10
         self.total_training_example = -1
+        self.test_split = 0.0
+        self.device = 'cuda:0'
+        self.total_frames = 200000
+        self.total_origami = 100
 
         repo = Repo(os.path.dirname(os.path.abspath(__file__)))
         self.neptune_description = repo.head.reference.commit.message
