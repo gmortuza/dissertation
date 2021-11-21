@@ -198,7 +198,7 @@ def normalize(x):
     x_max = x_max.unsqueeze(1).unsqueeze(1)
     # convert the value between 0 and 1
     x = (x - x_min) / (x_max - x_min)
-    return torch.nan_to_num(x, 0.) * 255.
+    return torch.nan_to_num(x, 0.)
 
 
 

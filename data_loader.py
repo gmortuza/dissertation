@@ -97,9 +97,6 @@ class SMLMDataset(Dataset):
 
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
-        for i in range(5):
-            x[i] /= 255.
-            y[i] /= 255.
 
         return x, y[1:]
 

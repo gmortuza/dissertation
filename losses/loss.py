@@ -5,7 +5,6 @@ from torch import distributions as D
 from torch.nn import KLDivLoss
 from torchvision import models
 import matplotlib.pyplot as plt
-from kornia.filters import gaussian_blur2d
 
 
 class VGGLoss(nn.Module):
@@ -34,32 +33,24 @@ class Loss(nn.Module):
         # self.criterion = SamplesLoss()
 
     def forward(self, outputs, targets):
+        outputs_intensity, outputs_pos = outputs
         # Generate target pos
+        # target_pos = [(target > 0).to(outputs_pos[0].dtype) for target in targets]
         self.config.log_param("criterion", "L1")
-        # return nn.L1Loss()(outputs[0], targets[1])
-        return self._l1_loss(outputs, targets)
-        # return self._dice_loss(outputs, targets) + self._l1_loss(outputs, targets)
+        return sum(nn.L1Loss()(outputs_intensity[i], targets[i]) for i in range(len(outputs_intensity)))
+            # sum(nn.BCELoss()(outputs_pos[i], target_pos[i]) for i in range(len(outputs_pos)))
 
-    def _l1_loss(self, outputs, targets):
-        losses = []
-        for output, target in zip(outputs, targets):
-            # output = gaussian_blur2d(output, (7, 7), (1., 1.))
-            # target = gaussian_blur2d(target, (7, 7), (1., 1.))
-            loss = nn.L1Loss()(output, target)
-            losses.append(loss)
-        return sum(losses)
 
-    def _dice_loss(self, outputs, targets):
-        losses = []
-        smooth = 1
-        for output, target in zip(outputs, targets):
-            iflat = output.view(-1)
-            tflat = target.view(-1)
-            intersection = (iflat * tflat).sum()
-            loss = 1 - ((2. * intersection + smooth) /
-                        (iflat.sum() + tflat.sum() + smooth))
-            losses.append(loss)
-        return sum(losses)
+        # predicted_intensity, predicted_location, threshold = outputs
+        # targets_zero_to_one = targets.clone()
+        # targets_zero_to_one[targets_zero_to_one == 0] = 1.
+        # threshold_label, _ = targets_zero_to_one.view(targets_zero_to_one.shape[0], -1).min(dim=1)
+        # threshold_label = threshold_label.unsqueeze(1)
+        # targets_locations = targets.clone()
+        # targets_locations[targets_locations > 0.] = 1.0
+        #
+        # return self._mse_loss(predicted_intensity, targets) + nn.BCEWithLogitsLoss()(predicted_location, targets_locations)
+        # return nn.BCEWithLogitsLoss()(predicted_location, targets_locations)
 
     def __str__(self):
         return "L1"
@@ -78,7 +69,7 @@ class Loss(nn.Module):
     def _gmm_loss(self, outputs, targets):
         output_gmm = self._create_gaussian_mixture(outputs)
         target_gmm = self._create_gaussian_mixture(targets)
-        loss = output_gmm.log_prob(target_gmm.sample((10000,))).mean()
+        loss = output_gmm.log_prob(target_gmm.sample((10000, ))).mean()
         return loss
 
     def _create_gaussian_mixture(self, source):

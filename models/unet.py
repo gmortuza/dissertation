@@ -23,7 +23,7 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, config, in_channel=1, out_channel=16, features=[32, 64, 128, 256]):
+    def __init__(self, config, in_channel=1, out_channel=16, features=[64, 128, 256, 512]):
         super(UNet, self).__init__()
         self.config = config
 
@@ -37,15 +37,16 @@ class UNet(nn.Module):
             in_channel = feature
 
         for feature in features[::-1]:
-            self.ups.append(nn.ConvTranspose2d(feature * 2, feature, kernel_size=1, stride=2))
+            self.ups.append(nn.ConvTranspose2d(feature * 2, feature, kernel_size=2, stride=2))
             self.ups.append(DoubleConv(feature * 2, feature))
 
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
 
         self.output = nn.Sequential(
-            nn.Conv2d(features[0], out_channel, kernel_size=1, stride=1),
-            nn.BatchNorm2d(out_channel),
-            nn.ReLU(inplace=True)
+            nn.ConvTranspose2d(features[0], out_channel, kernel_size=1, stride=1),
+        )
+        self.threshold = nn.Sequential(
+            nn.Linear(262144, 1)
         )
 
     def forward(self, x):
@@ -64,18 +65,21 @@ class UNet(nn.Module):
                 x = TF.resize(x, size=skip_connection.shape[2:])
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ups[idx + 1](concat_skip)
-        intensity = self.output(x)
+
+        # x = torch.flatten(x, 1)
+        intensity = torch.nn.ReLU()(self.output(x))
+        location = torch.sigmoid(self.output(x))
+        # x_flatten = x.flatten(1)
+        # threshold = torch.sigmoid(self.threshold(x_flatten))
+        threshold = None
 
         return intensity
 
-
-def test():
-    model = UNet(Config("../config.yaml"), out_channel=1)
-    print(f"Model param {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
-    x = torch.randn(8, 1, 32, 32)
-    y = model(x)
-    print(y.shape)
+        # return intensity, location, threshold
 
 
 if __name__ == '__main__':
-    test()
+    config_ = Config("../config.yaml")
+    image = torch.rand((64, 1, 32, 32))
+    model = UNet(config_)
+    print(model(image).shape)

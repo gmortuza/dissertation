@@ -1,78 +1,81 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-
-from models.edsr import EDSR
 from read_config import Config
 from models.unet import UNet
+
+
+class ResBlock(nn.Module):
+    def __init__(self, in_channel, out_channel):
+        super(ResBlock, self).__init__()
+        self.conv = nn.Sequential(
+
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.conv(x)
 
 
 class Custom(nn.Module):
     def __init__(self, config):
         super(Custom, self).__init__()
         self.config = config
-        self.models = nn.ModuleList()
-        # self.remove_noise = nn.Sequential(
-        #     UNet(config, in_channel=1, out_channel=16),
-        #     nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1, bias=True),
-        #     nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1, bias=True),
-        #     nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1, bias=True)
-        # )
-        # self.model = nn.Sequential(
-        #     UNet(self.config, in_channel=1, out_channel=16),
-        #     nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2),
-        #     nn.Conv2d(8, 1, kernel_size=5, padding=1, stride=1),
-        #     )
-        self.models.append(nn.Sequential(
-            UNet(config, in_channel=1, out_channel=16),
-            nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
-            nn.BatchNorm2d(16),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=1),
-        ))
-        for _ in range(3):
-            self.models.append(nn.Sequential(
-                UNet(config, in_channel=2, out_channel=16),
-                nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
-                nn.BatchNorm2d(16),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
-                nn.Conv2d(8, 1, kernel_size=3, stride=1, padding=1),
-                nn.ReLU(inplace=True)
-            ))
+        self.layers = nn.ModuleList()
+        self.unet = UNet(self.config, in_channel=1, out_channel=16)
+        self.final_unet = UNet(self.config, in_channel=1, out_channel=1)
+        self.intensity_conv = nn.Sequential(
+            nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
+            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
+            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
+            nn.ReLU(inplace=True)
+        )
+        self.position_conv = nn.Sequential(
+            nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
+            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
+            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
+            nn.Sigmoid()
+        )
 
     def forward(self, x: Tensor, y) -> Tensor:
-        # output = torch.zeros_like(x[0])
-        outputs = []
-        for idx, model in enumerate(self.models):
-            if idx == 0:
-                inputs = x[0]
-            else:
-                inputs = torch.cat([output, x[idx]], dim=1)
-            # inputs = inputs - inputs.view(inputs.shape[0], inputs.shape[1], -1).mean(2).unsqueeze(-1).unsqueeze(-1)
-            # Mean shift of the inputs
-            output = model(inputs)
-            # Add mean to the output
-            # output = output + output.view(output.shape[0], output.shape[1], -1).mean(2).unsqueeze(-1).unsqueeze(-1)
-            outputs.append(output)
-        return outputs
+        input_1, input_2, input_3, input_4, input_5 = x
+        output_1 = self.unet(input_1)  # same size
+        output_1_intensity = self.intensity_conv(output_1)
+        # output_1_pos = self.position_conv(output_1)
+        #
+        input_2 = input_2 + output_1_intensity
+        output_2 = self.unet(input_2)
+        output_2_intensity = self.intensity_conv(output_2)
+        # output_2_pos = self.position_conv(output_2)
+        #
+        input_3 = input_3 + output_2_intensity
+        output_3 = self.unet(input_3)
+        output_3_intensity = self.intensity_conv(output_3)
+        # output_3_pos = self.position_conv(output_3)
+        #
+        input_4 = input_4 + output_3_intensity
+        output_4 = self.unet(input_4)
+        output_4_intensity = self.intensity_conv(output_4)
+        # output_4_pos = self.position_conv(output_4)
+
+        # final = self.final_unet(y[-2])
+
+        return [output_1_intensity, output_2_intensity, output_3_intensity, output_4_intensity], []
+               # [output_1_pos, output_2_pos, output_3_pos, output_4_pos]
+
+        # return output_1, output_2, output_3, output_4
 
 
 def test():
     config_ = Config('../config.yaml')
     model = Custom(config_)
-    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     # [32, 63, 125, 249]
     images = []
-    for image_size in [32, 64, 128, 256]:
-        image = torch.rand((16, 1, image_size, image_size))
+    for image_size in [32, 63, 125, 249]:
+        image = torch.rand((64, 1, image_size, image_size))
         images.append(image)
-    outputs = model(images, images)
-    for output in outputs:
-        print(output.shape)
+    output = model(images)
+    expected_shape = (64, 16, 16, 16)
+    print(output.shape)
     # assert output.shape == expected_shape, 'Shape did not match.\n\toutput shape is: ' + str(output.shape) + \
     #                                        '\n\texpected shape is: ' + str(expected_shape)
     return
