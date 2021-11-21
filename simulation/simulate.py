@@ -242,6 +242,8 @@ def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, f
         single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(image_size + 1), range(image_size + 1)))
         single_frame = torch.from_numpy(single_frame).to(config.device)
     single_frames = get_different_sizes_frames(single_frame, gt_infos, config.resolution_slap)
+    # Rescale the coordinates to match the lower resolution image
+    gt_infos[:, [1, 2, 3, 4, 5, 6]] *= config.resolution_slap[0] / config.resolution_slap[-1]
     return frame_id, single_frames, gt_infos
 
 
