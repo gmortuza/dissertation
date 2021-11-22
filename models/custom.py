@@ -33,8 +33,7 @@ class Custom(nn.Module):
         outputs = []
         for idx in range(4):
             inputs = x[idx] + output
-            output = self.unet(inputs)
-            output = self.intensity_conv(output)
+            output = self.model_1(inputs)
             outputs.append(output)
         return outputs
 
