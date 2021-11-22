@@ -129,7 +129,7 @@ class MultiResUNet(nn.Module):
         super().__init__()
         self.alpha = 1.67
         self.filters = filter_starts
-        self.out_channel = in_channel
+        self.out_channel = out_channel
         self.multiresblock1 = Multiresblock(input_features=in_channel, corresponding_unet_filters=self.filters)
         self.pool1 = nn.MaxPool2d(2, stride=2)
         self.in_filters1 = int(self.filters * self.alpha * 0.5) + int(self.filters * self.alpha * 0.167) + int(
@@ -188,7 +188,7 @@ class MultiResUNet(nn.Module):
         self.in_filters9 = int(self.filters * self.alpha * 0.5) + int(self.filters * self.alpha * 0.167) + int(
             self.filters * self.alpha * 0.333)
         self.conv_final = Conv2d_batchnorm(input_features=self.in_filters9, num_of_filters=self.out_channel,
-                                           kernel_size=(1, 1), activation='None')
+                                           kernel_size=(1, 1), activation='relu')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_multires1 = self.multiresblock1(x)
@@ -212,17 +212,14 @@ class MultiResUNet(nn.Module):
         x_multires8 = self.multiresblock8(up8)
         up9 = torch.cat([self.upsample9(x_multires8), x_multires1], axis=1)
         x_multires9 = self.multiresblock9(up9)
-        if self.out_channel > 1:
-            conv_final_layer = self.conv_final(x_multires9)
-        else:
-            conv_final_layer = torch.sigmoid(self.conv_final(x_multires9))
+        conv_final_layer = self.conv_final(x_multires9)
         return conv_final_layer
 
 
 def test():
-    model = MultiResUNet(in_channel=1, out_channel=1, filter_starts=32)
+    model = MultiResUNet(in_channel=1, out_channel=16, filter_starts=32)
     print(f"Model param {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
-    x = torch.randn(8, 1, 32, 32)
+    x = torch.randn(8, 1, 63, 63)
     y = model(x)
     print(y.shape)
 

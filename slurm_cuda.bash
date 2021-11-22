@@ -4,7 +4,7 @@
 #SBATCH -n 1             # total number of tasks requested
 #SBATCH -N 1 		  # number of nodes you want to run on	
 #SBATCH -p nam-bio # queue (partition) -- defq, eduq, gpuq, shortq, nam(Our group), bsudfq(for all BSU)
-#SBATCH -t 36:00:00       # run time (hh:mm:ss) - 12.0 hours in this example.
+#SBATCH -t 7-36:00:00       # run time (hh:mm:ss) - 12.0 hours in this example.
 #SBATCH --gres=gpu:1
 #SBATCH --mail-user=golammdmortuza@boisestate.edu
 # Remove previous log file

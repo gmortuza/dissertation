@@ -21,19 +21,33 @@ class Custom(nn.Module):
         super(Custom, self).__init__()
         self.config = config
         self.model_1 = nn.Sequential(
-            UNet(self.config, in_channel=1, out_channel=16),
+            UNet(self.config, in_channel=2, out_channel=16),
             nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
             nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
             nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
-            nn.ReLU(inplace=True)
+            # nn.ReLU(inplace=True)
+        )
+        self.model_2 = nn.Sequential(
+            UNet(self.config, in_channel=2, out_channel=16),
+            nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
+            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
+            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
+            # nn.ReLU(inplace=True)
         )
 
     def forward(self, x: Tensor, y) -> Tensor:
         output = torch.zeros_like(x[0])
         outputs = []
-        for idx in range(4):
-            inputs = x[idx] + output
+        for idx in range(2):
+            inputs = torch.cat([x[idx], output], dim=1)
             output = self.model_1(inputs)
+            outputs.append(output)
+
+        output = output * 100.
+
+        for idx in range(2, 4):
+            inputs = torch.cat([x[idx], output], dim=1)
+            output = self.model_2(inputs)
             outputs.append(output)
         return outputs
 
