@@ -13,10 +13,15 @@ save_model_after_each_epoch: 1
 total_training_example: -1  # -1 means all the training examples
 resolution_slap:
   - 32
-  - 63
-  - 125
-  - 249
-  - 497
+  - 64
+  - 128
+  - 256
+  - 512
+#  - 32
+#  - 63
+#  - 125
+#  - 249
+#  - 497
 save_model_based_on: cc_16
 JI_metrics_from_epoch: 5
 output_threshold: 0.005

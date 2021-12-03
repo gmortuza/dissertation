@@ -22,16 +22,16 @@ class Custom(nn.Module):
         self.config = config
         self.model_1 = nn.Sequential(
             UNet(self.config, in_channel=2, out_channel=16),
-            nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
-            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
-            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
+            nn.ConvTranspose2d(16, 8, kernel_size=8, stride=2),
+            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1, bias=True),
+            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1, bias=True),
             # nn.ReLU(inplace=True)
         )
         self.model_2 = nn.Sequential(
             UNet(self.config, in_channel=2, out_channel=16),
-            nn.ConvTranspose2d(16, 8, kernel_size=7, stride=2),
-            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1),
-            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1),
+            nn.ConvTranspose2d(16, 8, kernel_size=8, stride=2),
+            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1, bias=True),
+            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1, bias=True),
             # nn.ReLU(inplace=True)
         )
 
@@ -57,8 +57,10 @@ def test():
     model = Custom(config_)
     # [32, 63, 125, 249]
     images = []
-    for image_size in [32, 63, 125, 249, 497]:
-        image = torch.rand((64, 1, image_size, image_size))
+    # a = [32, 63, 125, 249, 497]
+    a = [32, 64, 128, 256, 512]
+    for image_size in a:
+        image = torch.rand((8, 1, image_size, image_size))
         images.append(image)
     outputs = model(images, images)
     expected_shape = (64, 16, 16, 16)
