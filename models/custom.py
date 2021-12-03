@@ -2,7 +2,8 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 from read_config import Config
-from models.unet import UNet
+# from models.unet import UNet
+from models.multi_res_unet import MultiResUNet as UNet
 
 
 class ResBlock(nn.Module):

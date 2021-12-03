@@ -2,7 +2,7 @@ from typing import Tuple, Dict
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-
+from read_config import Config
 
 class Multiresblock(nn.Module):
     def __init__(self, input_features: int, corresponding_unet_filters: int, alpha: float = 1.67) -> None:
@@ -116,7 +116,7 @@ class Respath(nn.Module):
 
 
 class MultiResUNet(nn.Module):
-    def __init__(self, in_channel: int = 1, out_channel: int = 1, filter_starts: int = 32) -> None:
+    def __init__(self, config, in_channel: int = 1, out_channel: int = 1, filter_starts: int = 32) -> None:
 
         """
         Arguments:
@@ -217,7 +217,8 @@ class MultiResUNet(nn.Module):
 
 
 def test():
-    model = MultiResUNet(in_channel=1, out_channel=16, filter_starts=32)
+    config_ = Config("../config.yaml")
+    model = MultiResUNet(config_, in_channel=1, out_channel=16, filter_starts=32)
     print(f"Model param {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     x = torch.randn(8, 1, 63, 63)
     y = model(x)
