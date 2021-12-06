@@ -98,10 +98,10 @@ class SMLMDataset(Dataset):
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
         # Increase the scale of the label
-        for i in range(2, 5):
-            y[i] *= 100.0
-            x[i] *= 100.0
-
+        for i in range(3, 5):
+            y[i] *= 255.0
+            x[i] *= 255.0
+        del y[3]
         return x, y[1:]
 
 
@@ -120,8 +120,8 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
         val_dataset = SMLMDataset(val_dir, config)
         config.log_param("num_training", len(train_dataset))
         config.log_param("num_validation", len(val_dataset))
-        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0)
-        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0)
+        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
+        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
 
         return train_loader, valid_loader
     else:

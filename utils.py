@@ -206,8 +206,8 @@ def convert_device(tensors, device):
     if tensors is None:
         return None
     elif isinstance(tensors, (int, float)):
-        return torch.tensor(tensors, device=device)
+        return torch.as_tensor(tensors, device=device, )
     elif isinstance(tensors, torch.Tensor):
-        return tensors.to(device)
+        return tensors.to(device, non_blocking=True)
     elif isinstance(tensors, (tuple, list)):
         return [convert_device(tensor, device) for tensor in tensors]
