@@ -46,11 +46,10 @@ class Custom(nn.Module):
             output = self.model_1(inputs)
             outputs.append(output)
 
-        output = output * 255.
-
         # for idx in range(2, 4):
-        inputs = torch.cat([x[2] * 255., output], dim=1)
-        # inputs = torch.cat([x[2] * 255., output], dim=1)
+        # inputs = torch.cat([x[2], output], dim=1)
+        inputs = torch.cat([x[2], y[1]], dim=1)
+        inputs *= 255.
         output = self.model_2(inputs)
         outputs.append(output)
 
