@@ -29,11 +29,12 @@ class Custom(nn.Module):
             # nn.ReLU(inplace=True)
         )
         self.model_2 = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=32),
-            nn.ConvTranspose2d(32, 32, kernel_size=4, stride=2, bias=True),
-            nn.Conv2d(32, 16, kernel_size=5, padding=1, stride=1, bias=True),
-            nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2, bias=True),
-            nn.Conv2d(16, 1, kernel_size=5, padding=1, stride=1, bias=True),
+            UNet(self.config, in_channel=2, out_channel=16),
+            nn.PixelShuffle(4),
+            # nn.ConvTranspose2d(32, 32, kernel_size=4, stride=2, bias=True),
+            # nn.Conv2d(32, 16, kernel_size=5, padding=1, stride=1, bias=True),
+            # nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2, bias=True),
+            # nn.Conv2d(16, 1, kernel_size=5, padding=1, stride=1, bias=True),
             # nn.ReLU(inplace=True)
         )
 
@@ -48,7 +49,8 @@ class Custom(nn.Module):
         output = output * 255.
 
         # for idx in range(2, 4):
-        inputs = torch.cat([x[2] * 255., y[1] * 255.], dim=1)
+        inputs = torch.cat([x[2] * 255., output], dim=1)
+        # inputs = torch.cat([x[2] * 255., output], dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
 
