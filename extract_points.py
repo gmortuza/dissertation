@@ -39,9 +39,8 @@ def get_accuracy(predicted_points, gt_points):
 
 def get_point(frame, labels, label_number, config):
     x, y = torch.where(labels == label_number)
-    if len(x) < 10 or len(x) > 65:
-        return None
-    # scale = frame.shape[-1] / 32
+    # if len(x) < 10 or len(x) > 65:
+    #     return None
     weights = frame[0][x, y]
     # TODO: do these things using pytorch
     x_mean = torch.sum(x * weights) / torch.sum(weights)

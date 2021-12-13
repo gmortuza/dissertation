@@ -90,6 +90,8 @@ class Config:
         # As those directory will be accessed from different file. which are in different location
         self.input_dir = os.path.join(self.base_dir, self.input_dir)
         self.output_dir = os.path.join(self.base_dir, self.output_dir)
+        self.train_dir = os.path.join(self.input_dir, "train")
+        self.val_dir = os.path.join(self.input_dir, "validation")
 
         self.checkpoint_dir = os.path.join(self.output_dir, "checkpoint")
         # self.log_dir = os.path.join(self.output_dir, "logs")

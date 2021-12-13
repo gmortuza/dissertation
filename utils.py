@@ -41,13 +41,13 @@ def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
     """
     if config.save_model_after_each_epoch == 0 or state['epoch'] % config.save_model_after_each_epoch != 0:
         return float('-inf')
-    filepath = os.path.join(config.checkpoint_dir, name+'last.pth.tar')
+    filepath = os.path.join(config.checkpoint_dir, name + 'last.pth.tar')
     if not os.path.exists(config.checkpoint_dir):
         os.mkdir(config.checkpoint_dir)
     torch.save(state, filepath)
-    if val_metrics[config.save_model_based_on] >= best_val_acc:
+    if not config.save_model_based_on in val_metrics.keys() or val_metrics[config.save_model_based_on] >= best_val_acc:
         config.logger.info("New best accuracy found")
-        shutil.copyfile(filepath, os.path.join(config.checkpoint_dir, name+'best.pth.tar'))
+        shutil.copyfile(filepath, os.path.join(config.checkpoint_dir, name + 'best.pth.tar'))
         best_json_path = os.path.join(
             config.checkpoint_dir, name + "metrics_val_best_weights.json")
         save_dict_to_json(val_metrics, best_json_path)
@@ -79,7 +79,7 @@ def load_checkpoint(model, config, optimizer=None, name='') -> float:
     """
     if config.load_checkpoint:
         config.logger.info(f"Restoring parameters from {config.checkpoint_dir}")
-        checkpoint_path = os.path.join(config.checkpoint_dir, name+"last.pth.tar")
+        checkpoint_path = os.path.join(config.checkpoint_dir, name + "last.pth.tar")
         if not os.path.exists(checkpoint_path):
             config.logger.info(f"Checkpoint file doesn't exists {checkpoint_path}")
             return float('-inf')
@@ -199,7 +199,6 @@ def normalize(x):
     # convert the value between 0 and 1
     x = (x - x_min) / (x_max - x_min)
     return torch.nan_to_num(x, 0.)
-
 
 
 def convert_device(tensors, device):

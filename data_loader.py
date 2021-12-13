@@ -114,10 +114,8 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
         shuffle (object):
     """
     if type_ == 'train':
-        train_dir = os.path.join(config.input_dir, "train")
-        val_dir = os.path.join(config.input_dir, "validation")
-        train_dataset = SMLMDataset(train_dir, config)
-        val_dataset = SMLMDataset(val_dir, config)
+        train_dataset = SMLMDataset(config.train_dir, config)
+        val_dataset = SMLMDataset(config.val_dir, config)
         config.log_param("num_training", len(train_dataset))
         config.log_param("num_validation", len(val_dataset))
         train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)

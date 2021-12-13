@@ -4,6 +4,7 @@ from scipy.optimize import linear_sum_assignment
 from read_config import Config
 import extract_points
 
+
 # config = Config("config.yaml")
 
 
@@ -50,15 +51,15 @@ def cross_correlation(level):
         x = x - x_mean
         y = y - y_mean
 
-        dev_xy = torch.mul(x,y)
-        dev_xx = torch.mul(x,x)
-        dev_yy = torch.mul(y,y)
+        dev_xy = torch.mul(x, y)
+        dev_xx = torch.mul(x, x)
+        dev_yy = torch.mul(y, y)
 
         dev_xx_sum = torch.sum(dev_xx, dim=1, keepdim=True)
         dev_yy_sum = torch.sum(dev_yy, dim=1, keepdim=True)
 
         ncc = torch.div(dev_xy + eps / dev_xy.shape[1],
-                        torch.sqrt( torch.mul(dev_xx_sum, dev_yy_sum)) + eps)
+                        torch.sqrt(torch.mul(dev_xx_sum, dev_yy_sum)) + eps)
         ncc_map = ncc.view(b, *shape[1:])
 
         # reduce
@@ -70,6 +71,7 @@ def cross_correlation(level):
             raise KeyError('unsupported reduction type: %s' % reduction)
 
         return float(ncc.detach().cpu()) * 100
+
     return normalized_cross_correlation
 
 
@@ -89,6 +91,7 @@ def get_jaccard_index(config):
         # union = (p_location | target).sum()
         # iou = (intersection + SMOOTH) / (union + SMOOTH)  # smoothed to avoid 0/0
         return iou
+
     return jaccard_index
 
 
@@ -113,7 +116,9 @@ def get_psnr(level):
         mse = torch.mean((predictions[level] - targets[level]) ** 2)
         max_number = torch.max(targets[level])
         return 20 * torch.log10(max_number / torch.sqrt(mse)).detach().cpu()
+
     return psnr
+
 
 def get_SSIM(prediction, target):
     pass
@@ -125,6 +130,7 @@ def get_ji_by_loc(level):
         prediction = set(map(tuple, torch.nonzero(prediction)))
         target = set(map(tuple, torch.nonzero(targets[level])))
         return len(prediction.intersection(target)) * 100 / len(prediction.union(target))
+
     return ji
 
 
@@ -150,32 +156,50 @@ def get_ji_by_points(level, config):
     return ji
 
 
-def get_metrics(config, epoch):
+def get_ji_nn(config):
+    def get_formatted_points(raw_points):
+        # [p_c_1, x_1, y_1, s_x_1, s_y_1, photon_1, p_c_2, x_2, y_2, s_x_2, s_y_2, photon_2] -->
+        # [[frame_number, x_1, y_1, s_x_1, s_y_1, photon_1], [frame_number, x_2, y_2, s_x_2, s_y_2, photon_2]]
+        raw_points_1_pos = torch.where(raw_points[:, 0] > .5)[0]
+        raw_points_1 = raw_points[raw_points_1_pos, 1:6]
+        raw_points_1 = torch.cat((raw_points_1_pos.unsqueeze(1), raw_points_1), dim=1)
+        # get second predictions
+        raw_points_2_pos = torch.where(raw_points[:, 6] > .5)[0]
+        raw_points_2 = raw_points[raw_points_2_pos, 7:]
+        raw_points_2 = torch.cat((raw_points_2_pos.unsqueeze(1), raw_points_2), dim=1)
+        # Add them together
+        formatted_points = torch.cat((raw_points_1, raw_points_2), dim=0)
+        formatted_points[:, [1, 2]] *= 20. * 107. * 32. / 512.
+
+        return formatted_points.detach().cpu().numpy()
+
+    def get_ji(predictions, targets):
+        predictions = get_formatted_points(predictions)
+        targets = get_formatted_points(targets)
+
+        return extract_points.get_accuracy(predictions, targets)
+
+    return get_ji
+
+
+def metrics_for_points_extraction(config):
+    return {
+        "JI_16": get_ji_nn(config),
+    }
+
+
+def metrics_for_image_superresolution(config, epoch):
+    metrics = {
+        'cc_2': cross_correlation(0),
+        'cc_4': cross_correlation(1),
+        'cc_16': cross_correlation(2),
+    }
     if epoch >= config.JI_metrics_from_epoch:
-        return {
-            # 'psnr_2': get_psnr(0, 0),
-            # 'psnr_4': get_psnr(1, 1),
-            # 'psnr_8': get_psnr(2, 2),
-            # 'psnr_16': get_psnr(3, 3),
-            # 'cc_0': cross_correlation(0),
-            'cc_2': cross_correlation(0),
-            'cc_4': cross_correlation(1),
-            # 'cc_8': cross_correlation(2),
-            'cc_16': cross_correlation(2),
-            # # 'JI_2': get_ji_by_points(0, config),
-            # 'JI_4': get_ji_by_points(1, config),
-            # 'JI_8': get_ji_by_points(2, config),
-            'JI_16': get_ji_by_points(2, config)
-        }
-    else:
-        return {
-            # 'cc_0': cross_correlation(0),
-            # 'psnr_2': get_psnr(0),
-            # 'psnr_4': get_psnr(1),
-            # 'psnr_8': get_psnr(2),
-            # 'psnr_16': get_psnr(3),
-            'cc_2': cross_correlation(0),
-            'cc_4': cross_correlation(1),
-            # 'cc_8': cross_correlation(2),
-            'cc_16': cross_correlation(2),
-        }
+        metrics['JI_16'] = get_ji_by_points(2, config)
+    return metrics
+
+
+def get_metrics(config, epoch, points=False):
+    if points:
+        return metrics_for_points_extraction(config)
+    return metrics_for_image_superresolution(config, epoch)
