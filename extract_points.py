@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import cv2
 
 
-def get_accuracy(predicted_points, gt_points):
+def get_ji_rmse(predicted_points, gt_points):
     # predicted_points_set = set([(p[0], p[1], p[2]) for p in predicted_points])
     # gt_points_set = set([(p[0], p[1], p[2]) for p in gt_points])
     # intersection = len(predicted_points_set.intersection(gt_points_set))
@@ -22,6 +22,7 @@ def get_accuracy(predicted_points, gt_points):
     predicted_points = np.asarray(predicted_points)
     gt_points = np.asarray(gt_points)
     true_positive = 0
+    distances_from_points = np.asarray([])
     for frame_number in np.unique(gt_points[:, 0]):
         f_predicted_points = predicted_points[predicted_points[:, 0] == frame_number]
         f_gt_points = gt_points[gt_points[:, 0] == frame_number]
@@ -34,12 +35,23 @@ def get_accuracy(predicted_points, gt_points):
             rec_ind, gt_ind = linear_sum_assignment(distances)
             assigned_distance = distances[rec_ind, gt_ind]
             true_positive += np.sum(assigned_distance <= radius)
-    return true_positive * 100 / (len(predicted_points) + len(gt_points) - true_positive)
+            # Calculate the RMSE
+            distances_from_points = np.append(distances_from_points, assigned_distance)
+    rmse = np.sqrt(np.sum(distances_from_points ** 2) / len(distances_from_points))
+    return true_positive * 100 / (len(predicted_points) + len(gt_points) - true_positive), rmse
+
+
+def get_efficiency(jaccard_index, rmse, alpha=1.0):
+    # https://www.nature.com/articles/s41592-019-0364-4/
+    return 100 - ((100 - jaccard_index) ** 2 + (alpha ** 2 * rmse ** 2)) ** .5
+    # return (100 - ((100 * (100 - jaccard_index)) ** 2 + alpha ** 2 * rmse ** 2) ** 0.5) / 100
 
 
 def get_point(frame, labels, label_number, config):
     x, y = torch.where(labels == label_number)
     # if len(x) < 10 or len(x) > 65:
+    #     return None
+    # if len(x) > 35:
     #     return None
     weights = frame[0][x, y]
     # TODO: do these things using pytorch
@@ -112,7 +124,7 @@ def main():
         predicted_points.extend(predicted_point)
         gt_points.extend(gt_point)
 
-    accuracy = get_accuracy(predicted_points, gt_points)
+    accuracy = get_ji_rmse(predicted_points, gt_points)
     print(f"JI: {accuracy}")
 
 

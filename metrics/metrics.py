@@ -3,6 +3,7 @@ from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment
 from read_config import Config
 import extract_points
+import torch.nn as nn
 
 
 # config = Config("config.yaml")
@@ -151,7 +152,8 @@ def get_ji_by_points(level, config):
             if len(gt_point):
                 gt_points.extend(gt_point)
 
-        return extract_points.get_accuracy(predicted_points, gt_points)
+        jaccard_index, rmse =  extract_points.get_ji_rmse(predicted_points, gt_points)
+        return jaccard_index
 
     return ji
 
@@ -160,7 +162,7 @@ def get_ji_nn(config):
     def get_formatted_points(raw_points):
         # [p_c_1, x_1, y_1, s_x_1, s_y_1, photon_1, p_c_2, x_2, y_2, s_x_2, s_y_2, photon_2] -->
         # [[frame_number, x_1, y_1, s_x_1, s_y_1, photon_1], [frame_number, x_2, y_2, s_x_2, s_y_2, photon_2]]
-        raw_points_1_pos = torch.where(raw_points[:, 0] > .5)[0]
+        raw_points_1_pos = torch.where(nn.Sigmoid()(raw_points[:, 0]) > .5)[0]
         raw_points_1 = raw_points[raw_points_1_pos, 1:6]
         raw_points_1 = torch.cat((raw_points_1_pos.unsqueeze(1), raw_points_1), dim=1)
         # get second predictions
@@ -177,7 +179,8 @@ def get_ji_nn(config):
         predictions = get_formatted_points(predictions)
         targets = get_formatted_points(targets)
 
-        return extract_points.get_accuracy(predictions, targets)
+        ji, rmse = extract_points.get_ji_rmse(predictions, targets)
+        return ji
 
     return get_ji
 
