@@ -20,6 +20,7 @@ class ExtractPoints(Dataset):
         file_name = self.file_names[idx]
         with open(file_name, "rb") as f:
             data, label = pickle.load(f)
+            label = label.nan_to_num(0)
         return data.unsqueeze(0), label
 
 

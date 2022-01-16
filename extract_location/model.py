@@ -3,26 +3,29 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 import torchvision.models as models
+from models.unet import UNet
 
 
 class ExtractLocationModel(nn.Module):
     def __init__(self, config):
         super(ExtractLocationModel, self).__init__()
-        self.resnet18 = models.resnet18(pretrained=False)
-        conv1 = self.resnet18.conv1
-        self.resnet18.conv1 = nn.Conv2d(
-            in_channels=1, out_channels=conv1.out_channels, kernel_size=conv1.kernel_size, stride=conv1.stride,
-            padding=conv1.padding,
-            dilation=conv1.dilation, groups=conv1.groups, bias=conv1.bias
+        out_channel = 16
+        self.unet = UNet(config, in_channel=1, out_channel=out_channel, features=[32, 64, 128, 256])
+        self.output = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(20 * 20 * out_channel, 1024),
+            nn.Dropout(.1),
+            nn.LeakyReLU(.1),
+            nn.Linear(1024, 512),
+            nn.Dropout(.1),
+            nn.LeakyReLU(.1),
+            nn.Linear(512, 12),
         )
-        num_ftrs = self.resnet18.fc.in_features
-        self.resnet18.fc = nn.Identity()
-        #
-        self.output = nn.Linear(num_ftrs, 12)
 
-    def forward(self, x: Tensor, y: Tensor) -> Tensor:
-        x = self.resnet18(x)
-        return self.output(x)
+    def forward(self, x: Tensor, y: Tensor = None) -> Tensor:
+        x = self.unet(x)
+        x = self.output(x)
+        return x
 
 
 def test():
