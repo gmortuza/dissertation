@@ -47,7 +47,7 @@ def main(config: Config):
         for key, val in val_metrics.items():
             config.neptune["validation/epoch/" + key].log(val)
 
-        # scheduler.step(val_metrics['loss'])
+        scheduler.step(val_metrics['loss'])
         config.neptune['epoch/lr'].log(optimizer.param_groups[0]['lr'])
 
         best_val_acc = utils.save_checkpoint({'epoch': epoch,

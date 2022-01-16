@@ -41,11 +41,13 @@ def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
     """
     if config.save_model_after_each_epoch == 0 or state['epoch'] % config.save_model_after_each_epoch != 0:
         return float('-inf')
+    reference_metrics = float('-inf') if config.save_model_based_on not in val_metrics else\
+        val_metrics[config.save_model_based_on]
     filepath = os.path.join(config.checkpoint_dir, name + 'last.pth.tar')
     if not os.path.exists(config.checkpoint_dir):
         os.mkdir(config.checkpoint_dir)
     torch.save(state, filepath)
-    if not config.save_model_based_on in val_metrics.keys() or val_metrics[config.save_model_based_on] >= best_val_acc:
+    if reference_metrics >= best_val_acc:
         config.logger.info("New best accuracy found")
         shutil.copyfile(filepath, os.path.join(config.checkpoint_dir, name + 'best.pth.tar'))
         best_json_path = os.path.join(
@@ -54,7 +56,7 @@ def save_checkpoint(state, best_val_acc, config, val_metrics, name=''):
     last_json_path = os.path.join(
         config.checkpoint_dir, name + "metrics_val_last_weights.json")
     save_dict_to_json(val_metrics, last_json_path)
-    return max(best_val_acc, val_metrics[config.save_model_based_on])
+    return max(best_val_acc, reference_metrics)
 
 
 def save_dict_to_json(d, json_path):
@@ -89,8 +91,11 @@ def load_checkpoint(model, config, optimizer=None, name='') -> float:
         if optimizer:
             optimizer.load_state_dict(checkpoint['optim_dict'])
         # Get accuracy
-        with open(os.path.join(config.checkpoint_dir, "metrics_val_best_weights.json")) as f:
-            best_accuracy = json.load(f)[config.save_model_based_on]
+        try:
+            with open(os.path.join(config.checkpoint_dir, name + "metrics_val_best_weights.json")) as f:
+                best_accuracy = json.load(f)[config.save_model_based_on]
+        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+            best_accuracy = float('-inf')
         return best_accuracy
     return float('-inf')
 

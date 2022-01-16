@@ -22,10 +22,11 @@ class Custom(nn.Module):
         super(Custom, self).__init__()
         self.config = config
         self.model_1 = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=16),
-            nn.ConvTranspose2d(16, 8, kernel_size=8, stride=2),
-            nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1, bias=True),
-            nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1, bias=True),
+            UNet(self.config, in_channel=1, out_channel=16),
+            nn.PixelShuffle(4)
+            # nn.ConvTranspose2d(16, 8, kernel_size=8, stride=2),
+            # nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1, bias=True),
+            # nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1, bias=True),
             # nn.ReLU(inplace=True)
         )
         self.model_2 = nn.Sequential(
@@ -39,17 +40,19 @@ class Custom(nn.Module):
         )
 
     def forward(self, x: Tensor, y) -> Tensor:
-        output = torch.zeros_like(x[0])
         outputs = []
-        for idx in range(2):
-            inputs = torch.cat([x[idx], output], dim=1)
-            output = self.model_1(inputs)
-            outputs.append(output)
+        # for idx in range(2):
+        #     inputs = torch.cat([x[idx], output], dim=1)
+        #     output = self.model_1(inputs)
+        #     outputs.append(output)
+        output = self.model_1(x[0])
+        outputs.append(output)
+
 
         # for idx in range(2, 4):
-        # inputs = torch.cat([x[2], output], dim=1)
-        inputs = torch.cat([x[2], y[1]], dim=1)
-        inputs *= 255.
+        inputs = torch.cat([x[2], output], dim=1)
+        # inputs = torch.cat([x[2], y[0]], dim=1)
+        # inputs *= 255.
         output = self.model_2(inputs)
         outputs.append(output)
 

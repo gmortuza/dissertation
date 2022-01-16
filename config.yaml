@@ -3,14 +3,14 @@ output_dir: outputs
 validation_split: .1
 test_split: .1
 batch_size: 64
-num_epochs: 100
+num_epochs: 10000
 learning_rate: 0.0001
 weight_decay: 0.0
 model_type: custom_model
 save_summary_steps: 40 # batch
-load_checkpoint: False
-save_model_after_each_epoch: 1
-total_training_example: -1  # -1 means all the training examples
+load_checkpoint: True
+save_model_after_each_epoch: 100
+total_training_example: 32  # -1 means all the training examples
 resolution_slap:
   - 32
   - 64
@@ -23,8 +23,8 @@ resolution_slap:
 #  - 249
 #  - 497
 save_model_based_on: JI_16
-JI_metrics_from_epoch: 5
-output_threshold: 0.005
+JI_metrics_from_epoch: 10
+output_threshold: .5
 
 # ================ General settings ===============
 input_dir: simulated_data  # This output directory will be the input directory of the model

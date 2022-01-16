@@ -10,11 +10,11 @@ class DoubleConv(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(out_channel),
+            nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm2d(out_channel),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(out_channel),
+            nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=1, padding=1),
+            # nn.BatchNorm2d(out_channel),
             nn.ReLU(inplace=True)
         )
 
@@ -45,9 +45,7 @@ class UNet(nn.Module):
         self.output = nn.Sequential(
             nn.ConvTranspose2d(features[0], out_channel, kernel_size=1, stride=1),
         )
-        self.threshold = nn.Sequential(
-            nn.Linear(262144, 1)
-        )
+
 
     def forward(self, x):
         skip_connections = []
@@ -67,11 +65,7 @@ class UNet(nn.Module):
             x = self.ups[idx + 1](concat_skip)
 
         # x = torch.flatten(x, 1)
-        intensity = torch.nn.ReLU()(self.output(x))
-        location = torch.sigmoid(self.output(x))
-        # x_flatten = x.flatten(1)
-        # threshold = torch.sigmoid(self.threshold(x_flatten))
-        threshold = None
+        intensity = self.output(x)
 
         return intensity
 

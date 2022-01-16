@@ -38,7 +38,6 @@ class Loss(nn.Module):
         self.config.log_param("criterion", "L1")
         return sum(nn.L1Loss()(output, target) for output, target in zip(outputs, targets))
 
-
         # predicted_intensity, predicted_location, threshold = outputs
         # targets_zero_to_one = targets.clone()
         # targets_zero_to_one[targets_zero_to_one == 0] = 1.
@@ -67,7 +66,7 @@ class Loss(nn.Module):
     def _gmm_loss(self, outputs, targets):
         output_gmm = self._create_gaussian_mixture(outputs)
         target_gmm = self._create_gaussian_mixture(targets)
-        loss = output_gmm.log_prob(target_gmm.sample((10000, ))).mean()
+        loss = output_gmm.log_prob(target_gmm.sample((10000,))).mean()
         return loss
 
     def _create_gaussian_mixture(self, source):
