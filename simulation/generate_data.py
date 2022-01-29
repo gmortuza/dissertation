@@ -77,7 +77,7 @@ class GenerateData:
                 self.convert_into_image(range_)
         self.config.logger.info("Finish converting the data")
 
-    @show_execution_time
+    # @show_execution_time
     def distribute_photons(self):
         self.config.logger.info("Distributing photons")
         self.distributed_photon = torch.zeros((self.num_of_binding_site, self.config.frame_to_generate),
@@ -94,12 +94,11 @@ class GenerateData:
     # @show_execution_time
     def convert_into_image(self, frame_range):
         frame_start, frame_end = frame_range
-        combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11), device=self.config.device)
-        # target = torch.zeros((frame_end-frame_start, self.config.max_number_of_emitter_per_frame, 6), device=self.config.device)
+        combined_ground_truth = torch.zeros(((frame_end-frame_start) * self.config.max_number_of_emitter_per_frame, 11),
+                                            device=self.config.device)
         # self.config.logger.info("Generating ", str(frame_range), "frames")
         current_num_of_emitter = 0
-
-        noise_shape = (frame_end - frame_start, self.config.image_size, self.config.image_size)
+        noise_shape = (frame_end - frame_start, self.config.resolution_slap[0], self.config.resolution_slap[0])
         movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
         # 32 px with noise, 32 px without noise, 63px, 125px, 249px
         movies = [movie]

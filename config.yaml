@@ -17,11 +17,6 @@ resolution_slap:
   - 128
   - 256
   - 512
-#  - 32
-#  - 63
-#  - 125
-#  - 249
-#  - 497
 save_model_based_on: JI_16
 JI_metrics_from_epoch: 10
 output_threshold: .5
@@ -42,7 +37,7 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 2000  # Total Number of frames
+total_frames: 1000  # Total Number of frames
 split_into: 1 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
@@ -50,6 +45,7 @@ image_size: 32  # height and width will be the same
 max_number_of_emitter_per_frame: 30
 Camera_integration_time: 300  # (ms)
 Camera_Pixelsize: 107  # (nm)
+data_gen_type: 'multiple_distribute'  # 'multiple_distribute' or 'single_distribute'
 
 
 # ================ Origami Settings ===============

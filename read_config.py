@@ -83,6 +83,14 @@ class Config:
         self.Imager_photon_rate = self.Imager_Photonslope * self.Imager_Laserpower
         self.Imager_photon_rate_std = self.Imager_photon_slope_std * self.Imager_Laserpower
 
+        if self.data_gen_type == 'single_distribute':
+            self.image_size = self.resolution_slap[-1]
+            self.frame_padding = self.frame_padding * self.resolution_slap[-1] / self.resolution_slap[0]
+        elif self.data_gen_type == 'multiple_distribute':
+            self.image_size = self.resolution_slap[0]
+        else:
+            raise ValueError('data_gen_type must be either single_distribute or multiple_distribute')
+
         # self.frame_padding = self.frame_padding * self.resolution_slap[-1] / self.resolution_slap[0]
 
     def _make_absolute_directory(self):

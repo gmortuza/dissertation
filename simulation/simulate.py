@@ -8,7 +8,7 @@ def generate_binding_site_position(config):
     grid_position = generate_grid_pos(config)
     unique_origamies = get_unique_origami(config)
 
-    return get_binding_site_pos_from_origamies(config, grid_position, unique_origamies)   # in nanometer
+    return get_binding_site_pos_from_origamies(config, grid_position, unique_origamies)  # in nanometer
 
 
 def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
@@ -41,7 +41,6 @@ def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
 
 
 def rotate_structure(structure):
-
     angle_rad = torch.rand(1) * 2 * np.pi
     structure = torch.stack(
         [
@@ -110,8 +109,8 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
 
     if always_on > 0:
         # return it with id
-        return binding_site_id, torch.distributions.normal.\
-            Normal(torch.tensor(always_on / frames), torch.tensor(photon_rate_std)).sample((frames, )).clip(min=0)
+        return binding_site_id, torch.distributions.normal. \
+            Normal(torch.tensor(always_on / frames), torch.tensor(photon_rate_std)).sample((frames,)).clip(min=0)
     dark_times = np.random.exponential(mean_dark, num_of_blinking_event)
     bright_times = np.random.exponential(mean_bright, num_of_blinking_event)
 
@@ -185,7 +184,10 @@ def distribute_photons_single_binding_site(binding_site_id, config, num_of_bindi
 
 
 def get_binding_site_position_distribution(binding_site_position, config):
-    scales = [i / config.resolution_slap[0] for i in config.resolution_slap]
+    if config.data_gen_type == 'multiple_distribute':
+        scales = [i / config.resolution_slap[0] for i in config.resolution_slap]
+    else:
+        scales = [1]
     binding_site_distributions = {}
     binding_site_position = binding_site_position.T
     for scale in scales:
@@ -202,7 +204,7 @@ def get_binding_site_position_distribution(binding_site_position, config):
 def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started,
                     frame_wise_noise, drifts, config):
     device = distributed_photon.device
-    scales = [i / config.resolution_slap[0] for i in config.resolution_slap]
+    scales = [i / config.resolution_slap[0] for i in config.resolution_slap] if config.data_gen_type == 'multiple_distribute' else [1]
     temp_photons = distributed_photon[:, frame_id]  # Shape (number of binding event, )
     n_photons = torch.sum(temp_photons).item()  # Total photons for this frame
     n_photons_step = torch.cumsum(temp_photons, dim=0).to(torch.int)
@@ -224,11 +226,13 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
         for scale, distribution in binding_site_position_distribution.items():
             multi_norm_dist = distribution[gt_position]
             start = 0 if gt_position == 0 else n_photons_step[gt_position - 1]
-            photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(sample_shape=torch.Size([photon_count]))
+            photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(
+                sample_shape=torch.Size([photon_count]))
 
         photon_pos = photons_pos_frame[1.0][start: n_photons_step[gt_position], :]
         # set x, y
-        gt_infos[i, 1:3] = binding_site_position_distribution[scales[0]][gt_position].mean  # This is super exact position
+        gt_infos[i, 1:3] = binding_site_position_distribution[scales[0]][
+            gt_position].mean  # This is super exact position
 
         gt_infos[i, 3:5] = photon_pos.mean(axis=0)
         gt_infos[i, 5:7] = gt_infos[i, 3:5] + drifts[frame_id]  # Will add drift in later method
@@ -240,10 +244,10 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
     return photons_pos_frame, gt_infos
 
 
-def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
-                  binding_site_position_distribution):
+def convert_frame_multi_distribution(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
+                                     binding_site_position_distribution):
     photon_pos_frames, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
-                                                 frame_started, frame_wise_noise, drifts, config)
+                                                  frame_started, frame_wise_noise, drifts, config)
 
     single_frames = []
 
@@ -258,7 +262,7 @@ def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, f
             # TODO: fix drift
             samples = (photon_pos_frame + drifts[frame_id]).cpu().numpy()
             single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0], bins=(range(frame_size + 1),
-                                                                                                  range(frame_size + 1)))
+                                                                                    range(frame_size + 1)))
             single_frame = torch.from_numpy(single_frame).to(config.device)
             single_frames.append(single_frame)
 
@@ -269,3 +273,56 @@ def get_scale_tril(config):
     cov = torch.tensor([[config.Imager_PSF * config.Imager_PSF, 0],
                         [0, config.Imager_PSF * config.Imager_PSF]]).to(config.device)
     return torch.linalg.cholesky(cov)
+
+
+def get_different_sizes_frames(frame, gt_infos, target_sizes):
+    # First extract the patch where there are binding events
+    single_frames = []
+    # Extract the patches from the image
+    patches = {}
+    for gt_info in gt_infos:
+        y, x = torch.round(gt_info[[1, 2]]).int().tolist()
+        patch = frame[x - 4: x + 4, y - 4: y + 4]
+        patches[(float(gt_info[2]), float(gt_info[1]), float(gt_info[7]))] = patch
+
+    # Create empty frame
+    for image_size in target_sizes[:-1]:
+        scale = target_sizes[-1] / image_size
+        single_frame = torch.zeros((image_size, image_size), device=frame.device)
+        for key, value in patches.items():
+            x, y = key[:2]
+            x, y = int(round(x / scale)), int(round(y / scale))
+            single_frame[x - 4: x + 4, y - 4: y + 4] += value
+        single_frames.append(single_frame)
+    single_frames.append(frame)
+    return single_frames
+
+
+def convert_frame_single_distribution(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
+                                      binding_site_position_distribution):
+    photon_pos_frame, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
+                                                 frame_started, frame_wise_noise, drifts, config)
+    image_size = config.resolution_slap[-1]
+    if len(photon_pos_frame) == 0:
+        # There is no photon allocated in this frame
+        # So we will return empty image
+        single_frame = torch.zeros((image_size, image_size), device=config.device)
+    else:
+        samples = (photon_pos_frame[1] + drifts[frame_id]).cpu().numpy()
+        single_frame, _, _ = np.histogram2d(samples[:, 1], samples[:, 0],
+                                            bins=(range(image_size + 1), range(image_size + 1)))
+        single_frame = torch.from_numpy(single_frame).to(config.device)
+    single_frames = get_different_sizes_frames(single_frame, gt_infos, config.resolution_slap)
+    # Rescale the coordinates to match the lower resolution image
+    gt_infos[:, [1, 2, 3, 4, 5, 6]] *= config.resolution_slap[0] / config.resolution_slap[-1]
+    return frame_id, single_frames, gt_infos
+
+
+def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
+                  binding_site_position_distribution):
+    if config.data_gen_type == 'single_distribute':
+        return convert_frame_single_distribution(frame_id, frame_started, config, drifts, distributed_photon,
+                                                 frame_wise_noise, binding_site_position_distribution)
+    else:
+        return convert_frame_multi_distribution(frame_id, frame_started, config, drifts, distributed_photon,
+                                                frame_wise_noise, binding_site_position_distribution)

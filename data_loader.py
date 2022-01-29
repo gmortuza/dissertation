@@ -21,7 +21,6 @@ class SMLMDataset(Dataset):
         self.dataset_dir = dataset_dir
         self.total_data = self._upsample_images()
 
-
     def _upsample_images(self):
         file_names = glob.glob(f"{self.dataset_dir}/data_*_gt.pl")
         # If there are already upsampled images we will return the number of images
@@ -51,7 +50,7 @@ class SMLMDataset(Dataset):
                         all_label
                     ]
                     single_label = label_[label_[:, 0] == idx]
-                    single_label_upsampled = self._get_image_from_point(single_label, [self.config.resolution_slap[-1]])
+                    single_label_upsampled = self._get_image_from_point(single_label, [self.config.resolution_slap[0]])
                     labels.append(single_label_upsampled[0])
                     labels.append(single_label)
                     f_name = f"{self.dataset_dir}/db_{idx}.pl"
