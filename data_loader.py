@@ -34,7 +34,10 @@ class SMLMDataset(Dataset):
                 input_ = torch.load(file_name.replace('_gt', '_32_with_noise'), )
                 input_ = utils.normalize(input_)
                 all_label = []
-                for image_sizes in self.config.resolution_slap:
+                total_frames = self.config.resolution_slap[
+                                     :-1] if self.config.data_gen_type == 'single_distribute' else \
+                    self.config.resolution_slap
+                for image_sizes in total_frames:
                     all_label.append(utils.normalize(
                         torch.load(file_name.replace('_gt', '_' + str(image_sizes))).to(self.config.device)).unsqueeze(
                         1))
@@ -50,7 +53,7 @@ class SMLMDataset(Dataset):
                         all_label
                     ]
                     single_label = label_[label_[:, 0] == idx]
-                    single_label_upsampled = self._get_image_from_point(single_label, [self.config.resolution_slap[0]])
+                    single_label_upsampled = self._get_image_from_point(single_label, [512])
                     labels.append(single_label_upsampled[0])
                     labels.append(single_label)
                     f_name = f"{self.dataset_dir}/db_{idx}.pl"

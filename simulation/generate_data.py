@@ -102,7 +102,9 @@ class GenerateData:
         movie = get_noise(self.config.noise_type, noise_shape, self.config.bg_model)
         # 32 px with noise, 32 px without noise, 63px, 125px, 249px
         movies = [movie]
-        for image_size in self.config.resolution_slap:
+        frames_to_generate = self.config.resolution_slap[:-1] if self.config.data_gen_type == 'single_distribute' else \
+            self.config.resolution_slap
+        for image_size in frames_to_generate:
             movie = torch.zeros((frame_end - frame_start, image_size, image_size))
             movies.append(movie)
         frame_wise_noise = movie.mean((1, 2))  # Tensor of shape (num_of_frames)

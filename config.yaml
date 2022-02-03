@@ -18,7 +18,7 @@ resolution_slap:
   - 256
   - 512
 save_model_based_on: JI_16
-JI_metrics_from_epoch: 10
+JI_metrics_from_epoch: 0
 output_threshold: .5
 
 # ================ General settings ===============
@@ -45,7 +45,9 @@ image_size: 32  # height and width will be the same
 max_number_of_emitter_per_frame: 30
 Camera_integration_time: 300  # (ms)
 Camera_Pixelsize: 107  # (nm)
-data_gen_type: 'multiple_distribute'  # 'multiple_distribute' or 'single_distribute'
+data_gen_type: 'single_distribute'  # 'multiple_distribute' or 'single_distribute'
+# create image of 64 times resolution then crop the emitters put in different resolution images
+single_distribute_max_resolution: 64
 
 
 # ================ Origami Settings ===============

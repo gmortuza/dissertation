@@ -84,6 +84,7 @@ class Config:
         self.Imager_photon_rate_std = self.Imager_photon_slope_std * self.Imager_Laserpower
 
         if self.data_gen_type == 'single_distribute':
+            self.resolution_slap.append(self.resolution_slap[0] * self.single_distribute_max_resolution)
             self.image_size = self.resolution_slap[-1]
             self.frame_padding = self.frame_padding * self.resolution_slap[-1] / self.resolution_slap[0]
         elif self.data_gen_type == 'multiple_distribute':

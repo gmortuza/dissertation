@@ -49,7 +49,7 @@ def get_efficiency(jaccard_index, rmse, alpha=1.0):
 
 def get_point(frame, labels, label_number, config):
     x, y = torch.where(labels == label_number)
-    if len(x) < 10 or len(x) > 65:
+    if len(x) < 10 or len(x) > 70:
         return None
     # if len(x) > 35:
     #     return None
@@ -112,6 +112,7 @@ def main():
     frames = []
     gts = []
     config_ = Config("config.yaml")
+    config_.output_threshold = 0
     for frame_number in range(100):
         f_name = f"simulated_data/train/db_{frame_number}.pl"
         with open(f_name, 'rb') as handle:

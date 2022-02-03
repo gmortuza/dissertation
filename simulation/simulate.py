@@ -280,9 +280,10 @@ def get_different_sizes_frames(frame, gt_infos, target_sizes):
     single_frames = []
     # Extract the patches from the image
     patches = {}
+    data_range = 5
     for gt_info in gt_infos:
         y, x = torch.round(gt_info[[1, 2]]).int().tolist()
-        patch = frame[x - 4: x + 4, y - 4: y + 4]
+        patch = frame[x - data_range: x + data_range, y - data_range: y + data_range]
         patches[(float(gt_info[2]), float(gt_info[1]), float(gt_info[7]))] = patch
 
     # Create empty frame
@@ -292,9 +293,9 @@ def get_different_sizes_frames(frame, gt_infos, target_sizes):
         for key, value in patches.items():
             x, y = key[:2]
             x, y = int(round(x / scale)), int(round(y / scale))
-            single_frame[x - 4: x + 4, y - 4: y + 4] += value
+            single_frame[x - data_range: x + data_range, y - data_range: y + data_range] += value
         single_frames.append(single_frame)
-    single_frames.append(frame)
+    # single_frames.append(frame)
     return single_frames
 
 
