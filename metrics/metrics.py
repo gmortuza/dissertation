@@ -194,7 +194,7 @@ def metrics_for_points_extraction(config):
 def metrics_for_image_superresolution(config, epoch):
     metrics = {
         # 'cc_2': cross_correlation(0),
-        'cc_4': cross_correlation(0),
+        'cc_8': cross_correlation(0),
         'cc_16': cross_correlation(1),
     }
     if epoch >= config.JI_metrics_from_epoch:

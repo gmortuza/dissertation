@@ -121,3 +121,4 @@ neptune_code_snapshot:
 neptune_tags:
   - weight_decay
   - multi_distribute
+  - weight_decay_value_0
