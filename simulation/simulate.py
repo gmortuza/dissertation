@@ -41,7 +41,7 @@ def get_binding_site_pos_from_origamies(config, grid_pos, origamies):
 
 
 def rotate_structure(structure):
-    angle_rad = torch.rand(1) * 2 * np.pi
+    angle_rad = torch.rand(1, device=structure.device) * 2 * np.pi
     structure = torch.stack(
         [
             (structure[0, :]) * torch.cos(angle_rad) - (structure[1, :]) * torch.sin(angle_rad),
@@ -78,7 +78,7 @@ def generate_grid_pos(config) -> torch.Tensor:
         grid_pos = torch.transpose(grid_pos, 0, 1)
     else:
         # TODO: Need to check if this is working or not
-        grid_pos = (image_size - 2 * frame_padding) * torch.rand(number, 2) + frame_padding
+        grid_pos = (image_size - 2 * frame_padding) * torch.rand(number, 2).to(config.device) + frame_padding
 
     return grid_pos.view(-1, 2, 1)  # [total_origami, [x_pos], [y_pos]]
 

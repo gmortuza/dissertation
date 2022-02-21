@@ -1,11 +1,11 @@
 # ================ Configuration for Model ===============
-output_dir: outputs_multi
+output_dir: outputs
 validation_split: .1
 test_split: .1
 batch_size: 64
 num_epochs: 10000
 learning_rate: 0.0001
-weight_decay: 0.0
+weight_decay: 0.
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: True
@@ -18,7 +18,7 @@ resolution_slap:
   - 256
   - 512
 save_model_based_on: JI_16
-JI_metrics_from_epoch: 300
+JI_metrics_from_epoch: 1000
 output_threshold: .5
 
 # ================ General settings ===============
@@ -37,7 +37,7 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 1000  # Total Number of frames
+total_frames: 5000  # Total Number of frames
 split_into: 1 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
@@ -62,10 +62,10 @@ total_origami: 45  # Total number of origami in the whole movie. This is the sum
 # Float value ranging 0.0 - 1.0
 binding_site_incorporation: 1.0
 # 0 --> not randomly oriented, 1 --> Randomly oriented
-origami_orientation: 0
+origami_orientation: 1
 # 0 --> The distance of each origami is evenly distributed
 # 1 --> The distance of each origami is randomly distributed ( Origami is placed randomly in the frame)
-origami_arrangement: 0
+origami_arrangement: 1
 origami_3d: 0
 origami_mean: False # Center of the mass of
 # Adding drift
@@ -91,7 +91,7 @@ noise_type: poisson
 # ================ Imager parameters ===============
 Imager_Constant Photonrate Std: 0  # Constant detection rate(select box)
 Imager_Laserpower: 1.5  # Power density (kwCm-2)
-Imager_PSF: 0.82  # point spread function (px)
+Imager_PSF: 1.32  # point spread function (px)
 Imager_Photonbudget: 1500000.0  #
 Imager_Photonslope: 35  # Photon detection rate
 # From the file
@@ -113,7 +113,7 @@ neptune_name: "multi model"
 neptune_description: "sum input"
 neptune_project: "golammdmortuza/dnam-nn"
 neptune_api_key: "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ=="
-neptune_mode: 'async'  # async / sync / offline / read-only / debug /
+neptune_mode: 'debug'  # async / sync / offline / read-only / debug /
 neptune_code_snapshot:
   - models/custom.py
   - models/unet.py

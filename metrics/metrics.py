@@ -152,7 +152,7 @@ def get_ji_by_points(level, config):
             if len(gt_point):
                 gt_points.extend(gt_point)
 
-        jaccard_index, rmse =  extract_points.get_ji_rmse(predicted_points, gt_points)
+        jaccard_index, rmse = extract_points.get_ji_rmse(predicted_points, gt_points)
         return jaccard_index
 
     return ji

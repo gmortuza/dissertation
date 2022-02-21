@@ -142,7 +142,7 @@ class GenerateData:
 
         # torch.save(target, self.config.simulated_file_name + f"_{frame_start+1}_{frame_end}_target.pl")
         if self.config.save_for_picasso:
-            self.save_frames_in_hdf5(movie[0], combined_ground_truth, frame_start, frame_end)
+            self.save_frames_in_hdf5(movies[0], combined_ground_truth, frame_start, frame_end)
 
     # @show_execution_time
     def save_frames_in_hdf5(self, movie, ground_truth, frame_start, frame_end):

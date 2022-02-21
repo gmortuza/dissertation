@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import cv2
 
 
-def get_ji_rmse(predicted_points, gt_points):
+def get_ji_rmse(predicted_points, gt_points, radius=10):
     # predicted_points_set = set([(p[0], p[1], p[2]) for p in predicted_points])
     # gt_points_set = set([(p[0], p[1], p[2]) for p in gt_points])
     # intersection = len(predicted_points_set.intersection(gt_points_set))
@@ -18,7 +18,7 @@ def get_ji_rmse(predicted_points, gt_points):
     # return intersection / union, 0.
     if not len(predicted_points) or not len(gt_points):
         return 0., 0.
-    radius = 10.
+    # radius = radius
     predicted_points = np.asarray(predicted_points)
     gt_points = np.asarray(gt_points)
     true_positive = 0

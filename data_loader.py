@@ -80,7 +80,7 @@ class SMLMDataset(Dataset):
         for image_size in image_sizes:
             # TODO: set device according to config
             high_res_movie = torch.zeros((image_size, image_size), device=torch.device('cpu'))
-            res_scale = image_size / self.config.resolution_slap[-1]
+            res_scale = image_size / self.config.resolution_slap[0]
             # TODO: remove this for loop and vectorize this
             for blinker in point[point[:, 7] > 0.]:
                 mu = torch.round(blinker[[5, 6]] * res_scale).int()
