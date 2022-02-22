@@ -57,6 +57,7 @@ class Config:
         self.total_frames = 200000
         self.total_origami = 50
         self.split_into = 20
+        self.num_epochs = 100
 
         repo = Repo(os.path.dirname(os.path.abspath(__file__)))
         self.neptune_description = repo.head.reference.commit.message

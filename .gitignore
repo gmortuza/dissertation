@@ -137,7 +137,10 @@ outputs/
 *.tiff
 *.jpg
 *.jpeg
+*.pl
+*.csv
 generated_data/
 .neptune
 log*
 outputs_*/
+simulated_data_*/

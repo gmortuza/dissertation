@@ -1,5 +1,5 @@
 # ================ Configuration for Model ===============
-output_dir: outputs
+output_dir: outputs_w_wd0
 validation_split: .1
 test_split: .1
 batch_size: 64
@@ -18,7 +18,7 @@ resolution_slap:
   - 256
   - 512
 save_model_based_on: JI_16
-JI_metrics_from_epoch: 1000
+JI_metrics_from_epoch: 7000
 output_threshold: .5
 
 # ================ General settings ===============
@@ -113,7 +113,7 @@ neptune_name: "multi model"
 neptune_description: "sum input"
 neptune_project: "golammdmortuza/dnam-nn"
 neptune_api_key: "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ=="
-neptune_mode: 'debug'  # async / sync / offline / read-only / debug /
+neptune_mode: 'async'  # async / sync / offline / read-only / debug /
 neptune_code_snapshot:
   - models/custom.py
   - models/unet.py
@@ -122,3 +122,4 @@ neptune_tags:
   - weight_decay
   - multi_distribute
   - weight_decay_value_0
+  - adamW
