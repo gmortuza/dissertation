@@ -11,10 +11,11 @@ from read_config import Config
 class ExtractPoints(Dataset):
     def __init__(self, data_dir, config):
         super(ExtractPoints, self).__init__()
+        self.config = config
         self.file_names = glob.glob(f"{data_dir}/*.pl")
 
     def __len__(self):
-        return len(self.file_names)
+        return len(self.file_names) if self.config.total_training_example == -1 else self.config.total_training_example
 
     def __getitem__(self, idx):
         file_name = self.file_names[idx]

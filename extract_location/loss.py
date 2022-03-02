@@ -13,6 +13,7 @@ class Loss(nn.Module):
         self.single_emitter_loss = 0.
 
     def forward(self, predictions: Tensor, targets: Tensor) -> Tensor:
+        return self.mse(predictions, targets)
         # check if there is emitter in that positions
         # all the patch will have at least one emitter.
         # So we will only check if there are any second emitter in the patch
@@ -25,16 +26,18 @@ class Loss(nn.Module):
             multi_emitter_localization_loss = self.mse(
                 predictions[:, [1, 2, 7, 8]][emitters], targets[:, [1, 2, 7, 8]][emitters]
             )
-            multi_emitter_loss = self.bce(
+            multi_emitter_loss = self.mse(
                 predictions[:, [0, 6]][emitters], targets[:, [0, 6]][emitters]
             )
 
         single_emitter_localization_loss = self.mse(
             predictions[:, [1, 2]][no_emitters], targets[:, [1, 2]][no_emitters]
         )
-        single_emitter_loss = self.bce(
+        single_emitter_loss = self.mse(
             predictions[:, [0, 6]][no_emitters], targets[:, [0, 6]][no_emitters]
         )
+
+
 
         return (
             single_emitter_loss +

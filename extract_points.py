@@ -49,18 +49,20 @@ def get_efficiency(jaccard_index, rmse, alpha=1.0):
 
 def get_point(frame, labels, label_number, config):
     x, y = torch.where(labels == label_number)
-    if len(x) < 10 or len(x) > 70:
-        return None
+    # if len(x) < 10 or len(x) > 70:
+    #     return None
     # if len(x) > 35:
     #     return None
+    if len(x) < 10 or len(x) > 135:
+        return None
     weights = frame[0][x, y]
     # TODO: do these things using pytorch
     x_mean = torch.sum(x * weights) / torch.sum(weights)
     y_mean = torch.sum(y * weights) / torch.sum(weights)
     # x_mean = np.average(x.float().cpu().numpy(), weights=weights.detach().cpu().numpy())
     # y_mean = np.average(y.float().cpu().numpy(), weights=weights.detach().cpu().numpy())
-    image_patch = frame[:, int(x_mean.round()) - 5: int(x_mean.round()) + 5,
-                  int(y_mean.round()) - 5: int(y_mean.round()) + 5]
+    image_patch = frame[:, int(x_mean.round()) - 10: int(x_mean.round()) + 10,
+                  int(y_mean.round()) - 10: int(y_mean.round()) + 10]
     photon_count = torch.sum(image_patch)
     x_nm = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
     y_nm = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]

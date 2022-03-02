@@ -166,12 +166,12 @@ def get_ji_nn(config):
         raw_points_1 = raw_points[raw_points_1_pos, 1:6]
         raw_points_1 = torch.cat((raw_points_1_pos.unsqueeze(1), raw_points_1), dim=1)
         # get second predictions
-        raw_points_2_pos = torch.where(raw_points[:, 6] > .5)[0]
+        raw_points_2_pos = torch.where(nn.Sigmoid()(raw_points[:, 6]) > .5)[0]
         raw_points_2 = raw_points[raw_points_2_pos, 7:]
         raw_points_2 = torch.cat((raw_points_2_pos.unsqueeze(1), raw_points_2), dim=1)
         # Add them together
         formatted_points = torch.cat((raw_points_1, raw_points_2), dim=0)
-        formatted_points[:, [1, 2]] *= 20. * 107. * 32. / 512.
+        formatted_points[:, [1, 2]] *= 40. * 107. * 32. / 512.
 
         return formatted_points.detach().cpu().numpy()
 
