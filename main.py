@@ -39,7 +39,7 @@ def main(config: Config):
     for epoch in range(1, config.num_epochs + 1):
         metrics = get_metrics(config, epoch)
         config.logger.info(f"Epoch {epoch}/{config.num_epochs}")
-        train_metrics = train(model, train_loader, criterion, optimizer, metrics, config)
+        train_metrics = train(model, train_loader, criterion, optimizer, metrics, config, epoch)
         for key, val in train_metrics.items():
             config.neptune["training/epoch/" + key].log(val)
 

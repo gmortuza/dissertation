@@ -43,7 +43,8 @@ class Custom(nn.Module):
             nn.PixelShuffle(2)
         )
 
-    def forward(self, x: Tensor, y) -> Tensor:
+    # for validations we will use the previous output rather than the labels so we put default epochs value higher
+    def forward(self, x: Tensor, y, epochs=100) -> Tensor:
         outputs = []
         # for idx in range(2):
         #     inputs = torch.cat([x[idx], output], dim=1)
@@ -54,14 +55,18 @@ class Custom(nn.Module):
         outputs.append(output)
 
         # resolution 128 --> 156
-        inputs = torch.cat([x[1], output], dim=1)
-        # inputs = torch.cat([x[2], y[0]], dim=1)
-        # inputs *= 255.
+        if epochs > 5:
+            inputs = torch.cat([x[1], output], dim=1)
+        else:
+            inputs = torch.cat([x[1], y[0]], dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
 
         # resolution 256 --> 512
-        inputs = torch.cat([x[2], output], dim=1)
+        if epochs > 5:
+            inputs = torch.cat([x[2], output], dim=1)
+        else:
+            inputs = torch.cat([x[2], y[1]], dim=1)
         output = self.model_3(inputs)
 
         outputs.append(output)

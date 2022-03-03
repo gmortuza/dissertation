@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # torch.cuda.manual_seed_all(seed)
 
 
-def train(model, data_loader, criterion, optimizer, metrics, config) -> dict:
+def train(model, data_loader, criterion, optimizer, metrics, config, epoch=100) -> dict:
     model.train()
     summary = []
     loss_avg = utils.RunningAverage()
@@ -26,7 +26,7 @@ def train(model, data_loader, criterion, optimizer, metrics, config) -> dict:
 
             optimizer.zero_grad()
 
-            outputs = model(inputs, labels)
+            outputs = model(inputs, labels, epoch)
             loss = criterion(outputs, labels)
 
             loss.backward()
