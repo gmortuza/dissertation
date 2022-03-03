@@ -100,12 +100,17 @@ class SMLMDataset(Dataset):
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
         # Increase the scale of the label
-        del y[3]
+        # del y[3]
+        # del y[1]
+        del x[4]
+        del x[1]
+        del y[5]
         del y[1]
-        for i in range(4):
+        del y[0]
+        for i in range(3):
             y[i] *= 255.0
             x[i] *= 255.0
-        return x, y[1:]
+        return x, y
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
