@@ -5,9 +5,23 @@ from read_config import Config
 from utils import connected_components
 import numpy as np
 from sklearn.metrics import pairwise_distances
-from scipy.optimize import linear_sum_assignment
+from scipy.optimize import linear_sum_assignment, curve_fit
 import torch.nn.functional as F
 import cv2
+
+SINGLE_EMITTER_WIDTH = 20
+SINGLE_EMITTER_HEIGHT = 20
+
+def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
+    (x, y) = xdata_tuple
+    xo = float(xo)
+    yo = float(yo)
+    a = (np.cos(theta) ** 2) / (2 * sigma_x ** 2) + (np.sin(theta) ** 2) / (2 * sigma_y ** 2)
+    b = -(np.sin(2 * theta)) / (4 * sigma_x ** 2) + (np.sin(2 * theta)) / (4 * sigma_y ** 2)
+    c = (np.sin(theta) ** 2) / (2 * sigma_x ** 2) + (np.cos(theta) ** 2) / (2 * sigma_y ** 2)
+    g = offset + amplitude * np.exp(- (a * ((x - xo) ** 2) + 2 * b * (x - xo) * (y - yo)
+                                       + c * ((y - yo) ** 2)))
+    return g.ravel()
 
 
 def get_ji_rmse(predicted_points, gt_points, radius=10):
@@ -47,6 +61,19 @@ def get_efficiency(jaccard_index, rmse, alpha=1.0):
     # return (100 - ((100 * (100 - jaccard_index)) ** 2 + alpha ** 2 * rmse ** 2) ** 0.5) / 100
 
 
+def fit_psf_using_mle(patch, x_initial, y_initial):
+    x = np.linspace(0, patch.shape[1] - 1, patch.shape[1])
+    y = np.linspace(0, patch.shape[0] - 1, patch.shape[0])
+    x, y = np.meshgrid(x, y)
+    # data = twoD_Gaussian((x, y), 1, patch.shape[0] / 2, patch.shape[1] / 2, 1.82, 1.82, 0, 0)
+
+    initial_guess = (1, x_initial, y_initial, 1.32, 1.32, 0, 0)
+
+    popt, pcov = curve_fit(twoD_Gaussian, (x, y), patch.ravel(), p0=initial_guess)
+
+    return popt
+
+
 def get_point(frame, labels, label_number, config):
     x, y = torch.where(labels == label_number)
     # if len(x) < 10 or len(x) > 70:
@@ -61,12 +88,18 @@ def get_point(frame, labels, label_number, config):
     y_mean = torch.sum(y * weights) / torch.sum(weights)
     # x_mean = np.average(x.float().cpu().numpy(), weights=weights.detach().cpu().numpy())
     # y_mean = np.average(y.float().cpu().numpy(), weights=weights.detach().cpu().numpy())
-    image_patch = frame[:, int(x_mean.round()) - 10: int(x_mean.round()) + 10,
-                  int(y_mean.round()) - 10: int(y_mean.round()) + 10]
+    x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
+    y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
+    image_patch = frame[:, x_start: x_end, y_start: y_end]
     photon_count = torch.sum(image_patch)
-    x_nm = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-    y_nm = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-    # x, y, s_x, s_y, photons
+    # x_nm, y_nm, x_std, y_std = fit_psf_using_mle(image_patch[0])
+    popt = fit_psf_using_mle(image_patch[0], x_mean - x_start, y_mean - y_start)
+    x = popt[1] + x_start
+    y = popt[2] + y_start
+    x_nm = x * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+    y_nm = y * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+    x_nm_1 = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+    y_nm_1 = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]# x, y, s_x, s_y, photons
     return [float(x_nm), float(y_nm), 0, 0, float(photon_count)]
 
 
@@ -104,7 +137,9 @@ def get_points_from_gt(gt, config):
     points = []
     for point in gt:
         # mu = torch.round(point[[5, 6]] * scale).int().tolist()
-        points.append([int(point[0]), float(point[2] * config.Camera_Pixelsize), float(point[1] * config.Camera_Pixelsize), 0, 0, float(point[7])])
+        points.append(
+            [int(point[0]), float(point[2] * config.Camera_Pixelsize), float(point[1] * config.Camera_Pixelsize), 0, 0,
+             float(point[7])])
     return points
 
 
@@ -116,7 +151,7 @@ def main():
     config_ = Config("config.yaml")
     config_.output_threshold = 0
     for frame_number in range(100):
-        f_name = f"simulated_data/train/db_{frame_number}.pl"
+        f_name = f"simulated_data_multi/train/db_{frame_number}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
         y_gt, frame = y[-1], y[-3]
