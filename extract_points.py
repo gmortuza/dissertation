@@ -16,11 +16,12 @@ from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment, curve_fit
 import torch.nn.functional as F
 import cv2
-from extract_location import localize as picasso_localize
+from extract_location import picasso_localize
 import time
 
 SINGLE_EMITTER_WIDTH = 20
 SINGLE_EMITTER_HEIGHT = 20
+JACCARD_INDEX_RADIUS = 10
 
 def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
     (x, y) = xdata_tuple
@@ -34,7 +35,7 @@ def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offse
     return g.ravel()
 
 
-def get_ji_rmse(predicted_points, gt_points, radius=10):
+def get_ji_rmse(predicted_points, gt_points, radius=JACCARD_INDEX_RADIUS):
 
     if not len(predicted_points) or not len(gt_points):
         return 0., 0.
@@ -161,7 +162,7 @@ def get_point_weighted_mean(frame, frame_number, config) -> list:
     unique_label = labels.unique()
     for label_number in unique_label[1:]:
         x, y = torch.where(labels == label_number)
-        if len(x) < 10:
+        if len(x) < 10 or len(x) > 100:
            continue
         weights = frame[0][x, y]
         x_mean = torch.sum(x * weights) / torch.sum(weights)
