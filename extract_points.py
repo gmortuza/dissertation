@@ -1,13 +1,23 @@
+"""
+Contains basic functionality to extract points from a given up sampled image
+the points are in nanometers and are in the format of a numpy array
+the points can be extracted using the following methods:
+    - weighted mean
+    - MLE (maximum likelihood estimation) fitting using scipy.optimize.curve_fit
+    - using picasso gaussian fitting
+    - Neural network (TODO)
+"""
 import pickle
 import torch
 
 from read_config import Config
-from utils import connected_components
 import numpy as np
 from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment, curve_fit
 import torch.nn.functional as F
 import cv2
+from extract_location import localize as picasso_localize
+import time
 
 SINGLE_EMITTER_WIDTH = 20
 SINGLE_EMITTER_HEIGHT = 20
@@ -25,14 +35,9 @@ def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offse
 
 
 def get_ji_rmse(predicted_points, gt_points, radius=10):
-    # predicted_points_set = set([(p[0], p[1], p[2]) for p in predicted_points])
-    # gt_points_set = set([(p[0], p[1], p[2]) for p in gt_points])
-    # intersection = len(predicted_points_set.intersection(gt_points_set))
-    # union = len(predicted_points_set.union(gt_points_set))
-    # return intersection / union, 0.
+
     if not len(predicted_points) or not len(gt_points):
         return 0., 0.
-    # radius = radius
     predicted_points = np.asarray(predicted_points)
     gt_points = np.asarray(gt_points)
     true_positive = 0
@@ -65,7 +70,6 @@ def fit_psf_using_mle(patch, x_initial, y_initial):
     x = np.linspace(0, patch.shape[1] - 1, patch.shape[1])
     y = np.linspace(0, patch.shape[0] - 1, patch.shape[0])
     x, y = np.meshgrid(x, y)
-    # data = twoD_Gaussian((x, y), 1, patch.shape[0] / 2, patch.shape[1] / 2, 1.82, 1.82, 0, 0)
 
     initial_guess = (1, x_initial, y_initial, 1.32, 1.32, 0, 0)
 
@@ -74,96 +78,24 @@ def fit_psf_using_mle(patch, x_initial, y_initial):
     return popt
 
 
-def get_point(frame, labels, label_number, config):
-    x, y = torch.where(labels == label_number)
-    # if len(x) < 10 or len(x) > 70:
-    #     return None
-    # if len(x) > 35:
-    #     return None
-    if len(x) < 10 or len(x) > 135:
-        return None
-    weights = frame[0][x, y]
-    # TODO: do these things using pytorch
-    x_mean = torch.sum(x * weights) / torch.sum(weights)
-    y_mean = torch.sum(y * weights) / torch.sum(weights)
-    # x_mean = np.average(x.float().cpu().numpy(), weights=weights.detach().cpu().numpy())
-    # y_mean = np.average(y.float().cpu().numpy(), weights=weights.detach().cpu().numpy())
-    x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
-    y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
-    image_patch = frame[:, x_start: x_end, y_start: y_end]
-    photon_count = torch.sum(image_patch)
-    # x_nm, y_nm, x_std, y_std = fit_psf_using_mle(image_patch[0])
-    popt = fit_psf_using_mle(image_patch[0], x_mean - x_start, y_mean - y_start)
-    x = popt[1] + x_start
-    y = popt[2] + y_start
-    x_nm = x * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-    y_nm = y * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-    x_nm_1 = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-    y_nm_1 = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]# x, y, s_x, s_y, photons
-    return [float(x_nm), float(y_nm), 0, 0, float(photon_count)]
-
-
-def get_points(frame, frame_number, config):
-    ## Some test code
-    # px_to_nm = config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
-    # dialate the frames
-    # dialated_frame = cv2.erode(frame.detach().cpu().numpy(), np.ones((3, 3), np.uint8))
-    binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
-    *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
-    # numLabels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_frame, connectivity=4)
-    # points = []
-    # Calculate the details for each points
-    # for stat, centroid in zip(stats[1:], centroids[1:]):
-    #     photon_intensity = torch.sum(frame[0][stat[1]: stat[1] + stat[2], stat[0]: stat[0] + stat[3]])
-    #     x_nm = centroid[1] * px_to_nm
-    #     y_nm = centroid[0] * px_to_nm
-    #     points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_intensity)])
-    # return points
-    labels = torch.tensor(labels, device=frame.device)
-    points = []
-    # Get connected points
-    # binary_frame = (frame > 0).float().unsqueeze(0)
-    # labels = connected_components(binary_frame).squeeze(0).squeeze(0)
-    unique_label = labels.unique()
-    for label_number in unique_label[1:]:
-        point = get_point(frame, labels, label_number, config)
-        if point is not None:
-            point = [frame_number] + point
-            points.append(point)
-    return points
+def get_points(frame, frame_number, config, method='scipy'):
+    if method == 'picasso':
+        return get_point_picasso(frame, frame_number, config)
+    elif method == 'weighted_mean':
+        return get_point_weighted_mean(frame, frame_number, config)
+    elif method == 'scipy':
+        return get_point_scipy(frame, frame_number, config)
+    else:
+        raise NotImplementedError('Method', method, 'not supported')
 
 
 def get_points_from_gt(gt, config):
     points = []
     for point in gt:
-        # mu = torch.round(point[[5, 6]] * scale).int().tolist()
         points.append(
             [int(point[0]), float(point[2] * config.Camera_Pixelsize), float(point[1] * config.Camera_Pixelsize), 0, 0,
              float(point[7])])
     return points
-
-
-def main():
-    predicted_points = []
-    gt_points = []
-    frames = []
-    gts = []
-    config_ = Config("config.yaml")
-    config_.output_threshold = 0
-    for frame_number in range(100):
-        f_name = f"simulated_data_multi/train/db_{frame_number}.pl"
-        with open(f_name, 'rb') as handle:
-            x, y = pickle.load(handle)
-        y_gt, frame = y[-1], y[-3]
-        gts.append(F.pad(y_gt, (0, 0, 0, 30 - y_gt.shape[0])))
-        # inputs, labels = generate_labels(frame, frame_number, y_gt)
-        predicted_point = get_points(frame, frame_number, config_)
-        gt_point = get_points_from_gt(y_gt, config_)
-        predicted_points.extend(predicted_point)
-        gt_points.extend(gt_point)
-
-    accuracy = get_ji_rmse(predicted_points, gt_points)
-    print(f"JI: {accuracy}")
 
 
 def get_label(frame, labels, label_number):
@@ -195,6 +127,140 @@ def generate_labels(frame, frame_number, y_gt):
         patches.append(patch)
 
     return patches, gts
+
+
+def get_point_picasso(frame, frame_number, config) -> list:
+    info = {
+        'baseline': 100,
+        'sensitive': 1.0,
+        'gain': 1,
+        'qe': .09,
+        'sensitivity': 1,
+    }
+    parameters = {
+        'Box Size': 7,
+        'Min. Net Gradient': .005,
+        'Pixelsize': config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1],
+        'box': 7
+    }
+    formatted_labels = []
+    labels = picasso_localize.localize(frame.cpu().numpy(), info, parameters)
+    for label in labels:
+        x = label[1] * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+        y = label[2] * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+        photon = label[3]
+        formatted_labels.append([frame_number, y, x, 0, 0, photon])
+    return formatted_labels
+
+
+def get_point_weighted_mean(frame, frame_number, config) -> list:
+    binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
+    *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
+    labels = torch.tensor(labels, device=frame.device)
+    points = []
+    unique_label = labels.unique()
+    for label_number in unique_label[1:]:
+        x, y = torch.where(labels == label_number)
+        if len(x) < 10:
+           continue
+        weights = frame[0][x, y]
+        x_mean = torch.sum(x * weights) / torch.sum(weights)
+        y_mean = torch.sum(y * weights) / torch.sum(weights)
+        x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(
+            x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
+        y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(
+            y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
+        image_patch = frame[:, x_start: x_end, y_start: y_end]
+        photon_count = torch.sum(image_patch)
+        x_nm = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+        y_nm = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+        points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_count)])
+    return points
+
+
+def get_point_scipy(frame, frame_number, config) -> list:
+    binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
+    *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
+    labels = torch.tensor(labels, device=frame.device)
+    points = []
+    unique_label = labels.unique()
+    for label_number in unique_label[1:]:
+        x, y = torch.where(labels == label_number)
+        if len(x) < 10:
+            continue
+        weights = frame[0][x, y]
+        x_mean = torch.sum(x * weights) / torch.sum(weights)
+        y_mean = torch.sum(y * weights) / torch.sum(weights)
+        x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(
+            x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
+        y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(
+            y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
+        image_patch = frame[:, x_start: x_end, y_start: y_end]
+        photon_count = torch.sum(image_patch)
+        try:
+            popt = fit_psf_using_mle(image_patch[0], x_mean - x_start, y_mean - y_start)
+        except RuntimeError:
+            # we will have runtime error if two emitter are too close
+            # we will ignore this case
+            continue
+        x = popt[2] + x_start
+        y = popt[1] + y_start
+        x_nm = x * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+        y_nm = y * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+        points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_count)])
+    return points
+
+
+def main():
+    predicted_points_picasso = []
+    predicted_points_weighted_mean = []
+    predicted_points_scipy = []
+    # track time
+    picasso_time = 0
+    scipy_time = 0
+    weighted_mean_time = 0
+    gt_points = []
+    gts = []
+    config_ = Config("config.yaml")
+    config_.output_threshold = 0
+    for frame_number in range(100):
+        f_name = f"simulated_data_multi/train/db_{frame_number}.pl"
+        with open(f_name, 'rb') as handle:
+            x, y = pickle.load(handle)
+        y_gt, frame = y[-1], y[-3]
+        gts.append(F.pad(y_gt, (0, 0, 0, 30 - y_gt.shape[0])))
+        now = time.time()
+        predicted_point_picasso = get_point_picasso(frame, frame_number, config_)
+        picasso_time += time.time() - now
+        now = time.time()
+        predicted_point_weighted_mean = get_point_weighted_mean(frame, frame_number, config_)
+        weighted_mean_time += time.time() - now
+        now = time.time()
+        predicted_point_scipy = get_point_scipy(frame, frame_number, config_)
+        scipy_time += time.time() - now
+        gt_point = get_points_from_gt(y_gt, config_)
+        predicted_points_picasso.extend(predicted_point_picasso)
+        predicted_points_weighted_mean.extend(predicted_point_weighted_mean)
+        predicted_points_scipy.extend(predicted_point_scipy)
+        gt_points.extend(gt_point)
+
+    # print results for picasso
+    print("=="*10, " Picasso (", round(picasso_time, 2), 'second)', "=="*10)
+    picasso_ji, picasso_rmse = get_ji_rmse(predicted_points_picasso, gt_points)
+    picasso_efficiency = get_efficiency(picasso_ji, picasso_rmse)
+    print(f"JI: {picasso_ji}\t, RMSE: {picasso_rmse}\t, Efficiency: {picasso_efficiency}")
+
+    # print results for weighted mean
+    print("=="*10, " Weighted Mean (", round(weighted_mean_time, 2), 'second)', "=="*10)
+    weighted_mean_ji, weighted_mean_rmse = get_ji_rmse(predicted_points_weighted_mean, gt_points)
+    weighted_mean_efficiency = get_efficiency(weighted_mean_ji, weighted_mean_rmse)
+    print(f"JI: {weighted_mean_ji}\t, RMSE: {weighted_mean_rmse}\t, Efficiency: {weighted_mean_efficiency}")
+
+    # print results for scipy
+    print("=="*10, " Scipy (", round(scipy_time, 2), 'second)', "=="*10)
+    scipy_ji, scipy_rmse = get_ji_rmse(predicted_points_scipy, gt_points)
+    scipy_efficiency = get_efficiency(scipy_ji, scipy_rmse)
+    print(f"JI: {scipy_ji}\t, RMSE: {scipy_rmse}\t, Efficiency: {scipy_efficiency}")
 
 
 if __name__ == '__main__':
