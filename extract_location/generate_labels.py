@@ -1,3 +1,10 @@
+"""
+Takes an up sampled image and extract EXPORTED_TRAIN_WIDTH x EXPORTED_TRAIN_HEIGHT patches from it.
+Each patch contains one or more emitters.
+each pickle file contains a list of patch and their corresponding labels.
+label will have the following format:
+[p_1, x_1, y_1, s_x_1, s_y_1, pho_1, p_2, x_2, y_2, s_x_2, s_y_2, pho_2]
+"""
 import os
 
 import glob
@@ -117,8 +124,6 @@ def extract_label_from_folder(folder, config):
     os.makedirs(save_folder, exist_ok=True)
     max_ = 0
     for file_name in file_names:
-        patches = []
-        locations = []
         start = int(file_name.split('_')[-3]) - 1
         gts = torch.load(file_name)
         data = torch.load(file_name.replace('_gt', '_' + str(config.resolution_slap[-1])), )
@@ -131,7 +136,6 @@ def extract_label_from_folder(folder, config):
                 frame = (frame - frame.min()) / (frame.max() - frame.min())
             patch, location = extract_label_from_single_frame(frame, gt)
             # make all patches the same size
-            # patch = F.pad(patch, (0, 0, 0, 0, 32, 32), mode='constant', value=0)
             for idx, (p, loc) in enumerate(zip(patch, location)):
                 max_ = max(max_, p.shape[0])
                 pad = ((EXPORTED_TRAIN_WIDTH - p.shape[1]) // 2, (EXPORTED_TRAIN_WIDTH - p.shape[1]) // 2,
@@ -140,6 +144,7 @@ def extract_label_from_folder(folder, config):
                 # create label
                 labels = []
                 for l in loc:
+                    # l -> [photon_count, std_x, std_y, x_mean, y_mean, x_start, y_start]
                     # calculate the percentage
                     x_per = (l[4] - (l[6] - pad[0])) / EXPORTED_TRAIN_WIDTH
                     y_per = (l[3] - (l[5] - pad[2])) / EXPORTED_TRAIN_HEIGHT

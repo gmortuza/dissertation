@@ -25,7 +25,7 @@ class ExtractLocationModel(nn.Module):
             nn.Linear(512, 12),
         )
 
-    def forward(self, x: Tensor, y: Tensor = None) -> Tensor:
+    def forward(self, x: Tensor, y: Tensor = None, epochs=None) -> Tensor:
         x = self.unet(x)
         x = self.output(x)
         return x
