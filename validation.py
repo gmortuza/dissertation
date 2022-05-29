@@ -16,7 +16,7 @@ def validation(model, data_loader, criterion, metrics, config) -> dict:
             loss = criterion(outputs, labels)
 
         # Compute all metrics on this batch
-        summary_batch = {metric: metrics[metric](outputs, labels) for metric in metrics}
+        summary_batch = metrics(outputs, labels)
         summary_batch['loss'] = loss.item()
         summary.append(summary_batch)
     # compute mean of all metrics in summary

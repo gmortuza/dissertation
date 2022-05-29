@@ -151,14 +151,15 @@ def get_ji_by_points(level, config):
                 predicted_points.extend(predicted_point)
             if len(gt_point):
                 gt_points.extend(gt_point)
-
-        jaccard_index, rmse = extract_points.get_ji_rmse(predicted_points, gt_points)
+        jaccard_index, rmse = extract_points.get_ji_rmse(predicted_points, gt_points, 5)
         return jaccard_index
 
     return ji
 
 
-def get_ji_nn(config):
+
+# TODO: combine ji, rmse, efficiency into one function
+def get_ji_rmse_nn(config, predictions, targets):
     def get_formatted_points(raw_points):
         # [p_c_1, x_1, y_1, s_x_1, s_y_1, photon_1, p_c_2, x_2, y_2, s_x_2, s_y_2, photon_2] -->
         # [[frame_number, x_1, y_1, s_x_1, s_y_1, photon_1], [frame_number, x_2, y_2, s_x_2, s_y_2, photon_2]]
@@ -174,32 +175,32 @@ def get_ji_nn(config):
         formatted_points[:, [1, 2]] *= 40. * 107. * 32. / 512.
 
         return formatted_points.detach().cpu().numpy()
+    predictions = get_formatted_points(predictions)
+    targets = get_formatted_points(targets)
 
-    def get_ji(predictions, targets):
-        predictions = get_formatted_points(predictions)
-        targets = get_formatted_points(targets)
-
-        ji, rmse = extract_points.get_ji_rmse(predictions, targets)
-        return ji
-
-    return get_ji
-
+    ji, rmse = extract_points.get_ji_rmse(predictions, targets)
+    return ji, rmse
 
 def metrics_for_points_extraction(config):
-    return {
-        "JI_16": get_ji_nn(config),
-    }
-
+    def metrics(predictions, targets):
+        ji, rmse = get_ji_rmse_nn(config, predictions, targets)
+        efficiency = extract_points.get_efficiency(ji, rmse)
+        return {
+            'JI_16': ji,
+            'RMSE': rmse,
+            'Efficiency': efficiency
+        }
+    return metrics
 
 def metrics_for_image_superresolution(config, epoch):
-    metrics = {
-        # 'cc_2': cross_correlation(0),
-        'cc_4': cross_correlation(0),
-        'cc_8': cross_correlation(1),
-        'cc_16': cross_correlation(2),
-    }
-    if epoch >= config.JI_metrics_from_epoch:
-        metrics['JI_16'] = get_ji_by_points(2, config)
+    def metrics(predictions, targets):
+        return_metrics =  {
+            'cc_4': cross_correlation(0)(predictions, targets),
+            'cc_8': cross_correlation(1)(predictions, targets),
+            'cc_16': cross_correlation(2)(predictions, targets),
+        }
+        if epoch >= config.JI_metrics_from_epoch:
+            return_metrics['JI_16'] = get_ji_by_points(2, config)(predictions, targets)
     return metrics
 
 

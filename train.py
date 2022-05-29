@@ -33,8 +33,7 @@ def train(model, data_loader, criterion, optimizer, metrics, config, epoch=100) 
             optimizer.step()
 
             if i % config.save_summary_steps == 0:
-                summary_batch = {metric: metrics[metric](outputs, labels)
-                                 for metric in metrics}
+                summary_batch = metrics(outputs, labels)
                 summary_batch['loss'] = loss.item()
                 summary.append(summary_batch)
 

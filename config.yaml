@@ -1,5 +1,5 @@
 # ================ Configuration for Model ===============
-output_dir: outputs_w_wd01
+output_dir: outputs
 validation_split: .1
 test_split: .1
 batch_size: 64
@@ -18,7 +18,7 @@ resolution_slap:
   - 256
   - 512
 save_model_based_on: JI_16
-JI_metrics_from_epoch: 100
+JI_metrics_from_epoch: 1
 output_threshold: 0
 
 # ================ General settings ===============
@@ -29,7 +29,7 @@ device: cuda:1
 log_level: info  # info, debug, warning, error
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
-progress_bar_disable: False
+progress_bar_disable: True
 save_for_picasso: True  # This will save both the raw file and ground truth compatible with picasso
 
 # ================ Camera Settings ===============
