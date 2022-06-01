@@ -1,5 +1,5 @@
 """
-Takes an up sampled image and extract EXPORTED_TRAIN_WIDTH x EXPORTED_TRAIN_HEIGHT patches from it.
+Takes an up sampled image and extract config.extracted_patch_size x config.extracted_patch_size patches from it.
 Each patch contains one or more emitters.
 each pickle file contains a list of patch and their corresponding labels.
 label will have the following format:
@@ -12,13 +12,10 @@ import glob
 import pickle
 import torch
 import torch.nn.functional as F
+import random
+
 from read_config import Config
 
-# Constants
-SINGLE_EMITTER_WIDTH = 20
-SINGLE_EMITTER_HEIGHT = 20
-EXPORTED_TRAIN_WIDTH = 40
-EXPORTED_TRAIN_HEIGHT = 40
 SCALE = 16.0
 
 
@@ -86,8 +83,6 @@ def extract_label_from_single_frame(frame, gts):
             continue
         x_mean, y_mean = (point[[2, 1]] * SCALE).tolist()
         # x_px, y_px = torch.round(point[[2, 1]] * SCALE).int().tolist()
-        # x_start, x_end = x_px - SINGLE_EMITTER_WIDTH // 2, x_px + SINGLE_EMITTER_WIDTH // 2
-        # y_start, y_end = y_px - SINGLE_EMITTER_HEIGHT // 2, y_px + SINGLE_EMITTER_HEIGHT // 2
         intersect_point = if_intersect(x_start, x_end, y_start, y_end, points)
         if intersect_point != -1:
             # intersect_point collide with current point so add them together
@@ -138,17 +133,25 @@ def extract_label_from_folder(folder, config):
             # make all patches the same size
             for idx, (p, loc) in enumerate(zip(patch, location)):
                 max_ = max(max_, p.shape[0])
-                pad = ((EXPORTED_TRAIN_WIDTH - p.shape[1]) // 2, (EXPORTED_TRAIN_WIDTH - p.shape[1]) // 2,
-                       (EXPORTED_TRAIN_HEIGHT - p.shape[0]) // 2, (EXPORTED_TRAIN_HEIGHT - p.shape[0]) // 2)
+                width_padding = config.extracted_patch_size - p.shape[1]
+                height_padding = config.extracted_patch_size - p.shape[0]
+                left_padding = random.randint(0, width_padding)
+                top_padding = random.randint(0, height_padding)
+                pad = (left_padding, width_padding - left_padding, top_padding, height_padding - top_padding)
                 single_patch = F.pad(p, pad, mode='constant', value=0)
+                total_photon_in_patch = p.sum()
+                total_photon_in_gt = sum([x[0] for x in loc])
                 # create label
                 labels = []
                 for l in loc:
                     # l -> [photon_count, std_x, std_y, x_mean, y_mean, x_start, y_start]
                     # calculate the percentage
-                    x_per = (l[4] - (l[6] - pad[0])) / EXPORTED_TRAIN_WIDTH
-                    y_per = (l[3] - (l[5] - pad[2])) / EXPORTED_TRAIN_HEIGHT
-                    labels.extend([1, y_per, x_per, l[0], l[1], l[2]])
+                    x_per = (l[4] - (l[6] - pad[0])) / config.extracted_patch_size
+                    y_per = (l[3] - (l[5] - pad[2])) / config.extracted_patch_size
+                    # total photon in the patch for this specific label
+                    photons = total_photon_in_patch * l[0] / total_photon_in_gt
+                    labels.extend([1, y_per * config.location_multiplier, x_per * config.location_multiplier, photons,
+                                   l[1], l[2]])
                 if len(loc) == 1:
                     labels.extend([0, 0, 0, 0, 0, 0])
 

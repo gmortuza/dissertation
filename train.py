@@ -53,9 +53,5 @@ def train(model, data_loader, criterion, optimizer, metrics, config, epoch=100) 
     return metrics_mean
 
 
-def test():
-    train()
-
-
 if __name__ == '__main__':
-    test()
+    train()

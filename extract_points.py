@@ -58,11 +58,10 @@ def get_ji_rmse(predicted_points, gt_points, radius=JACCARD_INDEX_RADIUS):
             # Calculate the RMSE
             distances_from_points.extend(assigned_distance[assigned_distance <= radius].tolist())
             # distances_from_points = np.append(distances_from_points, assigned_distance)
+    rmse = 0
     if len(distances_from_points) > 0:
         distances_from_points = np.asarray(distances_from_points)
         rmse = np.sqrt(np.sum(distances_from_points ** 2) / len(distances_from_points))
-    else:
-        rmse = 0.
     return true_positive * 100 / (len(predicted_points) + len(gt_points) - true_positive), rmse
 
 

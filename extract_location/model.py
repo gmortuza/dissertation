@@ -42,6 +42,7 @@ def test():
     expected_output_shape = (32, 12)
     inputs = torch.randn(input_shape)
     model = ExtractLocationModel(config_)
+    print(f"Model total parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     outputs = model(inputs)
     assert expected_output_shape == outputs.shape
 

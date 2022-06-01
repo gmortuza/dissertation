@@ -172,9 +172,12 @@ def get_ji_rmse_nn(config, predictions, targets):
         raw_points_2 = torch.cat((raw_points_2_pos.unsqueeze(1), raw_points_2), dim=1)
         # Add them together
         formatted_points = torch.cat((raw_points_1, raw_points_2), dim=0)
-        formatted_points[:, [1, 2]] *= 40. * 107. * 32. / 512.
+        formatted_points[:, [1, 2]] *= config.extracted_patch_size * config.Camera_Pixelsize * config.resolution_slap[0]\
+                                       / config.resolution_slap[-1] / config.location_multiplier
 
         return formatted_points.detach().cpu().numpy()
+
+
     predictions = get_formatted_points(predictions)
     targets = get_formatted_points(targets)
 

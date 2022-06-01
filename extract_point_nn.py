@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 import torch
-from torch.optim import Adam
+from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from train import train
@@ -31,7 +31,7 @@ def set_seed(seed):
 def main(config: Config):
     criterion = Loss(config)
     model = ExtractLocationModel(config).to(config.device)
-    optimizer = Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+    optimizer = AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, min_lr=1e-6)
     train_loader, val_loader = fetch_data_loader(config)
     best_val_acc = utils.load_checkpoint(model, config, optimizer, 'points')
@@ -47,7 +47,7 @@ def main(config: Config):
         for key, val in val_metrics.items():
             config.neptune["validation/epoch/" + key].log(val)
 
-        scheduler.step(val_metrics['loss'])
+        # scheduler.step(val_metrics['loss'])
         config.neptune['epoch/lr'].log(optimizer.param_groups[0]['lr'])
 
         best_val_acc = utils.save_checkpoint({'epoch': epoch,
