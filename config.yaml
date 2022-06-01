@@ -42,8 +42,8 @@ extracted_patch_size: 30
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 5000  # Total Number of frames
-split_into: 1 # Total number of frames will be splitted into this amount of files
+total_frames: 40000  # Total Number of frames
+split_into: 4 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
@@ -60,8 +60,8 @@ distance_x: 10  # Distance between each binding site. (nm)
 distance_y: 10  # (nm)
 origami_row: 6
 origami_column: 8
-unique_origami: 3
-total_origami: 45  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
+unique_origami: 15
+total_origami: 100  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
 # Float value ranging 0.0 - 1.0
