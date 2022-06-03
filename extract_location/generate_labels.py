@@ -118,6 +118,7 @@ def extract_label_from_folder(folder, config):
     save_folder = os.path.join(folder, 'points')
     os.makedirs(save_folder, exist_ok=True)
     max_ = 0
+    total_ignored = 0
     for file_name in file_names:
         start = int(file_name.split('_')[-3]) - 1
         gts = torch.load(file_name)
@@ -132,7 +133,11 @@ def extract_label_from_folder(folder, config):
             patch, location = extract_label_from_single_frame(frame, gt)
             # make all patches the same size
             for idx, (p, loc) in enumerate(zip(patch, location)):
-                max_ = max(max_, p.shape[0])
+                max_ = max(max_, p.shape[0], p.shape[1])
+                # TODO: instead of ignoring the patch, take the middle point of the strong emitter and put it in center
+                if p.shape[0] > config.extracted_patch_size or p.shape[1] > config.extracted_patch_size:
+                    total_ignored += 1
+                    continue
                 width_padding = config.extracted_patch_size - p.shape[1]
                 height_padding = config.extracted_patch_size - p.shape[0]
                 left_padding = random.randint(0, width_padding)
@@ -161,6 +166,7 @@ def extract_label_from_folder(folder, config):
                 with open(file_name, 'wb') as f:
                     pickle.dump([single_patch, label], f)
     print(f"Max size is {max_}")
+    print(f"Total ignored due to the maximum bound set.{total_ignored}")
 
 
 def main(config):

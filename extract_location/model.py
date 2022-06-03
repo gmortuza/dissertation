@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch import Tensor
 import torchvision.models as models
 from models.unet import UNet
+from torchinfo import summary
 
 EXPORTED_TRAIN_WIDTH = 40
 EXPORTED_TRAIN_HEIGHT = 40
@@ -43,8 +44,9 @@ def test():
     inputs = torch.randn(input_shape)
     model = ExtractLocationModel(config_)
     print(f"Model total parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
-    outputs = model(inputs)
-    assert expected_output_shape == outputs.shape
+    print(summary(model, input_shape))
+    # outputs = model(inputs)
+    # assert expected_output_shape == outputs.shape
 
 
 if __name__ == '__main__':

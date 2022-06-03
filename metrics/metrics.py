@@ -163,11 +163,11 @@ def get_ji_rmse_nn(config, predictions, targets):
     def get_formatted_points(raw_points):
         # [p_c_1, x_1, y_1, s_x_1, s_y_1, photon_1, p_c_2, x_2, y_2, s_x_2, s_y_2, photon_2] -->
         # [[frame_number, x_1, y_1, s_x_1, s_y_1, photon_1], [frame_number, x_2, y_2, s_x_2, s_y_2, photon_2]]
-        raw_points_1_pos = torch.where(nn.Sigmoid()(raw_points[:, 0]) > .5)[0]
+        raw_points_1_pos = torch.where(nn.Sigmoid()(raw_points[:, 0] > .999) & (raw_points[:, 9] > .001))[0]
         raw_points_1 = raw_points[raw_points_1_pos, 1:6]
         raw_points_1 = torch.cat((raw_points_1_pos.unsqueeze(1), raw_points_1), dim=1)
         # get second predictions
-        raw_points_2_pos = torch.where(nn.Sigmoid()(raw_points[:, 6]) > .5)[0]
+        raw_points_2_pos = torch.where((raw_points[:, 6] > .999) & (raw_points[:, 9] > .001))[0]
         raw_points_2 = raw_points[raw_points_2_pos, 7:]
         raw_points_2 = torch.cat((raw_points_2_pos.unsqueeze(1), raw_points_2), dim=1)
         # Add them together
@@ -178,10 +178,11 @@ def get_ji_rmse_nn(config, predictions, targets):
         return formatted_points.detach().cpu().numpy()
 
 
-    predictions = get_formatted_points(predictions)
-    targets = get_formatted_points(targets)
+    predictions[:, [0, 6]] = nn.Sigmoid()(predictions[:, [0, 6]])
+    formatted_predictions = get_formatted_points(predictions)
+    formatted_targets = get_formatted_points(targets)
 
-    ji, rmse = extract_points.get_ji_rmse(predictions, targets)
+    ji, rmse = extract_points.get_ji_rmse(formatted_predictions, formatted_targets)
     return ji, rmse
 
 def metrics_for_points_extraction(config):

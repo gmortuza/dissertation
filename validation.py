@@ -16,7 +16,9 @@ def validation(model, data_loader, criterion, metrics, config) -> dict:
             loss = criterion(outputs, labels)
 
         # Compute all metrics on this batch
+        # print(loss.item())
         summary_batch = metrics(outputs, labels)
+        # print(f"loss: {round(loss.item(), 2)} | JI: {round(summary_batch['JI_16'], 2)}")
         summary_batch['loss'] = loss.item()
         summary.append(summary_batch)
     # compute mean of all metrics in summary
