@@ -41,9 +41,9 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
         config.log_param("num_training", len(train_dataset))
         config.log_param("num_validation", len(val_dataset))
         train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0,
-                                  pin_memory=True)
+                                  pin_memory=False)
         valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0,
-                                  pin_memory=True)
+                                  pin_memory=False)
 
         return train_loader, valid_loader
     else:

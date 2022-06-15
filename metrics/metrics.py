@@ -157,38 +157,61 @@ def get_ji_by_points(level, config):
     return ji
 
 
+def get_formatted_points(raw_points, config, start_pos=None):
+    """
+    The take the output of the neural network and format to measure the accuracy
+    [p_c_1, x_1, y_1, s_x_1, s_y_1, photon_1, p_c_2, x_2, y_2, s_x_2, s_y_2, photon_2] -->
+    [[frame_number, x_1, y_1, s_x_1, s_y_1, photon_1], [frame_number, x_2, y_2, s_x_2, s_y_2, photon_2]]
+    Args:
+        raw_points --> Outputs from the neural network
+        config --> configuration file
+        start_pos --> start position for each of the patch file. if not provided then start pos will be zeros
+                -- [frame number, x_start, y_start]
 
-# TODO: combine ji, rmse, efficiency into one function
+    Returns:
+    """
+    if start_pos is None:  # it's during the training procedure
+        start_position = torch.zeros((raw_points.shape[0], 3), device=raw_points.device)
+        # convert the frame number using the batch size
+        start_position[:, 0] = torch.as_tensor(torch.arange(0, raw_points.shape[0]), device=raw_points.device)
+    else:  # it's during the inference
+        start_position = torch.tensor(start_pos, device=raw_points.device)
+    # attach frame number and start position of that patch to the output
+    raw_points_frame_start = torch.cat((start_position, raw_points), dim=1)
+    # convert the start position into nanometer
+    # raw_points_frame_start[:, [1, 2]] *= config.Camera_Pixelsize
+    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.extracted_patch_size / config.location_multiplier
+    raw_points_frame_start[:, [4, 5, 10, 11]] += raw_points_frame_start[:, [1, 2, 1, 2]]
+    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
+
+    # extract points for first emitter
+    first_emitter_loc = torch.where((raw_points_frame_start[:, 3] > .999))[0]
+    first_emitter = raw_points_frame_start[first_emitter_loc, :]
+    first_emitter = first_emitter[:, [0, 4, 5, 6, 7, 8]]
+
+    # extract points for second emitters
+    # second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .9) & (raw_points_frame_start[:, 12] > .001))[0]
+    second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .95))[0]
+    second_emitter = raw_points_frame_start[second_emitter_loc, :]
+    second_emitter = second_emitter[:, [0, 10 ,11, 12, 13, 14]]
+
+    # combine two emitters
+    emitters = torch.cat((first_emitter, second_emitter), dim=0)
+    return emitters.detach().cpu().numpy()
+
+
+
 def get_ji_rmse_nn(config, predictions, targets):
-    def get_formatted_points(raw_points):
-        # [p_c_1, x_1, y_1, s_x_1, s_y_1, photon_1, p_c_2, x_2, y_2, s_x_2, s_y_2, photon_2] -->
-        # [[frame_number, x_1, y_1, s_x_1, s_y_1, photon_1], [frame_number, x_2, y_2, s_x_2, s_y_2, photon_2]]
-        raw_points_1_pos = torch.where(nn.Sigmoid()(raw_points[:, 0] > .999) & (raw_points[:, 9] > .001))[0]
-        raw_points_1 = raw_points[raw_points_1_pos, 1:6]
-        raw_points_1 = torch.cat((raw_points_1_pos.unsqueeze(1), raw_points_1), dim=1)
-        # get second predictions
-        raw_points_2_pos = torch.where((raw_points[:, 6] > .999) & (raw_points[:, 9] > .001))[0]
-        raw_points_2 = raw_points[raw_points_2_pos, 7:]
-        raw_points_2 = torch.cat((raw_points_2_pos.unsqueeze(1), raw_points_2), dim=1)
-        # Add them together
-        formatted_points = torch.cat((raw_points_1, raw_points_2), dim=0)
-        formatted_points[:, [1, 2]] *= config.extracted_patch_size * config.Camera_Pixelsize * config.resolution_slap[0]\
-                                       / config.resolution_slap[-1] / config.location_multiplier
-
-        return formatted_points.detach().cpu().numpy()
-
-
     predictions[:, [0, 6]] = nn.Sigmoid()(predictions[:, [0, 6]])
-    formatted_predictions = get_formatted_points(predictions)
-    formatted_targets = get_formatted_points(targets)
+    formatted_predictions = get_formatted_points(predictions, config)
+    formatted_targets = get_formatted_points(targets, config)
 
-    ji, rmse = extract_points.get_ji_rmse(formatted_predictions, formatted_targets)
-    return ji, rmse
+    ji, rmse, efficiency = extract_points.get_ji_rmse_efficiency(formatted_predictions, formatted_targets)
+    return ji, rmse, efficiency
 
 def metrics_for_points_extraction(config):
     def metrics(predictions, targets):
-        ji, rmse = get_ji_rmse_nn(config, predictions, targets)
-        efficiency = extract_points.get_efficiency(ji, rmse)
+        ji, rmse, efficiency = get_ji_rmse_nn(config, predictions, targets)
         return {
             'JI_16': ji,
             'RMSE': rmse,

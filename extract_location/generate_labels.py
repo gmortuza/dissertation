@@ -15,9 +15,19 @@ import torch.nn.functional as F
 import random
 
 from read_config import Config
+from utils import euclidean_distance
 
 SCALE = 16.0
 
+
+def pad_on_single_patch(patch: torch.Tensor, config: Config) -> torch.Tensor:
+    width_padding = config.extracted_patch_size - patch.shape[1]
+    height_padding = config.extracted_patch_size - patch.shape[0]
+    left_padding = random.randint(0, width_padding)
+    top_padding = random.randint(0, height_padding)
+    pad = (left_padding, width_padding - left_padding, top_padding, height_padding - top_padding)
+    patch = F.pad(patch, pad, mode='constant', value=0)
+    return patch, pad
 
 # Performs a breadth-first search to find the connected pixels for each emitter
 def get_emitter_start_end_pos(frame, point) -> tuple:
@@ -119,10 +129,10 @@ def extract_label_from_folder(folder, config):
     os.makedirs(save_folder, exist_ok=True)
     max_ = 0
     total_ignored = 0
-    for file_name in file_names:
+    for file_name in file_names[:100]:
         start = int(file_name.split('_')[-3]) - 1
-        gts = torch.load(file_name)
-        data = torch.load(file_name.replace('_gt', '_' + str(config.resolution_slap[-1])), )
+        gts = torch.load(file_name, map_location=config.device)
+        data = torch.load(file_name.replace('_gt', '_' + str(config.resolution_slap[-1])), map_location=config.device)
         # for each frame extract it's labels
         for frame_id, frame in enumerate(data, start=start):
             # get gt
@@ -138,28 +148,32 @@ def extract_label_from_folder(folder, config):
                 if p.shape[0] > config.extracted_patch_size or p.shape[1] > config.extracted_patch_size:
                     total_ignored += 1
                     continue
-                width_padding = config.extracted_patch_size - p.shape[1]
-                height_padding = config.extracted_patch_size - p.shape[0]
-                left_padding = random.randint(0, width_padding)
-                top_padding = random.randint(0, height_padding)
-                pad = (left_padding, width_padding - left_padding, top_padding, height_padding - top_padding)
-                single_patch = F.pad(p, pad, mode='constant', value=0)
+                single_patch, pad = pad_on_single_patch(p, config)
                 total_photon_in_patch = p.sum()
                 total_photon_in_gt = sum([x[0] for x in loc])
                 # create label
                 labels = []
-                for l in loc:
-                    # l -> [photon_count, std_x, std_y, x_mean, y_mean, x_start, y_start]
-                    # calculate the percentage
-                    x_per = (l[4] - (l[6] - pad[0])) / config.extracted_patch_size
-                    y_per = (l[3] - (l[5] - pad[2])) / config.extracted_patch_size
-                    # total photon in the patch for this specific label
-                    photons = total_photon_in_patch * l[0] / total_photon_in_gt
-                    labels.extend([1, y_per * config.location_multiplier, x_per * config.location_multiplier, photons,
-                                   l[1], l[2]])
-                if len(loc) == 1:
-                    labels.extend([0, 0, 0, 0, 0, 0])
-
+                # Add the first location points
+                # [photon_count, std_x, std_y, x_mean, y_mean, x_start, y_start]
+                x_per = (loc[0][4] - (loc[0][6] - pad[0])) / config.extracted_patch_size
+                y_per = (loc[0][3] - (loc[0][5] - pad[2])) / config.extracted_patch_size
+                # total photon in the patch for this specific label
+                photons = total_photon_in_patch * loc[0][0] / total_photon_in_gt
+                labels.extend([1, y_per * config.location_multiplier, x_per * config.location_multiplier, photons,
+                               loc[0][1], loc[0][2]])
+                if len(loc) > 1:
+                    # if second emitter is very close to first emitter then we will ignore it
+                    distance = euclidean_distance((loc[0][3], loc[0][4]), (loc[1][3], loc[1][4]))
+                    # if second emitter have very low emitters then we will ignore it
+                    photons_2 = total_photon_in_patch * loc[1][0] / total_photon_in_gt
+                    if distance > 15 or photons_2 > .005:
+                        x_per_2 = (loc[1][4] - (loc[1][6] - pad[0])) / config.extracted_patch_size
+                        y_per_2 = (loc[1][3] - (loc[1][5] - pad[2])) / config.extracted_patch_size
+                        # total photon in the patch for this specific label
+                        labels.extend(
+                            [1, y_per_2 * config.location_multiplier, x_per_2 * config.location_multiplier, photons_2,
+                             loc[1][1], loc[1][2]])
+                labels.extend([0, 0, 0, 0, 0, 0])
                 label = torch.Tensor(labels[:12])
 
                 file_name = os.path.join(save_folder, f"p_{frame_id}_{idx}.pl")
@@ -175,6 +189,7 @@ def main(config):
     val_dir = os.path.join(config.input_dir, 'validation')
     extract_label_from_folder(train_dir, config)
     extract_label_from_folder(val_dir, config)
+    config.logger.info("Done generating labels")
     # Extract location
 
 

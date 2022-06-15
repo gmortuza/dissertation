@@ -7,6 +7,7 @@ import numpy as np
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import cv2
+from torch.nn.functional import normalize
 
 
 class RunningAverage():
@@ -85,7 +86,7 @@ def load_checkpoint(model, config, optimizer=None, name='') -> float:
         if not os.path.exists(checkpoint_path):
             config.logger.info(f"Checkpoint file doesn't exists {checkpoint_path}")
             return float('-inf')
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location=config.device)
         model.load_state_dict(checkpoint['state_dict'])
 
         if optimizer:
@@ -194,16 +195,29 @@ def connected_components(image: torch.Tensor, num_iterations: int = 100) -> torc
 
     return out.view_as(image)
 
+def euclidean_distance(p1, p2):
+    return (((p1[0] - p2[0]) ** 2) + ((p1[1] - p2[1]) ** 2)) ** .05
+
 
 def normalize(x):
-    x_flatten = x.view(x.shape[0], -1)
-    x_min, _ = x_flatten.min(1)
-    x_max, _ = x_flatten.max(1)
-    x_min = x_min.unsqueeze(1).unsqueeze(1)
-    x_max = x_max.unsqueeze(1).unsqueeze(1)
-    # convert the value between 0 and 1
-    x = (x - x_min) / (x_max - x_min)
+    # x -= x.min(1, keepdim=True)[0]
+    # x /= x.max(1, keepdim=True)[0]
+    # return torch.nan_to_num(x, 0.)
+    # x = x.view(A.size(0), -1)
+    shape = x.shape
+    x = x.view(x.size(0), -1)
+    x -= x.min(1, keepdim=True)[0]
+    x /= x.max(1, keepdim=True)[0]
+    x = x.view(shape)
     return torch.nan_to_num(x, 0.)
+    # x_flatten = x.view(x.shape[0], -1)
+    # x_min, _ = x_flatten.min(1)
+    # x_max, _ = x_flatten.max(1)
+    # x_min = x_min.unsqueeze(1).unsqueeze(1)
+    # x_max = x_max.unsqueeze(1).unsqueeze(1)
+    # # convert the value between 0 and 1
+    # x = (x - x_min) / (x_max - x_min)
+    # return torch.nan_to_num(x, 0.)
 
 
 def convert_device(tensors, device):
