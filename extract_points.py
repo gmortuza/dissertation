@@ -39,20 +39,17 @@ def get_ji_rmse_efficiency(predicted_points, gt_points, radius=JACCARD_INDEX_RAD
 
     if not len(predicted_points) or not len(gt_points):
         return 0., 0., 0.
-    predicted_points = np.asarray(predicted_points)
-    gt_points = np.asarray(gt_points)
+    # predicted_points = np.asarray(predicted_points)
+    # gt_points = np.asarray(gt_points)
     true_positive = 0
     distances_from_points = []
-    for frame_number in np.unique(gt_points[:, 0]):
-        f_predicted_points = predicted_points[predicted_points[:, 0] == frame_number]
-        f_gt_points = gt_points[gt_points[:, 0] == frame_number]
-        # extract the points
-        f_predicted_points = [(p[1], p[2]) for p in f_predicted_points]
-        f_gt_points = [(p[1], p[2]) for p in f_gt_points]
+    pdist = nn.PairwiseDistance(p=2)
+    for frame_number in torch.unique(gt_points[:, 0]):
+        f_predicted_points = predicted_points[predicted_points[:, 0] == frame_number][:, [1, 2]]
+        f_gt_points = gt_points[gt_points[:, 0] == frame_number][:, [1, 2]]
         # Get pairwise distance
         if len(f_predicted_points) and len(f_gt_points):
-            # TODO: do this using pytorch
-            distances = pairwise_distances(f_predicted_points, f_gt_points)
+            distances = pairwise_distances(f_predicted_points.cpu().detach(), f_gt_points.cpu())
             rec_ind, gt_ind = linear_sum_assignment(distances)
             assigned_distance = distances[rec_ind, gt_ind]
             true_positive += np.sum(assigned_distance <= radius)

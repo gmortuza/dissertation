@@ -127,6 +127,7 @@ def main(config):
     outputs = model(inputs)
     outputs[:, [0, 6]] = nn.Sigmoid()(outputs[:, [0, 6]])
     formatted_output = metrics.get_formatted_points(outputs, config, start_pos_of_inputs)
+    gt_points = torch.tensor(gt_points, device=config.device)
     nn_ji, nn_rmse, nn_efficiency = extract_points.get_ji_rmse_efficiency(formatted_output, gt_points)
     cc_ji, cc_rmse, cc_efficiency = extract_points.get_ji_rmse_efficiency(cc_points, gt_points)
     print(f"NN ji: {nn_ji} \t nn rmse: {nn_rmse} \t efficiency: {nn_efficiency}")

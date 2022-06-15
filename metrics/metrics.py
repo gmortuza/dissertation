@@ -197,7 +197,7 @@ def get_formatted_points(raw_points, config, start_pos=None):
 
     # combine two emitters
     emitters = torch.cat((first_emitter, second_emitter), dim=0)
-    return emitters.detach().cpu().numpy()
+    return emitters
 
 
 
