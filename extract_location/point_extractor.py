@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import cv2
 from extract_location import picasso_localize
 import time
-import extract_points_nn
+from extract_location import point_extractor_nn
 
 SINGLE_EMITTER_WIDTH = 20
 SINGLE_EMITTER_HEIGHT = 20
@@ -154,26 +154,27 @@ def get_point_weighted_mean(frame, frame_number, config) -> list:
 
 
 def get_point_scipy(frame, frame_number, config) -> list:
-    binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
+    frame = frame.detach().cpu().numpy()
+    binary_frame = (frame[0] > config.output_threshold).astype(np.int8)
+    # binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
     *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
-    labels = torch.tensor(labels, device=frame.device)
+    # labels = torch.tensor(labels, device=frame.device)
     points = []
-    unique_label = labels.unique()
     patches = []
-    for label_number in unique_label[1:]:
-        x, y = torch.where(labels == label_number)
+    for label_number in np.unique(labels)[1:]:
+        x, y = np.where(labels == label_number)
         if len(x) < 10:
             continue
         weights = frame[0][x, y]
-        x_mean = torch.sum(x * weights) / torch.sum(weights)
-        y_mean = torch.sum(y * weights) / torch.sum(weights)
+        x_mean = np.sum(x * weights) / np.sum(weights)
+        y_mean = np.sum(y * weights) / np.sum(weights)
         x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(
             x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
         y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(
             y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
         image_patch = frame[:, x_start: x_end, y_start: y_end]
         patches.append(image_patch)
-        photon_count = torch.sum(image_patch)
+        photon_count = np.sum(image_patch)
         try:
             popt = fit_psf_using_mle(image_patch[0], x_mean - x_start, y_mean - y_start)
         except RuntimeError:
@@ -189,8 +190,8 @@ def get_point_scipy(frame, frame_number, config) -> list:
 
 
 def get_point_nn(frames, frame_numbers, config: Config) -> list:
-    patches, start_position = extract_points_nn.format_point_from_batch(frames, config, frame_numbers)
-    formatted_output = extract_points_nn.get_accuracy_from_inputs(patches, start_position, config)
+    patches, start_position = point_extractor_nn.get_inputs_from_frames(frames, config, frame_numbers)
+    formatted_output = point_extractor_nn.extract_points_from_inputs(patches, start_position, config)
     return formatted_output
 
 

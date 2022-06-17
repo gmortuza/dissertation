@@ -136,7 +136,7 @@ def extract_label_from_folder(folder, config):
     os.makedirs(save_folder, exist_ok=True)
     max_ = 0
     total_ignored = 0
-    for file_name in file_names[:100]:
+    for file_name in file_names:
         start = int(file_name.split('_')[-3]) - 1
         gts = torch.load(file_name, map_location=config.device)
         data = torch.load(file_name.replace('_gt', '_' + str(config.resolution_slap[-1])), map_location=config.device)

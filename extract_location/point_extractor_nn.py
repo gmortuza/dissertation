@@ -4,12 +4,13 @@ from typing import List
 
 import cv2
 import numpy as np
+import os
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.optim import Adam
 
-import point_extractor
+from extract_location import point_extractor
 import utils
 from extract_location.generate_labels import pad_on_single_patch
 from extract_location.model import ExtractLocationModel
@@ -69,37 +70,31 @@ def get_patches_from_frame(frame: torch.Tensor, frame_number: int, config: Confi
     return patches, start_positions
 
 
-def get_formatted_data(config: Config):
-    # we will use validation dataset to get the accuracy
-    dir_ = config.val_dir
-    #
+def get_inputs_from_dir(directory, config: Config):
     formatted_inputs = []
     start_positions_of_inputs = []
     # get the images that are 16x resolutions
-    file_names = glob.glob(dir_ + '/db_*.pl')
+    file_names = glob.glob(os.path.join(directory, 'db_*.pl'))
     gt_points = []
-    cc_points = []  # the points that are extracted using connected components algorithm
     for file_name in file_names[:100]:
         with open(file_name, 'rb') as handle:
             _, frames = pickle.load(handle)
             frame, gt = frames[4], frames[6]
-            # perform connected component analysis
             frame_number = int(file_name.split('/')[-1].split('.')[0].split('_')[-1])
-            gt_point = point_extractor.get_points_from_gt(gt, config_)
-            patches, start_positions = get_patches_from_frame(frame, frame_number, config_)
+            gt_point = point_extractor.get_points_from_gt(gt, config)
+            patches, start_positions = get_patches_from_frame(frame, frame_number, config)
             gt_points.extend(gt_point)
-
             formatted_inputs.extend(patches)
             start_positions_of_inputs.extend(start_positions)
+    formatted_inputs = torch.stack(formatted_inputs).to(config.device)
+    return formatted_inputs, start_positions_of_inputs, gt_points
 
-    return formatted_inputs, start_positions_of_inputs, gt_points, cc_points
 
-
-def format_point_from_batch(batch: torch.Tensor, config: Config, frame_numbers: List[int] = None):
+def get_inputs_from_frames(frames: torch.Tensor, config: Config, frame_numbers: List[int] = None):
     if frame_numbers is None:
-        frame_numbers = torch.tensor(torch.arange(0, batch.shape[0]))
+        frame_numbers = torch.tensor(torch.arange(0, frames.shape[0]))
     patches, start_positions = [], []
-    for frame_number, frame in zip(frame_numbers, batch):
+    for frame_number, frame in zip(frame_numbers, frames):
         patch, start_position = get_patches_from_frame(frame, frame_number, config)
         patches.extend(patch)
         start_positions.extend(start_position)
@@ -107,7 +102,7 @@ def format_point_from_batch(batch: torch.Tensor, config: Config, frame_numbers: 
     return inputs, start_positions
 
 
-def get_accuracy_from_inputs(inputs: torch.Tensor, start_positions: List[List], config: Config):
+def extract_points_from_inputs(inputs: torch.Tensor, start_positions: List[List], config: Config):
     model = ExtractLocationModel(config).to(config.device)
     optimizer = Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     _ = utils.load_checkpoint(model, config, optimizer, 'points')
@@ -119,22 +114,14 @@ def get_accuracy_from_inputs(inputs: torch.Tensor, start_positions: List[List], 
 
 def main(config):
     # get the data
-    inputs, start_pos_of_inputs, gt_points, cc_points = get_formatted_data(config)
-    inputs = torch.stack(inputs).to(config.device)
+    inputs, start_pos_of_inputs, gt_points = get_inputs_from_dir(config.val_dir, config)
     # get the model
-    model = ExtractLocationModel(config).to(config.device)
-    optimizer = Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-    best_val_acc = utils.load_checkpoint(model, config, optimizer, 'points')
-    outputs = model(inputs)
-    outputs[:, [0, 6]] = nn.Sigmoid()(outputs[:, [0, 6]])
-    formatted_output = metrics.get_formatted_points(outputs, config, start_pos_of_inputs)
-    gt_points = torch.tensor(gt_points, device=config.device)
-    nn_ji, nn_rmse, nn_efficiency = point_extractor.get_ji_rmse_efficiency(formatted_output, gt_points)
-    cc_ji, cc_rmse, cc_efficiency = point_extractor.get_ji_rmse_efficiency(cc_points, gt_points)
+    formatted_output = extract_points_from_inputs(inputs, start_pos_of_inputs, config)
+    gt_points = torch.tensor(gt_points)
+    nn_ji, nn_rmse, nn_efficiency = metrics.get_ji_rmse_efficiency(formatted_output, gt_points)
     print(f"NN ji: {nn_ji} \t nn rmse: {nn_rmse} \t efficiency: {nn_efficiency}")
-    print(f"CC ji: {cc_ji} \t cc rmse: {cc_rmse} \t efficiency: {cc_efficiency}")
 
 
 if __name__ == '__main__':
-    config_ = Config('config.yaml')
+    config_ = Config('../config.yaml')
     main(config_)

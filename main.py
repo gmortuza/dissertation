@@ -43,18 +43,18 @@ def main(config: Config):
         for key, val in train_metrics.items():
             config.neptune["training/epoch/" + key].log(val)
 
-        val_metrics = validation(model, val_loader, criterion, metrics, config)
-        for key, val in val_metrics.items():
-            config.neptune["validation/epoch/" + key].log(val)
-
-        # scheduler.step(val_metrics['loss'])
-        config.neptune['epoch/lr'].log(optimizer.param_groups[0]['lr'])
-
-        best_val_acc = utils.save_checkpoint({'epoch': epoch,
-                                              'state_dict': model.state_dict(),
-                                              'optim_dict': optimizer.state_dict()},
-                                             best_val_acc,
-                                             config, val_metrics)
+        # val_metrics = validation(model, val_loader, criterion, metrics, config)
+        # for key, val in val_metrics.items():
+        #     config.neptune["validation/epoch/" + key].log(val)
+        #
+        # # scheduler.step(val_metrics['loss'])
+        # config.neptune['epoch/lr'].log(optimizer.param_groups[0]['lr'])
+        #
+        # best_val_acc = utils.save_checkpoint({'epoch': epoch,
+        #                                       'state_dict': model.state_dict(),
+        #                                       'optim_dict': optimizer.state_dict()},
+        #                                      best_val_acc,
+        #                                      config, val_metrics)
 
 
 if __name__ == '__main__':

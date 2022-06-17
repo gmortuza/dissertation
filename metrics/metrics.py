@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment
 from read_config import Config
@@ -201,7 +202,6 @@ def get_formatted_points(raw_points, config, start_pos=None):
     return emitters
 
 
-
 def get_ji_rmse_nn(config, predictions, targets):
     predictions[:, [0, 6]] = nn.Sigmoid()(predictions[:, [0, 6]])
     formatted_predictions = get_formatted_points(predictions, config)
@@ -210,12 +210,13 @@ def get_ji_rmse_nn(config, predictions, targets):
     ji, rmse, efficiency = get_ji_rmse_efficiency(formatted_predictions, formatted_targets)
     return ji, rmse, efficiency
 
-def get_ji_rmse_efficiency(predicted_points, gt_points, radius=10):
+
+def get_ji_rmse_efficiency(predicted_points: Tensor, gt_points: Tensor, radius=10):
 
     if not len(predicted_points) or not len(gt_points):
         return 0., 0., 0.
-    predicted_points = torch.tensor(predicted_points)
-    gt_points = torch.tensor(gt_points)
+    # predicted_points = torch.Tensor(predicted_points)
+    # gt_points = torch.Tensor(gt_points)
     true_positive = 0
     distances_from_points = []
     for frame_number in torch.unique(gt_points[:, 0]):
@@ -263,6 +264,7 @@ def metrics_for_image_superresolution(config, epoch):
         }
         if epoch >= config.JI_metrics_from_epoch:
             return_metrics['JI_16'] = get_ji_by_points(2, config)(predictions, targets)
+        return return_metrics
     return metrics
 
 
