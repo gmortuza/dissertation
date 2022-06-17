@@ -23,8 +23,15 @@ SCALE = 16.0
 def pad_on_single_patch(patch: torch.Tensor, config: Config) -> torch.Tensor:
     width_padding = config.extracted_patch_size - patch.shape[1]
     height_padding = config.extracted_patch_size - patch.shape[0]
-    left_padding = random.randint(0, width_padding)
-    top_padding = random.randint(0, height_padding)
+    if width_padding < 0:
+       left_padding = width_padding // 2
+    else:
+        left_padding = random.randint(0, width_padding)
+
+    if height_padding < 0:
+        top_padding = height_padding // 2
+    else:
+        top_padding = random.randint(0, height_padding)
     pad = (left_padding, width_padding - left_padding, top_padding, height_padding - top_padding)
     patch = F.pad(patch, pad, mode='constant', value=0)
     return patch, pad

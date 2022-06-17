@@ -18,6 +18,7 @@ import torch.nn.functional as F
 import cv2
 from extract_location import picasso_localize
 import time
+import extract_points_nn
 
 SINGLE_EMITTER_WIDTH = 20
 SINGLE_EMITTER_HEIGHT = 20
@@ -35,40 +36,7 @@ def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offse
     return g.ravel()
 
 
-def get_ji_rmse_efficiency(predicted_points, gt_points, radius=JACCARD_INDEX_RADIUS):
 
-    if not len(predicted_points) or not len(gt_points):
-        return 0., 0., 0.
-    # predicted_points = np.asarray(predicted_points)
-    # gt_points = np.asarray(gt_points)
-    true_positive = 0
-    distances_from_points = []
-    pdist = nn.PairwiseDistance(p=2)
-    for frame_number in torch.unique(gt_points[:, 0]):
-        f_predicted_points = predicted_points[predicted_points[:, 0] == frame_number][:, [1, 2]]
-        f_gt_points = gt_points[gt_points[:, 0] == frame_number][:, [1, 2]]
-        # Get pairwise distance
-        if len(f_predicted_points) and len(f_gt_points):
-            distances = pairwise_distances(f_predicted_points.cpu().detach(), f_gt_points.cpu())
-            rec_ind, gt_ind = linear_sum_assignment(distances)
-            assigned_distance = distances[rec_ind, gt_ind]
-            true_positive += np.sum(assigned_distance <= radius)
-            # Calculate the RMSE
-            distances_from_points.extend(assigned_distance[assigned_distance <= radius].tolist())
-            # distances_from_points = np.append(distances_from_points, assigned_distance)
-    rmse = 0
-    if len(distances_from_points) > 0:
-        distances_from_points = np.asarray(distances_from_points)
-        rmse = np.sqrt(np.sum(distances_from_points ** 2) / len(distances_from_points))
-    ji = true_positive * 100 / (len(predicted_points) + len(gt_points) - true_positive)
-    efficiency = get_efficiency(ji, rmse)
-    return ji, rmse, efficiency
-
-
-def get_efficiency(jaccard_index, rmse, alpha=1.0):
-    # https://www.nature.com/articles/s41592-019-0364-4/
-    return 100 - ((100 - jaccard_index) ** 2 + (alpha ** 2 * rmse ** 2)) ** .5
-    # return (100 - ((100 * (100 - jaccard_index)) ** 2 + alpha ** 2 * rmse ** 2) ** 0.5) / 100
 
 
 def fit_psf_using_mle(patch, x_initial, y_initial):
@@ -85,7 +53,7 @@ def fit_psf_using_mle(patch, x_initial, y_initial):
 
 def get_points(frame, frame_number, config, method='scipy'):
     if method == 'picasso':
-        return get_point_picasso(frame, frame_number, config)
+        return get_point_picasso(frame, frame_number, config)[1]
     elif method == 'weighted_mean':
         return get_point_weighted_mean(frame, frame_number, config)[1]
     elif method == 'scipy':
@@ -155,7 +123,7 @@ def get_point_picasso(frame, frame_number, config) -> list:
         y = label[2] * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
         photon = label[3]
         formatted_labels.append([frame_number, y, x, 0, 0, photon])
-    return formatted_labels
+    return None, formatted_labels
 
 
 def get_point_weighted_mean(frame, frame_number, config) -> list:
@@ -220,53 +188,14 @@ def get_point_scipy(frame, frame_number, config) -> list:
     return patches, points
 
 
+def get_point_nn(frames, frame_numbers, config: Config) -> list:
+    patches, start_position = extract_points_nn.format_point_from_batch(frames, config, frame_numbers)
+    formatted_output = extract_points_nn.get_accuracy_from_inputs(patches, start_position, config)
+    return formatted_output
+
+
 def main():
-    predicted_points_picasso = []
-    predicted_points_weighted_mean = []
-    predicted_points_scipy = []
-    # track time
-    picasso_time = 0
-    scipy_time = 0
-    weighted_mean_time = 0
-    gt_points = []
-    gts = []
-    config_ = Config("config.yaml")
-    config_.output_threshold = 0
-    for frame_number in range(100):
-        f_name = f"simulated_data_multi/validation/db_{frame_number}.pl"
-        with open(f_name, 'rb') as handle:
-            x, y = pickle.load(handle)
-        y_gt, frame = y[-1], y[-3]
-        gts.append(F.pad(y_gt, (0, 0, 0, 30 - y_gt.shape[0])))
-        now = time.time()
-        predicted_point_picasso = get_point_picasso(frame, frame_number, config_)
-        picasso_time += time.time() - now
-        now = time.time()
-        _, predicted_point_weighted_mean = get_point_weighted_mean(frame, frame_number, config_)
-        weighted_mean_time += time.time() - now
-        now = time.time()
-        _, predicted_point_scipy = get_point_scipy(frame, frame_number, config_)
-        scipy_time += time.time() - now
-        gt_point = get_points_from_gt(y_gt, config_)
-        predicted_points_picasso.extend(predicted_point_picasso)
-        predicted_points_weighted_mean.extend(predicted_point_weighted_mean)
-        predicted_points_scipy.extend(predicted_point_scipy)
-        gt_points.extend(gt_point)
-
-    # print results for picasso
-    print("=="*10, " Picasso (", round(picasso_time, 2), 'second)', "=="*10)
-    picasso_ji, picasso_rmse, picasso_efficiency = get_ji_rmse_efficiency(predicted_points_picasso, gt_points)
-    print(f"JI: {picasso_ji}\t, RMSE: {picasso_rmse}\t, Efficiency: {picasso_efficiency}")
-
-    # print results for weighted mean
-    print("=="*10, " Weighted Mean (", round(weighted_mean_time, 2), 'second)', "=="*10)
-    weighted_mean_ji, weighted_mean_rmse, weighted_mean_efficiency = get_ji_rmse_efficiency(predicted_points_weighted_mean, gt_points)
-    print(f"JI: {weighted_mean_ji}\t, RMSE: {weighted_mean_rmse}\t, Efficiency: {weighted_mean_efficiency}")
-
-    # print results for scipy
-    print("=="*10, " Scipy (", round(scipy_time, 2), 'second)', "=="*10)
-    scipy_ji, scipy_rmse, scipy_efficiency = get_ji_rmse_efficiency(predicted_points_scipy, gt_points)
-    print(f"JI: {scipy_ji}\t, RMSE: {scipy_rmse}\t, Efficiency: {scipy_efficiency}")
+    pass
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch import Tensor
 from torch.optim import Adam
 
-import extract_points
+import point_extractor
 import utils
 from extract_location.generate_labels import pad_on_single_patch
 from extract_location.model import ExtractLocationModel
@@ -85,7 +85,7 @@ def get_formatted_data(config: Config):
             frame, gt = frames[4], frames[6]
             # perform connected component analysis
             frame_number = int(file_name.split('/')[-1].split('.')[0].split('_')[-1])
-            gt_point = extract_points.get_points_from_gt(gt, config_)
+            gt_point = point_extractor.get_points_from_gt(gt, config_)
             patches, start_positions = get_patches_from_frame(frame, frame_number, config_)
             gt_points.extend(gt_point)
 
@@ -95,16 +95,17 @@ def get_formatted_data(config: Config):
     return formatted_inputs, start_positions_of_inputs, gt_points, cc_points
 
 
-def format_poit_from_batch(batch: torch.Tensor, config: Config, frame_numbers: List[int]=None):
+def format_point_from_batch(batch: torch.Tensor, config: Config, frame_numbers: List[int] = None):
     if frame_numbers is None:
-        frame_number = torch.tensor(torch.arange(0, batch.shape[0]))
+        frame_numbers = torch.tensor(torch.arange(0, batch.shape[0]))
     patches, start_positions = [], []
     for frame_number, frame in zip(frame_numbers, batch):
         patch, start_position = get_patches_from_frame(frame, frame_number, config)
         patches.extend(patch)
         start_positions.extend(start_position)
-    inputs = torch.stack(start_position).to(config.device)
+    inputs = torch.stack(patches).to(config.device)
     return inputs, start_positions
+
 
 def get_accuracy_from_inputs(inputs: torch.Tensor, start_positions: List[List], config: Config):
     model = ExtractLocationModel(config).to(config.device)
@@ -128,8 +129,8 @@ def main(config):
     outputs[:, [0, 6]] = nn.Sigmoid()(outputs[:, [0, 6]])
     formatted_output = metrics.get_formatted_points(outputs, config, start_pos_of_inputs)
     gt_points = torch.tensor(gt_points, device=config.device)
-    nn_ji, nn_rmse, nn_efficiency = extract_points.get_ji_rmse_efficiency(formatted_output, gt_points)
-    cc_ji, cc_rmse, cc_efficiency = extract_points.get_ji_rmse_efficiency(cc_points, gt_points)
+    nn_ji, nn_rmse, nn_efficiency = point_extractor.get_ji_rmse_efficiency(formatted_output, gt_points)
+    cc_ji, cc_rmse, cc_efficiency = point_extractor.get_ji_rmse_efficiency(cc_points, gt_points)
     print(f"NN ji: {nn_ji} \t nn rmse: {nn_rmse} \t efficiency: {nn_efficiency}")
     print(f"CC ji: {cc_ji} \t cc rmse: {cc_rmse} \t efficiency: {cc_efficiency}")
 

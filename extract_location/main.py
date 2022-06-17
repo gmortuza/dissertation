@@ -12,20 +12,13 @@ from validation import validation
 from metrics.metrics import get_metrics
 from extract_location.loss import Loss
 from extract_location.model import ExtractLocationModel
+
 from read_config import Config
 from extract_location.data_loader import fetch_data_loader
 import utils
 
 
-def set_seed(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    # torch.use_deterministic_algorithms(False)
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(seed)
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
+
 
 
 def main(config: Config):
@@ -50,6 +43,7 @@ def main(config: Config):
         # scheduler.step(val_metrics['loss'])
         config.neptune['epoch/lr'].log(optimizer.param_groups[0]['lr'])
 
+
         best_val_acc = utils.save_checkpoint({'epoch': epoch,
                                               'state_dict': model.state_dict(),
                                               'optim_dict': optimizer.state_dict()},
@@ -66,5 +60,5 @@ if __name__ == '__main__':
     from_borah = True if len(sys.argv) > 1 else False
     config_ = Config("config.yaml", from_borah)
     if config_.use_seed:
-        set_seed(1)
+        utils.set_seed(1)
     main(config_)

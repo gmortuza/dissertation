@@ -2,7 +2,8 @@ import torch
 from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment
 from read_config import Config
-import extract_points
+import numpy as np
+from extract_location import point_extractor
 import torch.nn as nn
 
 
@@ -145,13 +146,13 @@ def get_ji_by_points(level, config):
         for frame_number, frame in zip(frames, predictions):
             frame_target = targets[targets[:, 0, 0] == frame_number][0]
             frame_target = frame_target[frame_target[:, 0] == frame_number]
-            predicted_point = extract_points.get_points(frame, frame_number, config)
-            gt_point = extract_points.get_points_from_gt(frame_target, config)
+            predicted_point = point_extractor.get_points(frame, frame_number, config)
+            gt_point = point_extractor.get_points_from_gt(frame_target, config)
             if len(predicted_point):
                 predicted_points.extend(predicted_point)
             if len(gt_point):
                 gt_points.extend(gt_point)
-        jaccard_index, rmse = extract_points.get_ji_rmse(predicted_points, gt_points, 5)
+        jaccard_index, rmse = point_extractor.get_ji_rmse(predicted_points, gt_points, 5)
         return jaccard_index
 
     return ji
@@ -206,8 +207,42 @@ def get_ji_rmse_nn(config, predictions, targets):
     formatted_predictions = get_formatted_points(predictions, config)
     formatted_targets = get_formatted_points(targets, config)
 
-    ji, rmse, efficiency = extract_points.get_ji_rmse_efficiency(formatted_predictions, formatted_targets)
+    ji, rmse, efficiency = get_ji_rmse_efficiency(formatted_predictions, formatted_targets)
     return ji, rmse, efficiency
+
+def get_ji_rmse_efficiency(predicted_points, gt_points, radius=10):
+
+    if not len(predicted_points) or not len(gt_points):
+        return 0., 0., 0.
+    predicted_points = torch.tensor(predicted_points)
+    gt_points = torch.tensor(gt_points)
+    true_positive = 0
+    distances_from_points = []
+    for frame_number in torch.unique(gt_points[:, 0]):
+        f_predicted_points = predicted_points[predicted_points[:, 0] == frame_number][:, [1, 2]]
+        f_gt_points = gt_points[gt_points[:, 0] == frame_number][:, [1, 2]]
+        # Get pairwise distance
+        if len(f_predicted_points) and len(f_gt_points):
+            distances = pairwise_distances(f_predicted_points.cpu().detach(), f_gt_points.cpu())
+            rec_ind, gt_ind = linear_sum_assignment(distances)
+            assigned_distance = distances[rec_ind, gt_ind]
+            true_positive += np.sum(assigned_distance <= radius)
+            # Calculate the RMSE
+            distances_from_points.extend(assigned_distance[assigned_distance <= radius].tolist())
+            # distances_from_points = np.append(distances_from_points, assigned_distance)
+    rmse = 0
+    if len(distances_from_points) > 0:
+        distances_from_points = np.asarray(distances_from_points)
+        rmse = np.sqrt(np.sum(distances_from_points ** 2) / len(distances_from_points))
+    ji = true_positive * 100 / (len(predicted_points) + len(gt_points) - true_positive)
+    efficiency = get_efficiency(ji, rmse)
+    return ji, rmse, efficiency
+
+
+def get_efficiency(jaccard_index, rmse, alpha=1.0):
+    # https://www.nature.com/articles/s41592-019-0364-4/
+    return 100 - ((100 - jaccard_index) ** 2 + (alpha ** 2 * rmse ** 2)) ** .5
+    # return (100 - ((100 * (100 - jaccard_index)) ** 2 + alpha ** 2 * rmse ** 2) ** 0.5) / 100
 
 def metrics_for_points_extraction(config):
     def metrics(predictions, targets):
