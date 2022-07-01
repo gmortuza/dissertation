@@ -98,22 +98,6 @@ def get_jaccard_index(config):
     return jaccard_index
 
 
-def get_ji_by_threshold(prediction, target):
-    p_intensity, p_location, threshold = prediction
-    p_intensity[p_intensity < threshold.unsqueeze(1).unsqueeze(1)] = 0.
-    prediction_points = torch.nonzero(p_intensity)[:, [0, 2, 3]]
-    target_points = torch.nonzero(target)[:, [0, 2, 3]]
-    total_true_positive = 0
-    for i in torch.unique(prediction_points[:, 0]):
-        frame_prediction_point = prediction_points[prediction_points[:, 0] == i].tolist()
-        frame_prediction_point = set(map(tuple, frame_prediction_point))
-        frame_target_point = target_points[target_points[:, 0] == i].tolist()
-        frame_target_point = set(map(tuple, frame_target_point))
-        total_true_positive += len(frame_target_point.intersection(frame_prediction_point))
-
-    return total_true_positive / (prediction_points.shape[0] + target_points.shape[0] - total_true_positive)
-
-
 def get_psnr(level):
     def psnr(predictions, targets):
         mse = torch.mean((predictions[level] - targets[level]) ** 2)
@@ -125,16 +109,6 @@ def get_psnr(level):
 
 def get_SSIM(prediction, target):
     pass
-
-
-def get_ji_by_loc(level):
-    def ji(predictions, targets):
-        prediction = (predictions[1][level] > 0.5).to(torch.uint8)
-        prediction = set(map(tuple, torch.nonzero(prediction)))
-        target = set(map(tuple, torch.nonzero(targets[level])))
-        return len(prediction.intersection(target)) * 100 / len(prediction.union(target))
-
-    return ji
 
 
 def get_ji_rmse_efficiency_from_predictions(level, config):
@@ -153,65 +127,22 @@ def get_ji_rmse_efficiency_from_predictions(level, config):
                 predicted_points.extend(predicted_point)
             if len(gt_point):
                 gt_points.extend(gt_point)
-        jaccard_index, rmse, efficiency = get_ji_rmse_efficiency(torch.tensor(predicted_points), torch.tensor(gt_points))
+        jaccard_index, rmse, efficiency = get_ji_rmse_efficiency_from_formatted_points(torch.tensor(predicted_points), torch.tensor(gt_points))
         return jaccard_index, rmse, efficiency
 
     return ji_rmse_efficiency
 
 
-def get_formatted_points(raw_points, config, start_pos=None):
-    """
-    The take the output of the neural network and format to measure the accuracy
-    [p_c_1, x_1, y_1, s_x_1, s_y_1, photon_1, p_c_2, x_2, y_2, s_x_2, s_y_2, photon_2] -->
-    [[frame_number, x_1, y_1, s_x_1, s_y_1, photon_1], [frame_number, x_2, y_2, s_x_2, s_y_2, photon_2]]
-    Args:
-        raw_points --> Outputs from the neural network
-        config --> configuration file
-        start_pos --> start position for each of the patch file. if not provided then start pos will be zeros
-                -- [frame number, x_start, y_start]
-
-    Returns:
-    """
-    if start_pos is None:  # it's during the training procedure
-        start_position = torch.zeros((raw_points.shape[0], 3), device=raw_points.device)
-        # convert the frame number using the batch size
-        start_position[:, 0] = torch.as_tensor(torch.arange(0, raw_points.shape[0]), device=raw_points.device)
-    else:  # it's during the inference
-        start_position = torch.tensor(start_pos, device=raw_points.device)
-    # attach frame number and start position of that patch to the output
-    raw_points_frame_start = torch.cat((start_position, raw_points), dim=1)
-    # convert the start position into nanometer
-    # raw_points_frame_start[:, [1, 2]] *= config.Camera_Pixelsize
-    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.extracted_patch_size / config.location_multiplier
-    raw_points_frame_start[:, [4, 5, 10, 11]] += raw_points_frame_start[:, [1, 2, 1, 2]]
-    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
-
-    # extract points for first emitter
-    first_emitter_loc = torch.where((raw_points_frame_start[:, 3] > .999))[0]
-    first_emitter = raw_points_frame_start[first_emitter_loc, :]
-    first_emitter = first_emitter[:, [0, 4, 5, 6, 7, 8]]
-
-    # extract points for second emitters
-    # second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .9) & (raw_points_frame_start[:, 12] > .001))[0]
-    second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .95))[0]
-    second_emitter = raw_points_frame_start[second_emitter_loc, :]
-    second_emitter = second_emitter[:, [0, 10 ,11, 12, 13, 14]]
-
-    # combine two emitters
-    emitters = torch.cat((first_emitter, second_emitter), dim=0)
-    return emitters
-
-
 def get_ji_rmse_nn(config, predictions, targets):
     predictions[:, [0, 6]] = nn.Sigmoid()(predictions[:, [0, 6]])
-    formatted_predictions = get_formatted_points(predictions, config)
-    formatted_targets = get_formatted_points(targets, config)
+    formatted_predictions = point_extractor.get_formatted_points(predictions, config)
+    formatted_targets = point_extractor.get_formatted_points(targets, config)
 
-    ji, rmse, efficiency = get_ji_rmse_efficiency(formatted_predictions, formatted_targets)
+    ji, rmse, efficiency = get_ji_rmse_efficiency_from_formatted_points(formatted_predictions, formatted_targets)
     return ji, rmse, efficiency
 
 
-def get_ji_rmse_efficiency(predicted_points: Tensor, gt_points: Tensor, radius=10):
+def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_points: Tensor, radius=10):
 
     if not len(predicted_points) or not len(gt_points):
         return 0., 0., 0.
@@ -245,6 +176,7 @@ def get_efficiency(jaccard_index, rmse, alpha=1.0):
     return 100 - ((100 - jaccard_index) ** 2 + (alpha ** 2 * rmse ** 2)) ** .5
     # return (100 - ((100 * (100 - jaccard_index)) ** 2 + alpha ** 2 * rmse ** 2) ** 0.5) / 100
 
+
 def metrics_for_points_extraction(config):
     def metrics(predictions, targets):
         ji, rmse, efficiency = get_ji_rmse_nn(config, predictions, targets)
@@ -254,6 +186,7 @@ def metrics_for_points_extraction(config):
             'Efficiency': efficiency
         }
     return metrics
+
 
 def metrics_for_image_superresolution(config, epoch):
     def metrics(predictions, targets):
