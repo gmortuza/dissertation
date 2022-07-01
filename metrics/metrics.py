@@ -2,13 +2,9 @@ import torch
 from torch import Tensor
 from sklearn.metrics import pairwise_distances
 from scipy.optimize import linear_sum_assignment
-from read_config import Config
 import numpy as np
 from extract_location import point_extractor
 import torch.nn as nn
-
-
-# config = Config("config.yaml")
 
 
 def get_r2_score(prediction, target):
