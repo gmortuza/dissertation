@@ -30,45 +30,29 @@ class Custom(nn.Module):
             # nn.ReLU(inplace=True)
         )
         self.model_2 = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=4),
-            nn.PixelShuffle(2),
+            UNet(self.config, in_channel=2, out_channel=16),
+            nn.PixelShuffle(4),
             # nn.ConvTranspose2d(32, 32, kernel_size=4, stride=2, bias=True),
             # nn.Conv2d(32, 16, kernel_size=5, padding=1, stride=1, bias=True),
             # nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2, bias=True),
             # nn.Conv2d(16, 1, kernel_size=5, padding=1, stride=1, bias=True),
             # nn.ReLU(inplace=True)
         )
-        self.model_3 = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=4),
-            nn.PixelShuffle(2)
-        )
+        # self.model_3 = nn.Sequential(
+        #     UNet(self.config, in_channel=2, out_channel=4),
+        #     nn.PixelShuffle(2)
+        # )
 
     # for validations we will use the previous output rather than the labels so we put default epochs value higher
     def forward(self, x: Tensor, y, epochs=100) -> Tensor:
         outputs = []
-        # for idx in range(2):
-        #     inputs = torch.cat([x[idx], output], dim=1)
-        #     output = self.model_1(inputs)
-        #     outputs.append(output)
-        # resoltuion 32 --> 128
+        # resolution 32 --> 128
         output = self.model_1(x[0])
         outputs.append(output)
 
-        # resolution 128 --> 156
-        if epochs > 5:
-            inputs = torch.cat([x[1], output], dim=1)
-        else:
-            inputs = torch.cat([x[1], y[0]], dim=1)
+        # resolution 128 --> 512
+        inputs = torch.cat((x[1], output), dim=1)
         output = self.model_2(inputs)
-        outputs.append(output)
-
-        # resolution 256 --> 512
-        if epochs > 5:
-            inputs = torch.cat([x[2], output], dim=1)
-        else:
-            inputs = torch.cat([x[2], y[1]], dim=1)
-        output = self.model_3(inputs)
-
         outputs.append(output)
 
         return outputs
