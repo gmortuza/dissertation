@@ -88,7 +88,8 @@ class GenerateData:
 
         single_frame_distributed_photon = map(photon_distributor, range(self.num_of_binding_site))
 
-        for site_id, photon in tqdm(single_frame_distributed_photon, desc="Distributing photons", total=self.num_of_binding_site, disable=self.config.progress_bar_disable):
+        for site_id, photon in tqdm(single_frame_distributed_photon, desc="Distributing photons",
+                                    total=self.num_of_binding_site, disable=self.config.progress_bar_disable):
             self.distributed_photon[site_id] = photon
 
     # @show_execution_time

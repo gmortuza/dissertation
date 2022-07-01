@@ -24,6 +24,7 @@ SINGLE_EMITTER_WIDTH = 20
 SINGLE_EMITTER_HEIGHT = 20
 JACCARD_INDEX_RADIUS = 10
 
+
 def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
     (x, y) = xdata_tuple
     xo = float(xo)
@@ -34,9 +35,6 @@ def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offse
     g = offset + amplitude * np.exp(- (a * ((x - xo) ** 2) + 2 * b * (x - xo) * (y - yo)
                                        + c * ((y - yo) ** 2)))
     return g.ravel()
-
-
-
 
 
 def fit_psf_using_mle(patch, x_initial, y_initial):
@@ -51,13 +49,15 @@ def fit_psf_using_mle(patch, x_initial, y_initial):
     return popt
 
 
-def get_points(frame, frame_number, config, method='scipy'):
+def get_points(frame, config, frame_number=None, method='scipy'):
     if method == 'picasso':
-        return get_point_picasso(frame, frame_number, config)[1]
+        return get_point_picasso(frame, config, frame_number)[1]
     elif method == 'weighted_mean':
-        return get_point_weighted_mean(frame, frame_number, config)[1]
+        return get_point_weighted_mean(frame, config, frame_number)[1]
     elif method == 'scipy':
-        return get_point_scipy(frame, frame_number, config)[1]
+        return get_point_scipy(frame, config, frame_number)[1]
+    elif method == 'nn':
+        return get_point_nn(frame, config, frame_number)[1]
     else:
         raise NotImplementedError('Method', method, 'not supported')
 
@@ -102,7 +102,7 @@ def generate_labels(frame, frame_number, y_gt):
     return patches, gts
 
 
-def get_point_picasso(frame, frame_number, config) -> list:
+def get_point_picasso(frame, config, frame_number) -> list:
     info = {
         'baseline': 100,
         'sensitive': 1.0,
@@ -126,7 +126,7 @@ def get_point_picasso(frame, frame_number, config) -> list:
     return None, formatted_labels
 
 
-def get_point_weighted_mean(frame, frame_number, config) -> list:
+def get_point_weighted_mean(frame, config, frame_number) -> list:
     binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
     *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
     labels = torch.tensor(labels, device=frame.device)
@@ -153,7 +153,7 @@ def get_point_weighted_mean(frame, frame_number, config) -> list:
     return patches, points
 
 
-def get_point_scipy(frame, frame_number, config) -> list:
+def get_point_scipy(frame, config, frame_number) -> list:
     frame = frame.detach().cpu().numpy()
     binary_frame = (frame[0] > config.output_threshold).astype(np.int8)
     # binary_frame = (frame[0] > config.output_threshold).detach().cpu().numpy().astype(np.int8)
@@ -189,10 +189,10 @@ def get_point_scipy(frame, frame_number, config) -> list:
     return patches, points
 
 
-def get_point_nn(frames, frame_numbers, config: Config) -> list:
+def get_point_nn(frames, config,  frame_numbers) -> list:
     patches, start_position = point_extractor_nn.get_inputs_from_frames(frames, config, frame_numbers)
     formatted_output = point_extractor_nn.extract_points_from_inputs(patches, start_position, config)
-    return formatted_output
+    return None, formatted_output
 
 
 def main():

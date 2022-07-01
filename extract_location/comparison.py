@@ -11,10 +11,10 @@ def print_results(frames, frame_numbers, gt_points, method_name: str, method, co
     start_time = time.time()
     predicted_points = []
     if method_name == 'nn':
-        predicted_points = point_extractor.get_point_nn(frames, frame_numbers, config)
+        predicted_points = point_extractor.get_point_nn(frames, config, frame_numbers)
     else:
         for frame_number, frame in zip(frame_numbers, frames):
-            _, predicted_point = method(frame, frame_number, config)
+            _, predicted_point = method(frame, config, frame_number)
             predicted_points.extend(predicted_point)
     predicted_points = torch.tensor(predicted_points)
     gt_points = torch.tensor(gt_points)

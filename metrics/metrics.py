@@ -137,8 +137,8 @@ def get_ji_by_loc(level):
     return ji
 
 
-def get_ji_by_points(level, config):
-    def ji(predictions, targets):
+def get_ji_rmse_efficiency_from_predictions(level, config):
+    def ji_rmse_efficiency(predictions, targets):
         predictions = predictions[level]
         targets = targets[-1].cpu().numpy()
         frames = targets[:, 0, 0]
@@ -147,16 +147,16 @@ def get_ji_by_points(level, config):
         for frame_number, frame in zip(frames, predictions):
             frame_target = targets[targets[:, 0, 0] == frame_number][0]
             frame_target = frame_target[frame_target[:, 0] == frame_number]
-            predicted_point = point_extractor.get_points(frame, frame_number, config)
+            predicted_point = point_extractor.get_points(frame, config, frame_number, method='weighted_mean')
             gt_point = point_extractor.get_points_from_gt(frame_target, config)
             if len(predicted_point):
                 predicted_points.extend(predicted_point)
             if len(gt_point):
                 gt_points.extend(gt_point)
-        jaccard_index, rmse = point_extractor.get_ji_rmse(predicted_points, gt_points, 5)
-        return jaccard_index
+        jaccard_index, rmse, efficiency = get_ji_rmse_efficiency(torch.tensor(predicted_points), torch.tensor(gt_points))
+        return jaccard_index, rmse, efficiency
 
-    return ji
+    return ji_rmse_efficiency
 
 
 def get_formatted_points(raw_points, config, start_pos=None):
@@ -263,7 +263,11 @@ def metrics_for_image_superresolution(config, epoch):
             'cc_16': cross_correlation(2)(predictions, targets),
         }
         if epoch >= config.JI_metrics_from_epoch:
-            return_metrics['JI_16'] = get_ji_by_points(2, config)(predictions, targets)
+            ji, rmse, efficiency = get_ji_rmse_efficiency_from_predictions(2, config)(predictions, targets)
+            return_metrics['JI_16'] = ji
+            return_metrics['rmse_16'] = rmse
+            return_metrics['efficiency_16'] = efficiency
+
         return return_metrics
     return metrics
 

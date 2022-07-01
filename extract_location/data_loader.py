@@ -22,7 +22,7 @@ class ExtractPoints(Dataset):
         with open(file_name, "rb") as f:
             data, label = pickle.load(f)
             label = label.nan_to_num(0)
-        return data.unsqueeze(0), label
+        return data, label
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):

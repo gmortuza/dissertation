@@ -6,6 +6,9 @@ import time
 import neptune.new as neptune
 from datetime import datetime
 from git import Repo
+from extract_location.model import ExtractLocationModel
+import utils
+from torch.optim import Adam
 
 
 class Config:
@@ -37,6 +40,7 @@ class Config:
         # set logger
         self.logger = self.get_logger()
         self.verbose = 1 if self.log_level == 'info' else 0
+        self.point_extractor = self.prepare_point_extractor_nn_model()
         self.neptune = self._setup_neptune()
         self.logger.info("Finish reading the configuration file")
 
@@ -114,6 +118,18 @@ class Config:
         """Saves parameters to json file"""
         with open(json_path, 'w') as f:
             yaml.dump(self.__dict__, f, indent=4)
+
+    def prepare_point_extractor_nn_model(self):
+        model = None
+        if self.point_extraction_method == 'nn' and self.point_extractor_weight_path is not None:
+            model = ExtractLocationModel(self).to(self.device)
+            # optimizer = Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+            # load weights
+            if os.path.exists(self.point_extractor_weight_path):
+                checkpoint = torch.load(self.point_extractor_weight_path, map_location=self.device)
+                model.load_state_dict(checkpoint['state_dict'])
+        return model
+
 
     def update(self, config_file_path):
         with open(config_file_path) as f:

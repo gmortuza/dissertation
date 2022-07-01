@@ -11,6 +11,7 @@ import glob
 
 import pickle
 import torch
+from torch import Tensor
 import torch.nn.functional as F
 import random
 
@@ -129,6 +130,8 @@ def extract_label_from_single_frame(frame, gts):
     #                    [photon_count, std_x, std_y, x_mean, y_mean, x_start, y_start]
     return patches, patches_gt
 
+def get_patch_from_locations(frame: Tensor, location, config):
+    return frame[location[0]: location[0] + config.extracted_patch_size, location[1]: location[1] + config.extracted_patch_size]
 
 def extract_label_from_folder(folder, config):
     file_names = glob.glob(f"{folder}/data_*_gt.pl")
@@ -142,12 +145,29 @@ def extract_label_from_folder(folder, config):
         data = torch.load(file_name.replace('_gt', '_' + str(config.resolution_slap[-1])), map_location=config.device)
         # for each frame extract it's labels
         for frame_id, frame in enumerate(data, start=start):
+            # get previous frame
+            try:
+                previous_frame = data[frame_id - start - 1]
+            except IndexError:
+                previous_frame = torch.zeros_like(frame)
+            try:
+                next_frame = data[frame_id - start + 1]
+            except IndexError:
+                next_frame = data[frame_id - start - 1]
+
+            # Get next frame
             # get gt
             gt = gts[gts[:, 0] == frame_id]
             # normalize the frame between 0 and 1
             if frame.max() > 0:
                 frame = (frame - frame.min()) / (frame.max() - frame.min())
+            if previous_frame.max() > 0:
+                previous_frame = (previous_frame - previous_frame.min()) / (previous_frame.max() - frame.min())
+            if next_frame.max() > 0:
+                next_frame = (next_frame - next_frame.min()) / (next_frame.max() - frame.min())
             patch, location = extract_label_from_single_frame(frame, gt)
+            # previous_patches = get_patch_from_locations(previous_frame, gt)
+            # next_patches = get_patch_from_locations(next_frame, gt)
             # make all patches the same size
             for idx, (p, loc) in enumerate(zip(patch, location)):
                 max_ = max(max_, p.shape[0], p.shape[1])
@@ -162,8 +182,13 @@ def extract_label_from_folder(folder, config):
                 labels = []
                 # Add the first location points
                 # [photon_count, std_x, std_y, x_mean, y_mean, x_start, y_start]
-                x_per = (loc[0][4] - (loc[0][6] - pad[0])) / config.extracted_patch_size
-                y_per = (loc[0][3] - (loc[0][5] - pad[2])) / config.extracted_patch_size
+                x_start = loc[0][6] - pad[0]
+                y_start = loc[0][5] - pad[2]
+                x_per = (loc[0][4] - x_start) / config.extracted_patch_size
+                y_per = (loc[0][3] - y_start) / config.extracted_patch_size
+                # Get adjacent frame information
+                previous_patch = get_patch_from_locations(previous_frame, (y_start, x_start), config)
+                next_patch = get_patch_from_locations(next_frame, (y_start, x_start), config)
                 # total photon in the patch for this specific label
                 photons = total_photon_in_patch * loc[0][0] / total_photon_in_gt
                 labels.extend([1, y_per * config.location_multiplier, x_per * config.location_multiplier, photons,
@@ -184,6 +209,7 @@ def extract_label_from_folder(folder, config):
                 label = torch.Tensor(labels[:12])
 
                 file_name = os.path.join(save_folder, f"p_{frame_id}_{idx}.pl")
+                single_patch = torch.stack([previous_patch, single_patch, next_patch])
                 with open(file_name, 'wb') as f:
                     pickle.dump([single_patch, label], f)
     print(f"Max size is {max_}")
@@ -192,10 +218,8 @@ def extract_label_from_folder(folder, config):
 
 def main(config):
     # Read data
-    train_dir = os.path.join(config.input_dir, 'train')
-    val_dir = os.path.join(config.input_dir, 'validation')
-    extract_label_from_folder(train_dir, config)
-    extract_label_from_folder(val_dir, config)
+    extract_label_from_folder(config.train_dir, config)
+    extract_label_from_folder(config.val_dir, config)
     config.logger.info("Done generating labels")
     # Extract location
 

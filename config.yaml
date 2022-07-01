@@ -1,11 +1,11 @@
 # ================ Configuration for Model ===============
-output_dir: outputs_02_06_18_58_46
+output_dir: outputs___
 validation_split: .1
 test_split: .1
 batch_size: 32
 num_epochs: 10000
 learning_rate: 0.0001
-weight_decay: 0.0001
+weight_decay: 0.001
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: True
@@ -18,7 +18,7 @@ resolution_slap:
   - 256
   - 512
 save_model_based_on: JI_16
-JI_metrics_from_epoch: 1000
+JI_metrics_from_epoch: 1
 output_threshold: 0.001
 
 # ================ General settings ===============
@@ -35,6 +35,8 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # ================ Point extraction ===============
 location_multiplier: 100
 extracted_patch_size: 30
+point_extraction_method: 'nn'  # weighted_mean, scipy, picasso
+point_extractor_weight_path:  '/data/golam/dnam_nn/outputs_02_06_18_58_35/checkpoint/pointsbest.pth.tar' # path of the neural network weight for point extraction
 
 
 # ================ Camera Settings ===============
