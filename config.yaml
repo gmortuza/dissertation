@@ -117,7 +117,7 @@ PAINT_tau_b: 500.0  # Bright Time
 
 # ================ Neptune setup ===============
 neptune_name: "multi model"
-neptune_description: "Two model each increase by 4 times. L1 loss. Subpixel for upsampling. UNet--transpose conv"
+neptune_description: "three model. L1 loss. Subpixel for upsampling. UNet--transpose conv"
 neptune_project: "golammdmortuza/dnam-nn"
 neptune_api_key: "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ=="
 neptune_mode: 'debug'  # async / sync / offline / read-only / debug /
