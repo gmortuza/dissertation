@@ -22,29 +22,36 @@ class Custom(nn.Module):
         super(Custom, self).__init__()
         self.config = config
         self.model_1 = nn.Sequential(
-            UNet(self.config, in_channel=1, out_channel=4),
-            nn.PixelShuffle(2)
-            # nn.ConvTranspose2d(16, 8, kernel_size=8, stride=2),
-            # nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1, bias=True),
-            # nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1, bias=True),
-            # nn.ReLU(inplace=True)
+            UNet(self.config, in_channel=1, out_channel=64),
+            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.BatchNorm2d(64),
+            nn.PixelShuffle(2),
+            nn.PReLU(),
+            nn.Conv2d(16, 1, 9, 1, 4)
         )
         self.model_2 = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=4),
+            UNet(self.config, in_channel=2, out_channel=64),
+            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.BatchNorm2d(64),
             nn.PixelShuffle(2),
-            # nn.ConvTranspose2d(32, 32, kernel_size=4, stride=2, bias=True),
-            # nn.Conv2d(32, 16, kernel_size=5, padding=1, stride=1, bias=True),
-            # nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2, bias=True),
-            # nn.Conv2d(16, 1, kernel_size=5, padding=1, stride=1, bias=True),
-            # nn.ReLU(inplace=True)
+            nn.PReLU(),
+            nn.Conv2d(16, 1, 9, 1, 4)
         )
         self.model_3 = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=4),
-            nn.PixelShuffle(2)
+            UNet(self.config, in_channel=2, out_channel=64),
+            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.BatchNorm2d(64),
+            nn.PixelShuffle(2),
+            nn.PReLU(),
+            nn.Conv2d(16, 1, 9, 1, 4)
         )
         self.model_4 = nn.Sequential(
-            UNet(self.config, in_channel=2, out_channel=4),
-            nn.PixelShuffle(2)
+            UNet(self.config, in_channel=2, out_channel=64),
+            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.BatchNorm2d(64),
+            nn.PixelShuffle(2),
+            nn.PReLU(),
+            nn.Conv2d(16, 1, 9, 1, 4)
         )
 
     # for validations we will use the previous output rather than the labels so we put default epochs value higher
@@ -78,7 +85,7 @@ def test():
     # [32, 63, 125, 249]
     images = []
     # a = [32, 63, 125, 249, 497]
-    a = [32, 64, 128, 512]
+    a = [32, 64, 128, 256, 512]
     for image_size in a:
         image = torch.rand((8, 1, image_size, image_size))
         images.append(image)

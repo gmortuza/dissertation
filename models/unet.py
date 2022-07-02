@@ -11,11 +11,11 @@ class DoubleConv(nn.Module):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(out_channel),
-            nn.ReLU(inplace=True),
+            nn.BatchNorm2d(out_channel),
+            nn.PReLU(),
             nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(out_channel),
-            nn.ReLU(inplace=True)
+            nn.BatchNorm2d(out_channel),
+            nn.PReLU()
         )
 
     def forward(self, x):
