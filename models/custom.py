@@ -22,8 +22,8 @@ class Custom(nn.Module):
         super(Custom, self).__init__()
         self.config = config
         self.model_1 = nn.Sequential(
-            UNet(self.config, in_channel=1, out_channel=16),
-            nn.PixelShuffle(4)
+            UNet(self.config, in_channel=1, out_channel=4),
+            nn.PixelShuffle(2)
             # nn.ConvTranspose2d(16, 8, kernel_size=8, stride=2),
             # nn.Conv2d(8, 4, kernel_size=5, padding=0, stride=1, bias=True),
             # nn.Conv2d(4, 1, kernel_size=3, padding=0, stride=1, bias=True),
@@ -39,6 +39,10 @@ class Custom(nn.Module):
             # nn.ReLU(inplace=True)
         )
         self.model_3 = nn.Sequential(
+            UNet(self.config, in_channel=2, out_channel=4),
+            nn.PixelShuffle(2)
+        )
+        self.model_4 = nn.Sequential(
             UNet(self.config, in_channel=2, out_channel=4),
             nn.PixelShuffle(2)
         )
@@ -58,6 +62,11 @@ class Custom(nn.Module):
         # resolution 256 --> 512
         inputs = torch.cat((x[2], output), dim=1)
         output = self.model_3(inputs)
+        outputs.append(output)
+
+        #
+        inputs = torch.cat((x[3], output), dim=1)
+        output = self.model_4(inputs)
         outputs.append(output)
 
         return outputs

@@ -101,10 +101,10 @@ class SMLMDataset(Dataset):
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
         del x[4]
         # del x[3]
-        del x[1]
+        # del x[1]
         del y[5]
         # del y[3]
-        del y[1]
+        # del y[1]
         del y[0]
         for i in range(3):
             y[i] *= 255.0
