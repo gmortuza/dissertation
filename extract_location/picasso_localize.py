@@ -16,7 +16,7 @@ import threading as _threading
 from itertools import chain as _chain
 import matplotlib.pyplot as _plt
 import extract_location.gaussmle as _gaussmle
-from picasso import io as _io
+# from picasso import io as _io
 
 
 _C_FLOAT_POINTER = _ctypes.POINTER(_ctypes.c_float)
@@ -152,7 +152,8 @@ def identifications_from_futures(futures):
 
 def identify_async(movie, minimum_ng, box, roi=None):
     "Use the user settings to define the number of workers that are being used"
-    settings = _io.load_user_settings()
+    # settings = _io.load_user_settings()
+    settings = None
     try:
         cpu_utilization = settings["Localize"]["cpu_utilization"]
         if cpu_utilization >= 1:
@@ -163,8 +164,8 @@ def identify_async(movie, minimum_ng, box, roi=None):
             "An Error occured. Setting cpu_utilization to 0.8"
         )  # TODO at some point re-write this
         cpu_utilization = 0.8
-        settings["Localize"]["cpu_utilization"] = cpu_utilization
-        _io.save_user_settings(settings)
+        # settings["Localize"]["cpu_utilization"] = cpu_utilization
+        # _io.save_user_settings(settings)
 
     n_workers = max(1, int(cpu_utilization * _multiprocessing.cpu_count()))
 
