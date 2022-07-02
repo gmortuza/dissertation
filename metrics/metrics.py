@@ -188,11 +188,11 @@ def metrics_for_image_superresolution(config, epoch):
     def metrics(predictions, targets):
         return_metrics =  {
             'cc_4': cross_correlation(0)(predictions, targets),
-            # 'cc_8': cross_correlation(1)(predictions, targets),
-            'cc_16': cross_correlation(1)(predictions, targets),
+            'cc_8': cross_correlation(1)(predictions, targets),
+            'cc_16': cross_correlation(2)(predictions, targets),
         }
         if epoch >= config.JI_metrics_from_epoch:
-            ji, rmse, efficiency = get_ji_rmse_efficiency_from_predictions(1, config)(predictions, targets)
+            ji, rmse, efficiency = get_ji_rmse_efficiency_from_predictions(2, config)(predictions, targets)
             return_metrics['JI_16'] = ji
             return_metrics['rmse_16'] = rmse
             return_metrics['efficiency_16'] = efficiency

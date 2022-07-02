@@ -126,7 +126,6 @@ neptune_code_snapshot:
   - models/unet.py
   - data_loader.py
 neptune_tags:
-  - weight_decay
-  - multi_distribute
-  - weight_decay_value_0
-  - adamW
+  - three-model
+  - l1
+  - subpixel
