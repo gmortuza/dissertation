@@ -37,9 +37,9 @@ class UNet(nn.Module):
             in_channel = feature
 
         for feature in features[::-1]:
+            self.ups.append(DoubleConv(feature * 2, feature * 4))
             self.ups.append(nn.PixelShuffle(2))
             # self.ups.append(nn.ConvTranspose2d(feature * 2, feature, kernel_size=2, stride=2))
-            self.ups.append(DoubleConv(feature // 2, feature))
             self.ups.append(DoubleConv(feature * 2, feature))
 
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
