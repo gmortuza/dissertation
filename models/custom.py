@@ -62,12 +62,19 @@ class Custom(nn.Module):
         output = self.model_1(output)
         outputs.append(output)
 
+
         # resolution 128 --> 256
-        inputs = torch.cat((x[2], output), dim=1)
+        if epochs > 5:
+            inputs = torch.cat((x[2], output), dim=1)
+        else:
+            inputs = torch.cat((x[2], y[1]), dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
         #
-        inputs = torch.cat((x[3], output), dim=1)
+        if epochs > 5:
+            inputs = torch.cat((x[3], output), dim=1)
+        else:
+            inputs = torch.cat((x[3], y[2]), dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
 
