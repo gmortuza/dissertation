@@ -24,25 +24,15 @@ class Custom(nn.Module):
         self.model_1 = nn.Sequential(
             UNet(self.config, in_channel=1, out_channel=128),
             nn.Conv2d(128, 128, 3, 1, 1),
-            nn.BatchNorm2d(128),
-            nn.PixelShuffle(2),
             nn.PReLU(),
-            nn.Conv2d(32, 32, 3, 1, 1),
-            nn.BatchNorm2d(32),
-            nn.PixelShuffle(2),
-            nn.PReLU(),
+            nn.PixelShuffle(4),
             nn.Conv2d(8, 1, 9, 1, 4)
         )
         self.model_2 = nn.Sequential(
             UNet(self.config, in_channel=2, out_channel=128),
             nn.Conv2d(128, 128, 3, 1, 1),
-            nn.BatchNorm2d(128),
-            nn.PixelShuffle(2),
             nn.PReLU(),
-            nn.Conv2d(32, 32, 3, 1, 1),
-            nn.BatchNorm2d(32),
-            nn.PixelShuffle(2),
-            nn.PReLU(),
+            nn.PixelShuffle(4),
             nn.Conv2d(8, 1, 9, 1, 4)
         )
         # self.model_3 = nn.Sequential(

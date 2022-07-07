@@ -37,9 +37,7 @@ class UNet(nn.Module):
             in_channel = feature
 
         for feature in features[::-1]:
-            self.ups.append(DoubleConv(feature * 2, feature * 4))
-            self.ups.append(nn.PixelShuffle(2))
-            # self.ups.append(nn.ConvTranspose2d(feature * 2, feature, kernel_size=2, stride=2))
+            self.ups.append(nn.ConvTranspose2d(feature * 2, feature, kernel_size=2, stride=2))
             self.ups.append(DoubleConv(feature * 2, feature))
 
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
@@ -58,14 +56,14 @@ class UNet(nn.Module):
 
         x = self.bottleneck(x)
         skip_connections = skip_connections[::-1]
-        for idx in range(0, len(self.ups), 3):
+        for idx in range(0, len(self.ups), 2):
             x = self.ups[idx](x)
-            x = self.ups[idx+1](x)
-            skip_connection = skip_connections[idx // 3]
+            # x = self.ups[idx+1](x)
+            skip_connection = skip_connections[idx // 2]
             if x.shape != skip_connection.shape:
                 x = TF.resize(x, size=skip_connection.shape[2:])
             concat_skip = torch.cat((skip_connection, x), dim=1)
-            x = self.ups[idx + 2](concat_skip)
+            x = self.ups[idx + 1](concat_skip)
 
         # x = torch.flatten(x, 1)
         intensity = self.output(x)

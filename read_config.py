@@ -5,7 +5,7 @@ import torch
 import time
 import neptune.new as neptune
 from datetime import datetime
-# from git import Repo
+from git import Repo
 from extract_location.model import ExtractLocationModel
 
 
@@ -61,9 +61,9 @@ class Config:
         self.split_into = 20
         self.num_epochs = 100
 
-        # repo = Repo(os.path.dirname(os.path.abspath(__file__)))
-        # self.neptune_description = repo.head.reference.commit.message
-        # self.neptune_code_snapshot = [item.a_path for item in repo.index.diff(None)]
+        repo = Repo(os.path.dirname(os.path.abspath(__file__)))
+        self.neptune_description = repo.head.reference.commit.message
+        self.neptune_code_snapshot = [item.a_path for item in repo.index.diff(None)]
 
     def _additional_parameter(self):
         """
