@@ -25,15 +25,15 @@ class Custom(nn.Module):
             UNet(self.config, in_channel=1, out_channel=128),
             nn.Conv2d(128, 128, 3, 1, 1),
             nn.PReLU(),
-            nn.PixelShuffle(4),
-            nn.Conv2d(8, 1, 9, 1, 4)
+            nn.PixelShuffle(2),
+            nn.Conv2d(32, 1, 9, 1, 4)
         )
         self.model_2 = nn.Sequential(
             UNet(self.config, in_channel=2, out_channel=128),
             nn.Conv2d(128, 128, 3, 1, 1),
             nn.PReLU(),
-            nn.PixelShuffle(4),
-            nn.Conv2d(8, 1, 9, 1, 4)
+            nn.PixelShuffle(2),
+            nn.Conv2d(32, 1, 9, 1, 4)
         )
         # self.model_3 = nn.Sequential(
         #     UNet(self.config, in_channel=2, out_channel=64),
@@ -59,8 +59,15 @@ class Custom(nn.Module):
         output = self.model_1(x[0])
         outputs.append(output)
 
+        output = self.model_1(output)
+        outputs.append(output)
+
         # resolution 128 --> 256
-        inputs = torch.cat((x[1], output), dim=1)
+        inputs = torch.cat((x[2], output), dim=1)
+        output = self.model_2(inputs)
+        outputs.append(output)
+        #
+        inputs = torch.cat((x[3], output), dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
 
@@ -83,7 +90,7 @@ def test():
     # [32, 63, 125, 249]
     images = []
     # a = [32, 63, 125, 249, 497]
-    a = [32, 128, 512]
+    a = [32, 64, 128, 256, 512]
     for image_size in a:
         image = torch.rand((8, 1, image_size, image_size))
         images.append(image)
