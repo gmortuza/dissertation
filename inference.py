@@ -2,11 +2,13 @@ import argparse
 
 import h5py
 import numpy as np
+import os
 import torch
 from torch import optim
 import matplotlib.pyplot as plt
 
-import extract_points
+from extract_location import point_extractor
+from metrics import metrics
 import utils
 from data_loader import fetch_data_loader
 from read_config import Config
@@ -25,16 +27,19 @@ def read_args():
 
 def export_predictions(predictions, targets, config):
     targets = targets[-1].cpu().numpy()
-    frames = targets[:, 0, 0]
+    frames_numbers = targets[:, 0, 0]
     predicted_points = []
     gt_points = []
-    for frame_number, frame in zip(frames, predictions):
+    if config.point_extraction_method == 'nn':
+        predicted_points = point_extractor.get_points(predictions, config, frames_numbers, method='nn').tolist()
+    for frame_number, frame in zip(frames_numbers, predictions):
         frame_target = targets[targets[:, 0, 0] == frame_number][0]
         frame_target = frame_target[frame_target[:, 0] == frame_number]
-        predicted_point = extract_points.get_points(frame, frame_number, config)
-        gt_point = extract_points.get_points_from_gt(frame_target, config)
-        if len(predicted_point):
-            predicted_points.extend(predicted_point)
+        if config.point_extraction_method != 'nn':
+            predicted_point = point_extractor.get_points(frame, config, frame_number, method=config.point_extraction_method)
+            if len(predicted_point):
+                predicted_points.extend(predicted_point)
+        gt_point = point_extractor.get_points_from_gt(frame_target, config)
         if len(gt_point):
             gt_points.extend(gt_point)
     return predicted_points, gt_points
@@ -83,9 +88,11 @@ def main():
     model = get_model(config)
     # model will only be used for evaluation so no need for backpropagation
     model.eval()
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
-    # Restore model weights
-    _ = utils.load_checkpoint(model, config, optimizer)
+    if os.path.exists(config.upsample_weight_path):
+        checkpoint = torch.load(config.upsample_weight_path, map_location=config.device)
+        model.load_state_dict(checkpoint['state_dict'])
+    else:
+        raise FileNotFoundError("Upsample model weight not found")
     test_data_loader = fetch_data_loader(config, type_='test')
     output = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
     gt = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
@@ -94,17 +101,19 @@ def main():
     target_points = []
     for data_batch, gt_batch in tqdm(test_data_loader, total=len(test_data_loader)):
         data_batch = utils.convert_device(data_batch, config.device)
-        _, output_batch = model(data_batch, data_batch)
-        predicted_point, target_point = export_predictions(output_batch, gt_batch, config)
+        output_batch = model(data_batch, data_batch)
+        predicted_point, target_point = export_predictions(output_batch[-1], gt_batch, config)
         predicted_points.extend(predicted_point)
         target_points.extend(target_point)
         # output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)
-        gt += torch.squeeze(gt_batch[1].detach().to(config.device), axis=1).sum(axis=0)
+        gt += torch.squeeze(gt_batch[3].detach().to(config.device), axis=1).sum(axis=0)
     # TODO: extract points from each of these frames
     # save the final output image
     # save_points_for_picasso(predicted_points, config)
     # Get JI
-    jaccard_index, rmse = extract_points.get_ji_rmse(predicted_points, target_points, radius=10)
+    predicted_points = torch.tensor(predicted_points)
+    target_points = torch.tensor(target_points)
+    jaccard_index, rmse, efficiency = metrics.get_ji_rmse_efficiency_from_formatted_points(predicted_points, target_points, radius=10)
     print("Jaccard Index: ", jaccard_index)
     plt.rcParams['figure.dpi'] = 600
     plt.rcParams['savefig.dpi'] = 600

@@ -1,8 +1,8 @@
 # ================ Configuration for Model ===============
 output_dir: outputs___
 validation_split: .1
-test_split: .1
-batch_size: 32
+test_split: .4
+batch_size: 8
 num_epochs: 10000
 learning_rate: 0.0001
 weight_decay: 0.001
@@ -19,7 +19,7 @@ resolution_slap:
   - 512
 save_model_based_on: JI_16
 JI_metrics_from_epoch: 1
-output_threshold: 0.001
+output_threshold: .0001
 
 # ================ General settings ===============
 input_dir: simulated_data_multi  # This output directory will be the input directory of the model
@@ -35,8 +35,13 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # ================ Point extraction ===============
 location_multiplier: 100
 extracted_patch_size: 30
-point_extraction_method: 'nn'  # weighted_mean, scipy, picasso
-point_extractor_weight_path:  '/data/golam/dnam_nn/outputs_02_06_18_58_35/checkpoint/pointsbest.pth.tar' # path of the neural network weight for point extraction
+point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso
+
+# ================ Inferences ===============
+# weights path that will be used
+point_extractor_weight_path:  '/data/golam/dnam_nn/trained_weights/point_extractor_weight.tar'
+upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight.tar'
+
 
 
 # ================ Camera Settings ===============
@@ -44,8 +49,8 @@ point_extractor_weight_path:  '/data/golam/dnam_nn/outputs_02_06_18_58_35/checkp
 # Origami won't be present in the border regions
 frame_padding: 6
 Camera: Simulation
-total_frames: 40000  # Total Number of frames
-split_into: 4 # Total number of frames will be splitted into this amount of files
+total_frames: 10000  # Total Number of frames
+split_into: 2 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
@@ -98,7 +103,7 @@ noise_type: poisson
 # ================ Imager parameters ===============
 Imager_Constant Photonrate Std: 0  # Constant detection rate(select box)
 Imager_Laserpower: 1.5  # Power density (kwCm-2)
-Imager_PSF: 1.32  # point spread function (px)
+Imager_PSF: .82  # point spread function (px) # 1.32
 Imager_Photonbudget: 1500000.0  #
 Imager_Photonslope: 35  # Photon detection rate
 # From the file

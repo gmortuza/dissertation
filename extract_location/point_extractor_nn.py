@@ -104,15 +104,15 @@ def get_inputs_from_frames(frames: torch.Tensor, config: Config, frame_numbers: 
 
 def extract_points_from_inputs(inputs: torch.Tensor, start_positions: List[List], config: Config):
     if config.point_extractor is None:
-        point_extractor = ExtractLocationModel(config).to(config.device)
-        optimizer = Adam(point_extractor.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-        _ = utils.load_checkpoint(point_extractor, config, optimizer, 'points')
+        extractor_model = ExtractLocationModel(config).to(config.device)
+        optimizer = Adam(extractor_model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+        _ = utils.load_checkpoint(extractor_model, config, optimizer, 'points')
     else:
-        point_extractor = config.point_extractor
+        extractor_model = config.point_extractor
 
-    outputs = point_extractor(inputs)
+    outputs = extractor_model(inputs)
     outputs[:, [0, 6]] = nn.Sigmoid()(outputs[:, [0, 6]])
-    formatted_output = metrics.get_formatted_points(outputs, config, start_positions)
+    formatted_output = point_extractor.get_formatted_points(outputs, config, start_positions)
     return formatted_output
 
 
