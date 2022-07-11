@@ -103,7 +103,7 @@ noise_type: poisson
 # ================ Imager parameters ===============
 Imager_Constant Photonrate Std: 0  # Constant detection rate(select box)
 Imager_Laserpower: 1.5  # Power density (kwCm-2)
-Imager_PSF: .82  # point spread function (px) # 1.32
+Imager_PSF: 1.32  # point spread function (px) # 1.32
 Imager_Photonbudget: 1500000.0  #
 Imager_Photonslope: 35  # Photon detection rate
 # From the file
