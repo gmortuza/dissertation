@@ -10,7 +10,7 @@ from extract_location.model import ExtractLocationModel
 
 
 class Config:
-    """Class that loads hyper parameters from a json file.
+    """Class that loads hyperparameter from a json file.
     Example:
     ```
     params = Params(config_file_path)
@@ -26,7 +26,7 @@ class Config:
         self._additional_parameter()
 
         # Initially it will be false
-        # In the hyper parameter searching file it will be set to True
+        # In the hyperparameter searching file it will be set to True
         self.is_hyper_parameter_searching = False
         # This file is in the root directory of the project.
 
