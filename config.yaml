@@ -1,7 +1,7 @@
 # ================ Configuration for Model ===============
 output_dir: outputs___
 validation_split: .1
-test_split: .4
+test_split: .1
 batch_size: 8
 num_epochs: 10000
 learning_rate: 0.0001
@@ -22,10 +22,10 @@ JI_metrics_from_epoch: 1
 output_threshold: .0001
 
 # ================ General settings ===============
-input_dir: simulated_data_multi  # This output directory will be the input directory of the model
+input_dir: simulated_data_multi_15  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cuda:0
+device: cuda:1
 log_level: info  # info, debug, warning, error
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
@@ -35,12 +35,13 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 # ================ Point extraction ===============
 location_multiplier: 100
 extracted_patch_size: 30
-point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso
+multi_emitter_threshold: 140
 
 # ================ Inferences ===============
 # weights path that will be used
 point_extractor_weight_path:  '/data/golam/dnam_nn/trained_weights/point_extractor_weight.tar'
 upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight.tar'
+point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso
 
 
 
@@ -103,7 +104,7 @@ noise_type: poisson
 # ================ Imager parameters ===============
 Imager_Constant Photonrate Std: 0  # Constant detection rate(select box)
 Imager_Laserpower: 1.5  # Power density (kwCm-2)
-Imager_PSF: 1.32  # point spread function (px) # 1.32
+Imager_PSF: 1.0  # point spread function (px) # 1.32
 Imager_Photonbudget: 1500000.0  #
 Imager_Photonslope: 35  # Photon detection rate
 # From the file

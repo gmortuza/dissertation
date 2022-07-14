@@ -7,7 +7,7 @@ import neptune.new as neptune
 from datetime import datetime
 # from git import Repo
 from extract_location.model import ExtractLocationModel
-
+from models.get_model import get_model
 
 class Config:
     """Class that loads hyperparameter from a json file.
@@ -19,10 +19,12 @@ class Config:
     ```
     """
 
-    def __init__(self, config_file_path, from_borah=False):
+    def __init__(self, config_file_path, from_terminal=False, purpose="train_upsample"):
+        # The purpose of this run
+        self.purpose = purpose  # train_upsample, train_point_extraction, inferences, comparison
         self.update(config_file_path)
-        if from_borah:
-            self._run_from_borah()
+        if from_terminal:
+            self._run_from_terminal()
         self._additional_parameter()
 
         # Initially it will be false
@@ -38,11 +40,12 @@ class Config:
         # set logger
         self.logger = self.get_logger()
         self.verbose = 1 if self.log_level == 'info' else 0
-        self.point_extractor = self.prepare_point_extractor_nn_model()
         self.neptune = self._setup_neptune()
+        self.point_extractor = self.prepare_point_extractor_nn_model()
+        self.upsample_model = self.prepare_model_for_upsample()
         self.logger.info("Finish reading the configuration file")
 
-    def _run_from_borah(self):
+    def _run_from_terminal(self):
         # Override some configuration here
         # We want to track everything while running from borah
         self.log_level = 'error'  # disable console
@@ -121,13 +124,24 @@ class Config:
         model = None
         if self.point_extraction_method == 'nn' and self.point_extractor_weight_path is not None:
             model = ExtractLocationModel(self).to(self.device)
-            # optimizer = Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-            # load weights
             if os.path.exists(self.point_extractor_weight_path):
                 checkpoint = torch.load(self.point_extractor_weight_path, map_location=self.device)
                 model.load_state_dict(checkpoint['state_dict'])
+            else:
+                raise FileNotFoundError("point extraction: model weight not found")
         return model
 
+    def prepare_model_for_upsample(self):
+        model = None
+        if self.purpose == 'inference' and self.upsample_weight_path is not None:
+            model = get_model(self)
+            if os.path.exists(self.upsample_weight_path):
+                checkpoint = torch.load(self.upsample_weight_path, map_location=self.device)
+                model.load_state_dict(checkpoint['state_dict'])
+                model.eval()
+            else:
+                raise FileNotFoundError("upsample data: model weight not found")
+        return model
 
     def update(self, config_file_path):
         with open(config_file_path) as f:

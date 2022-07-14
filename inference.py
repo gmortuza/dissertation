@@ -20,6 +20,7 @@ def read_args():
     parser = argparse.ArgumentParser("Extract the result from a particular directory")
     parser.add_argument("-d", "--directory", help="Location of the directory", default="simulated_data/test")
     parser.add_argument("-c", "--config_file", help="Configuration file", default="config.yaml")
+    parser.add_argument("-t", "--terminal", help="This is running from terminal", action="store_true")
 
     args = parser.parse_args()
     return args
@@ -81,18 +82,9 @@ def save_points_for_picasso(points, config):
                   "w") as yaml_file:
             yaml_file.write(content_for_yaml_file)
 
-def main():
-    args = read_args()
-    config = Config(args.config_file)
+def main(config):
     # Get the model
-    model = get_model(config)
-    # model will only be used for evaluation so no need for backpropagation
-    model.eval()
-    if os.path.exists(config.upsample_weight_path):
-        checkpoint = torch.load(config.upsample_weight_path, map_location=config.device)
-        model.load_state_dict(checkpoint['state_dict'])
-    else:
-        raise FileNotFoundError("Upsample model weight not found")
+    model = config.upsample_model
     test_data_loader = fetch_data_loader(config, type_='test')
     output = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
     gt = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
@@ -124,7 +116,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    args = read_args()
+    config_ = Config(args.config_file, from_terminal=args.terminal, purpose='inference')
+    main(config_)
     # config = Config('config.yaml')
     # images_1 = generate_target_from_path('simulated_data/train/data_1_8000_gt.pl', config, target='images').squeeze(1).sum(axis=0)
     # images_2 = generate_target_from_path('simulated_data/train/data_8001_16000_gt.pl', config, target='images').squeeze(1).sum(axis=0)

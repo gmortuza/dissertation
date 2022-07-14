@@ -179,7 +179,7 @@ def get_point_weighted_mean(frame, config, frame_number) -> list:
     unique_label = labels.unique()
     for label_number in unique_label[1:]:
         x, y = torch.where(labels == label_number)
-        if len(x) < 10 or len(x) > 100:
+        if len(x) < 10 or len(x) > config.multi_emitter_threshold:
            continue
         weights = frame[0][x, y]
         x_mean = torch.sum(x * weights) / torch.sum(weights)

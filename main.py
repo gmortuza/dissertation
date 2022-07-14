@@ -60,6 +60,7 @@ def main(config: Config):
 if __name__ == '__main__':
     from_borah = True if len(sys.argv) > 1 else False
     config_ = Config("config.yaml", from_borah)
+    config_.purpose = "train_upsample"
     if config_.use_seed:
         set_seed(1)
     main(config_)

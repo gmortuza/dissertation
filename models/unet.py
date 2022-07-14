@@ -3,7 +3,6 @@ import torch.nn as nn
 import torchvision.transforms.functional as TF
 from torch.nn import functional as F
 
-from read_config import Config
 
 
 class DoubleConv(nn.Module):
@@ -74,6 +73,7 @@ class UNet(nn.Module):
 
 
 if __name__ == '__main__':
+    from read_config import Config
     config_ = Config("../config.yaml")
     image = torch.rand((32, 1, 32, 32))
     model = UNet(config_)
