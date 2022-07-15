@@ -1,5 +1,7 @@
 import sys
+
 sys.path.append("/data/golam/dnam_nn")
+from collections import defaultdict
 from read_config import Config
 import pickle
 import time
@@ -9,21 +11,26 @@ from metrics import metrics
 import os
 import torch
 
+
 def print_results(frames, frame_numbers, gt_points, method_name: str, method, config: Config):
     start_time = time.time()
     predicted_points = []
+    predicted_points_with_threhold = defaultdict(list)
     if method_name == 'nn':
         predicted_points = point_extractor.get_point_nn(frames, config, frame_numbers)
     else:
         for frame_number, frame in zip(frame_numbers, frames):
             _, predicted_point = method(frame, config, frame_number)
-            predicted_points.extend(predicted_point)
-    predicted_points = torch.tensor(predicted_points)
+            for threshold in predicted_point.keys():
+                predicted_points_with_threhold[threshold].extend(predicted_point[threshold])
+            # predicted_points.extend(predicted_point)
     gt_points = torch.tensor(gt_points)
-    ji, rmse, efficiency = metrics.get_ji_rmse_efficiency_from_formatted_points(predicted_points, gt_points)
-    total_time = time.time() - start_time
+    for threshold, prediction in predicted_points_with_threhold.items():
+        predicted_points = torch.tensor(prediction)
+        ji, rmse, efficiency = metrics.get_ji_rmse_efficiency_from_formatted_points(predicted_points, gt_points)
+    # total_time = time.time() - start_time
     # print("==" * 10, f" {method_name} (", round(total_time, 2), 'second)', "==" * 10)
-    print(f"{ji}\t{rmse}\t{efficiency}")
+        print(f"{threshold}\t{ji}\t{rmse}\t{efficiency}")
     # print(f"JI: {ji}\t, RMSE: {rmse}\t, Efficiency: {efficiency}")
 
 
@@ -33,7 +40,7 @@ def comparison(methods: list, config):
     frames = []
     frame_numbers = []
     # Read data
-    for frame_number in range(1000):
+    for frame_number in range(5000):
         f_name = os.path.join(config.train_dir, f"db_{frame_number}.pl")
         # f_name = f"simulated_data_multi/validation/db_{frame_number}.pl"
         with open(f_name, 'rb') as handle:
@@ -46,6 +53,7 @@ def comparison(methods: list, config):
     for method_name, method in methods.items():
         print_results(frames, frame_numbers, gt_points, method_name, method, config)
 
+
 if __name__ == '__main__':
     methods_ = {
         # 'nn': point_extractor.get_point_nn,
@@ -57,11 +65,9 @@ if __name__ == '__main__':
     config.output_threshold = 0
     file_names = ['08', '09', '1', '11', '12', '13', '14', '15']
     # for file in file_names:
-    config.input_dir = 'simulated_data_multi_' + file_names[0]
-    import sys
+    config.input_dir = 'simulated_data_multi_' + file_names[int(sys.argv[1])]
     sys.stdout = open(config.input_dir, 'w')
     print(config.input_dir)
-    for i in range(30, 250):
-        config.multi_emitter_threshold = i
-        comparison(methods_, config)
+    comparison(methods_, config)
     sys.stdout.close()
+

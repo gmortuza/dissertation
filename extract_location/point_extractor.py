@@ -9,6 +9,7 @@ the points can be extracted using the following methods:
 """
 import pickle
 import torch
+from collections import defaultdict
 
 from read_config import Config
 import numpy as np
@@ -50,7 +51,8 @@ def get_formatted_points(raw_points, config, start_pos=None):
     # raw_points_frame_start[:, [1, 2]] *= config.Camera_Pixelsize
     raw_points_frame_start[:, [4, 5, 10, 11]] *= config.extracted_patch_size / config.location_multiplier
     raw_points_frame_start[:, [4, 5, 10, 11]] += raw_points_frame_start[:, [1, 2, 1, 2]]
-    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
+    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.Camera_Pixelsize * config.resolution_slap[0] / \
+                                                 config.resolution_slap[-1]
 
     # extract points for first emitter
     first_emitter_loc = torch.where((raw_points_frame_start[:, 3] > .999))[0]
@@ -61,12 +63,11 @@ def get_formatted_points(raw_points, config, start_pos=None):
     # second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .9) & (raw_points_frame_start[:, 12] > .001))[0]
     second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .95))[0]
     second_emitter = raw_points_frame_start[second_emitter_loc, :]
-    second_emitter = second_emitter[:, [0, 10 ,11, 12, 13, 14]]
+    second_emitter = second_emitter[:, [0, 10, 11, 12, 13, 14]]
 
     # combine two emitters
     emitters = torch.cat((first_emitter, second_emitter), dim=0)
     return emitters
-
 
 
 def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
@@ -175,26 +176,27 @@ def get_point_weighted_mean(frame, config, frame_number) -> list:
     *_, labels = cv2.connectedComponents(binary_frame, connectivity=4)
     labels = torch.tensor(labels, device=frame.device)
     patches = []
-    points = []
+    points_with_threshold = defaultdict(list)
     unique_label = labels.unique()
     for label_number in unique_label[1:]:
         x, y = torch.where(labels == label_number)
-        if len(x) < 10 or len(x) > config.multi_emitter_threshold:
-           continue
-        weights = frame[0][x, y]
-        x_mean = torch.sum(x * weights) / torch.sum(weights)
-        y_mean = torch.sum(y * weights) / torch.sum(weights)
-        x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(
-            x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
-        y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(
-            y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
-        image_patch = frame[:, x_start: x_end, y_start: y_end]
-        patches.append(image_patch)
-        photon_count = torch.sum(image_patch)
-        x_nm = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-        y_nm = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-        points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_count)])
-    return patches, points
+        for i in range(150, 250):
+            if len(x) < 10 or len(x) > i:
+                continue
+            weights = frame[0][x, y]
+            x_mean = torch.sum(x * weights) / torch.sum(weights)
+            y_mean = torch.sum(y * weights) / torch.sum(weights)
+            x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(
+                x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
+            y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(
+                y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
+            image_patch = frame[:, x_start: x_end, y_start: y_end]
+            patches.append(image_patch)
+            photon_count = torch.sum(image_patch)
+            x_nm = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+            y_nm = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+            points_with_threshold[i].append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_count)])
+    return patches, points_with_threshold
 
 
 def get_point_scipy(frame, config, frame_number) -> list:
@@ -233,7 +235,7 @@ def get_point_scipy(frame, config, frame_number) -> list:
     return patches, points
 
 
-def get_point_nn(frames, config,  frame_numbers) -> list:
+def get_point_nn(frames, config, frame_numbers) -> list:
     patches, start_position = point_extractor_nn.get_inputs_from_frames(frames, config, frame_numbers)
     formatted_output = point_extractor_nn.extract_points_from_inputs(patches, start_position, config)
     return None, formatted_output
