@@ -50,7 +50,8 @@ def get_formatted_points(raw_points, config, start_pos=None):
     # raw_points_frame_start[:, [1, 2]] *= config.Camera_Pixelsize
     raw_points_frame_start[:, [4, 5, 10, 11]] *= config.extracted_patch_size / config.location_multiplier
     raw_points_frame_start[:, [4, 5, 10, 11]] += raw_points_frame_start[:, [1, 2, 1, 2]]
-    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.Camera_Pixelsize * config.resolution_slap[0] / config.resolution_slap[-1]
+    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.Camera_Pixelsize * config.resolution_slap[0] / \
+                                                 config.resolution_slap[-1]
 
     # extract points for first emitter
     first_emitter_loc = torch.where((raw_points_frame_start[:, 3] > .999))[0]
@@ -61,12 +62,11 @@ def get_formatted_points(raw_points, config, start_pos=None):
     # second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .9) & (raw_points_frame_start[:, 12] > .001))[0]
     second_emitter_loc = torch.where((raw_points_frame_start[:, 9] > .95))[0]
     second_emitter = raw_points_frame_start[second_emitter_loc, :]
-    second_emitter = second_emitter[:, [0, 10 ,11, 12, 13, 14]]
+    second_emitter = second_emitter[:, [0, 10, 11, 12, 13, 14]]
 
     # combine two emitters
     emitters = torch.cat((first_emitter, second_emitter), dim=0)
     return emitters
-
 
 
 def twoD_Gaussian(xdata_tuple, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
@@ -180,7 +180,7 @@ def get_point_weighted_mean(frame, config, frame_number) -> list:
     for label_number in unique_label[1:]:
         x, y = torch.where(labels == label_number)
         if len(x) < 10 or len(x) > config.multi_emitter_threshold:
-           continue
+            continue
         weights = frame[0][x, y]
         x_mean = torch.sum(x * weights) / torch.sum(weights)
         y_mean = torch.sum(y * weights) / torch.sum(weights)
@@ -233,7 +233,7 @@ def get_point_scipy(frame, config, frame_number) -> list:
     return patches, points
 
 
-def get_point_nn(frames, config,  frame_numbers) -> list:
+def get_point_nn(frames, config, frame_numbers) -> list:
     patches, start_position = point_extractor_nn.get_inputs_from_frames(frames, config, frame_numbers)
     formatted_output = point_extractor_nn.extract_points_from_inputs(patches, start_position, config)
     return None, formatted_output
