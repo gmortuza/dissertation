@@ -180,7 +180,7 @@ def get_point_weighted_mean(frame, config, frame_number) -> list:
     unique_label = labels.unique()
     for label_number in unique_label[1:]:
         x, y = torch.where(labels == label_number)
-        for i in range(150, 250):
+        for i in range(30, 250):
             if len(x) < 10 or len(x) > i:
                 continue
             weights = frame[0][x, y]

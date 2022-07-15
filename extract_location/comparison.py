@@ -64,10 +64,10 @@ if __name__ == '__main__':
     config = Config("../config.yaml")
     config.output_threshold = 0
     file_names = ['08', '09', '1', '11', '12', '13', '14', '15']
-    # for file in file_names:
-    config.input_dir = 'simulated_data_multi_' + file_names[int(sys.argv[1])]
-    sys.stdout = open(config.input_dir, 'w')
-    print(config.input_dir)
+    input_dir = '/data/golam/dnam_nn/simulated_data_multi_' + file_names[int(sys.argv[1])]
+    config.train_dir = os.path.join(input_dir, 'train')
+    sys.stdout = open('simulated_data_multi_' + file_names[int(sys.argv[1])], 'w')
+    print(config.train_dir)
     comparison(methods_, config)
     sys.stdout.close()
 
