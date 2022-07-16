@@ -22,7 +22,7 @@ JI_metrics_from_epoch: 1
 output_threshold: .0001
 
 # ================ General settings ===============
-input_dir: simulated_data_multi_15  # This output directory will be the input directory of the model
+input_dir: simulated_data_multi_1  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
 device: cuda:1
