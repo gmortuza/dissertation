@@ -6,8 +6,8 @@ class Loss(nn.Module):
     def __init__(self, config):
         super(Loss, self).__init__()
         self.config = config
-        self.locations_loss = nn.HuberLoss()
-        # self.locations_loss = nn.MSELoss()
+        # self.locations_loss = nn.HuberLoss()
+        self.locations_loss = nn.L1Loss()
         self.bce = nn.BCEWithLogitsLoss()
         # weight for each loss
         self.single_emitter_loss = 0.

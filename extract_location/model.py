@@ -22,7 +22,7 @@ class ExtractLocationModel(nn.Module):
 def test():
     config_ = Config('../config.yaml')
     # sample input data
-    input_shape = (32, 3 ,40 ,40)
+    input_shape = (32, 1, 40, 40)
     expected_output_shape = (32, 12)
     inputs = torch.randn(input_shape)
     model = ExtractLocationModel(config_)

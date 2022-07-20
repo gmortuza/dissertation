@@ -1,16 +1,16 @@
 # ================ Configuration for Model ===============
-output_dir: outputs___
+output_dir: outputs_1_l1_three
 validation_split: .1
 test_split: .1
-batch_size: 8
+batch_size: 256
 num_epochs: 10000
 learning_rate: 0.0001
 weight_decay: 0.001
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: True
-save_model_after_each_epoch: 100
-total_training_example: 100  # -1 means all the training examples
+save_model_after_each_epoch: 10
+total_training_example: -1  # -1 means all the training examples
 resolution_slap:
   - 32
   - 64
@@ -25,11 +25,11 @@ output_threshold: .0001
 input_dir: simulated_data_multi_1  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cuda:1
-log_level: info  # info, debug, warning, error
+device: cuda:0
+log_level: error  # info, debug, warning, error
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
-progress_bar_disable: False
+progress_bar_disable: True
 save_for_picasso: True  # This will save both the raw file and ground truth compatible with picasso
 
 # ================ Point extraction ===============
@@ -41,7 +41,7 @@ multi_emitter_threshold: 140
 # weights path that will be used
 point_extractor_weight_path:  '/data/golam/dnam_nn/trained_weights/point_extractor_weight.tar'
 upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight.tar'
-point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso
+point_extraction_method: 'nn'  # weighted_mean, scipy, picasso, nn
 
 
 
@@ -123,7 +123,7 @@ PAINT_tau_b: 500.0  # Bright Time
 
 # ================ Neptune setup ===============
 neptune_name: "multi model"
-neptune_description: "two model. L1 loss. Subpixel for upsampling. UNet--transpose conv"
+neptune_description: "Extract locations"
 neptune_project: "golammdmortuza/dnam-nn"
 neptune_api_key: "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjQyYzgzOC04MWVjLTRkZTMtYTExZC1kMGEzMDllNDZmZTcifQ=="
 neptune_mode: 'debug'  # async / sync / offline / read-only / debug /
@@ -132,7 +132,6 @@ neptune_code_snapshot:
   - models/unet.py
   - data_loader.py
 neptune_tags:
-  - two-model
+  - extract_locations
   - l1
-  - subpixel
-  - cov_subpixel
+  - three_frame

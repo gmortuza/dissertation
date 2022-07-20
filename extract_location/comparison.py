@@ -12,7 +12,7 @@ def print_results(frames, frame_numbers, gt_points, method_name: str, method, co
     start_time = time.time()
     predicted_points = []
     if method_name == 'nn':
-        predicted_points = point_extractor.get_point_nn(frames, config, frame_numbers)
+        _, predicted_points = point_extractor.get_point_nn(frames, config, frame_numbers)
     else:
         for frame_number, frame in zip(frame_numbers, frames):
             _, predicted_point = method(frame, config, frame_number)
@@ -49,8 +49,14 @@ if __name__ == '__main__':
     methods_ = {
         # 'nn': point_extractor.get_point_nn,
         'picasso': point_extractor.get_point_picasso,
-        'weighted_mean': point_extractor.get_point_weighted_mean,
-        'scipy': point_extractor.get_point_scipy
+        # 'weighted_mean': point_extractor.get_point_weighted_mean,
+        # 'scipy': point_extractor.get_point_scipy
     }
     config = Config("../config.yaml")
     comparison(methods_, config)
+
+    # time
+    # nn --> 2.147212028503418
+    # wm --> 6.792796850204468
+    # mle --> 76.7593321800232
+    # picasso --> 992.4678723812103

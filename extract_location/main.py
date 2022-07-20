@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+sys.path.append("/data/golam/dnam_nn")
 
 import numpy as np
 import torch
@@ -58,7 +59,7 @@ def main(config: Config):
 
 if __name__ == '__main__':
     from_borah = True if len(sys.argv) > 1 else False
-    config_ = Config("config.yaml", from_borah)
+    config_ = Config("../config.yaml", from_borah)
     config_.purpose = "train_point_extraction"
     if config_.use_seed:
         utils.set_seed(1)
