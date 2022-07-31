@@ -61,8 +61,8 @@ class GenerateData:
     def generate(self):
         self.binding_site_position = generate_binding_site_position(self.config).share_memory_()
         # Assign a multivariate normal distribution for each position where the mean will be binding_site_position
-        self.binding_site_position_distribution = get_binding_site_position_distribution(self.binding_site_position,
-                                                                                         self.config)
+        # self.binding_site_position_distribution = get_binding_site_position_distribution(self.binding_site_position,
+        #                                                                                  self.config)
         self.num_of_binding_site = self.binding_site_position.shape[1]
 
         self.distribute_photons()
@@ -111,7 +111,7 @@ class GenerateData:
         frame_wise_noise = movie.mean((1, 2))  # Tensor of shape (num_of_frames)
         p_convert_frame = partial(convert_frame, frame_started=frame_start, config=self.config, drifts=self.drifts,
                                   distributed_photon=self.distributed_photon, frame_wise_noise=frame_wise_noise,
-                                  binding_site_position_distribution=self.binding_site_position_distribution)
+                                  binding_site_position=self.binding_site_position)
 
         for frame_id in range(frame_start, frame_end):
             frame_id, frames, gt_infos = p_convert_frame(frame_id=frame_id)

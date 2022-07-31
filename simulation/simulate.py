@@ -1,3 +1,4 @@
+import random
 import torch
 import numpy as np
 from simulation.unique_origami import get_unique_origami
@@ -201,7 +202,7 @@ def get_binding_site_position_distribution(binding_site_position, config):
     return binding_site_distributions
 
 
-def dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id, frame_started,
+def dist_photons_xy(binding_site_position, distributed_photon, frame_id, frame_started,
                     frame_wise_noise, drifts, config):
     device = distributed_photon.device
     scales = [i / config.resolution_slap[0] for i in config.resolution_slap] if config.data_gen_type == 'multiple_distribute' else [1]
@@ -223,16 +224,27 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
 
     for i, gt_position in enumerate(gt_positions.tolist()):
         photon_count = int(distributed_photon[gt_position, frame_id])
-        for scale, distribution in binding_site_position_distribution.items():
-            multi_norm_dist = distribution[gt_position]
-            start = 0 if gt_position == 0 else n_photons_step[gt_position - 1]
+        mu = binding_site_position[:, gt_position]
+        start = 0 if gt_position == 0 else n_photons_step[gt_position - 1]
+        for scale in scales:
+            scaled_mu = mu * scale
+            scale_tril = get_scale_tril(config)
+            multi_norm_dist = torch.distributions.multivariate_normal.MultivariateNormal(scaled_mu, scale_tril=scale_tril)
             photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(
                 sample_shape=torch.Size([photon_count]))
+            if scale == 1:
+                ## This is super exact position
+                gt_infos[i, 1:3] = multi_norm_dist.mean
+        # for scale, distribution in binding_site_position.items():
+        #     multi_norm_dist = distribution[gt_position]
+        #
+        #     photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(
+        #         sample_shape=torch.Size([photon_count]))
 
         photon_pos = photons_pos_frame[1.0][start: n_photons_step[gt_position], :]
         # set x, y
-        gt_infos[i, 1:3] = binding_site_position_distribution[scales[0]][
-            gt_position].mean  # This is super exact position
+        # gt_infos[i, 1:3] = binding_site_position[scales[0]][
+        #     gt_position].mean
 
         gt_infos[i, 3:5] = photon_pos.mean(axis=0)
         gt_infos[i, 5:7] = gt_infos[i, 3:5] + drifts[frame_id]  # Will add drift in later method
@@ -245,8 +257,8 @@ def dist_photons_xy(binding_site_position_distribution, distributed_photon, fram
 
 
 def convert_frame_multi_distribution(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
-                                     binding_site_position_distribution):
-    photon_pos_frames, gt_infos = dist_photons_xy(binding_site_position_distribution, distributed_photon, frame_id,
+                                     binding_site_position):
+    photon_pos_frames, gt_infos = dist_photons_xy(binding_site_position, distributed_photon, frame_id,
                                                   frame_started, frame_wise_noise, drifts, config)
 
     single_frames = []
@@ -270,8 +282,9 @@ def convert_frame_multi_distribution(frame_id, frame_started, config, drifts, di
 
 
 def get_scale_tril(config):
-    cov = torch.tensor([[config.Imager_PSF * config.Imager_PSF, 0],
-                        [0, config.Imager_PSF * config.Imager_PSF]]).to(config.device)
+    psf = random.uniform(config.Imager_PSF[0], config.Imager_PSF[1])
+    cov = torch.tensor([[psf * psf, 0],
+                        [0, psf * psf]]).to(config.device)
     return torch.linalg.cholesky(cov)
 
 
@@ -320,10 +333,10 @@ def convert_frame_single_distribution(frame_id, frame_started, config, drifts, d
 
 
 def convert_frame(frame_id, frame_started, config, drifts, distributed_photon, frame_wise_noise,
-                  binding_site_position_distribution):
+                  binding_site_position):
     if config.data_gen_type == 'single_distribute':
         return convert_frame_single_distribution(frame_id, frame_started, config, drifts, distributed_photon,
-                                                 frame_wise_noise, binding_site_position_distribution)
+                                                 frame_wise_noise, binding_site_position)
     else:
         return convert_frame_multi_distribution(frame_id, frame_started, config, drifts, distributed_photon,
-                                                frame_wise_noise, binding_site_position_distribution)
+                                                frame_wise_noise, binding_site_position)

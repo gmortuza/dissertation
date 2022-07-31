@@ -1,6 +1,6 @@
 # ================ Configuration for Model ===============
 output_dir: outputs_1_l1_three
-validation_split: .1
+validation_split: .15
 test_split: .1
 batch_size: 256
 num_epochs: 10000
@@ -48,9 +48,9 @@ point_extraction_method: 'nn'  # weighted_mean, scipy, picasso, nn
 # ================ Camera Settings ===============
 # Padding in each framed
 # Origami won't be present in the border regions
-frame_padding: 6
+frame_padding: 3
 Camera: Simulation
-total_frames: 10000  # Total Number of frames
+total_frames: 1000  # Total Number of frames
 split_into: 2 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
@@ -69,7 +69,7 @@ distance_y: 10  # (nm)
 origami_row: 6
 origami_column: 8
 unique_origami: 15
-total_origami: 100  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
+total_origami: 23  # Total number of origami in the whole movie. This is the sum of all the unique origami occurance
 # Total percent of binding site that will actually have the blinking event
 # For some reason not all binding site have the blinking event
 # Float value ranging 0.0 - 1.0
@@ -104,7 +104,9 @@ noise_type: poisson
 # ================ Imager parameters ===============
 Imager_Constant Photonrate Std: 0  # Constant detection rate(select box)
 Imager_Laserpower: 1.5  # Power density (kwCm-2)
-Imager_PSF: 1.0  # point spread function (px) # 1.32
+Imager_PSF:
+  - 0.9
+  - 1.5 # point spread function (px) # 1.32
 Imager_Photonbudget: 1500000.0  #
 Imager_Photonslope: 35  # Photon detection rate
 # From the file
