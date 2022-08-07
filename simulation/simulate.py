@@ -226,26 +226,15 @@ def dist_photons_xy(binding_site_position, distributed_photon, frame_id, frame_s
         photon_count = int(distributed_photon[gt_position, frame_id])
         mu = binding_site_position[:, gt_position]
         start = 0 if gt_position == 0 else n_photons_step[gt_position - 1]
+        scale_tril = get_scale_tril(config)
         for scale in scales:
             scaled_mu = mu * scale
-            scale_tril = get_scale_tril(config)
             multi_norm_dist = torch.distributions.multivariate_normal.MultivariateNormal(scaled_mu, scale_tril=scale_tril)
             photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(
                 sample_shape=torch.Size([photon_count]))
-            if scale == 1:
-                ## This is super exact position
-                gt_infos[i, 1:3] = multi_norm_dist.mean
-        # for scale, distribution in binding_site_position.items():
-        #     multi_norm_dist = distribution[gt_position]
-        #
-        #     photons_pos_frame[scale][start: n_photons_step[gt_position], :] = multi_norm_dist.sample(
-        #         sample_shape=torch.Size([photon_count]))
-
-        photon_pos = photons_pos_frame[1.0][start: n_photons_step[gt_position], :]
-        # set x, y
-        # gt_infos[i, 1:3] = binding_site_position[scales[0]][
-        #     gt_position].mean
-
+        photon_pos = photons_pos_frame[16.0][start: n_photons_step[gt_position], :]
+        ## This is super exact position
+        gt_infos[i, 1:3] = mu
         gt_infos[i, 3:5] = photon_pos.mean(axis=0)
         gt_infos[i, 5:7] = gt_infos[i, 3:5] + drifts[frame_id]  # Will add drift in later method
         gt_infos[i, 7] = distributed_photon[gt_position, frame_id]  # Photon count

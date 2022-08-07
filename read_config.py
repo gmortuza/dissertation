@@ -9,6 +9,7 @@ from datetime import datetime
 from extract_location.model import ExtractLocationModel
 from models.get_model import get_model
 
+
 class Config:
     """Class that loads hyperparameter from a json file.
     Example:
