@@ -83,7 +83,7 @@ class SMLMDataset(Dataset):
             res_scale = image_size / self.config.resolution_slap[0]
             # TODO: remove this for loop and vectorize this
             for blinker in point[point[:, 7] > 0.]:
-                mu = torch.round(blinker[[5, 6]] * res_scale).int()
+                mu = torch.round(blinker[[5, 6]]).int()
                 high_res_movie[mu[1]][mu[0]] += blinker[7]
             high_res_images.append(high_res_movie.unsqueeze(0))
         return high_res_images
@@ -97,16 +97,34 @@ class SMLMDataset(Dataset):
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
 
+        # pre_f_name = f"{self.dataset_dir}/db_{index - 1}.pl"
+        # next_f_name = f"{self.dataset_dir}/db_{index + 1}.pl"
+        # try:
+        #     with open(pre_f_name, 'rb') as handle:
+        #         x_prev, _ = pickle.load(handle)
+        # except FileNotFoundError:
+        #     x_prev = [torch.zeros_like(x_) for x_ in x]
+        #
+        # try:
+        #     with open(next_f_name, 'rb') as handle:
+        #         x_next, _ = pickle.load(handle)
+        # except FileNotFoundError:
+        #     x_next = [torch.zeros_like(x_) for x_ in x]
+        #
+        # x_data = []
+        # for x_p, x_, x_n in zip(x_prev, x, x_next):
+        #     x_data.append(torch.cat((x_p, x_, x_n), dim=0))
+
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
-        del x[4]
+        # del x[4]
         # del x[3]
         # del x[1]
         # del y[5]
         # del y[3]
         # del y[1]
         del y[0]
-        for i in range(4):
+        for i in range(2):
             y[i] *= 255.0
             x[i] *= 255.0
         return x, y

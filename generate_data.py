@@ -39,6 +39,7 @@ def simulate(config: Config):
         config.save_for_picasso = True if sim_type == 'test' else False
         generate_data = GenerateData(config)
         generate_data.generate()
+    config.logger.info("Finish generating the data")
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@
 output_dir: outputs_1_l1_three
 validation_split: .15
 test_split: .1
-batch_size: 32
+batch_size: 16
 num_epochs: 100
 learning_rate: 0.0001
 weight_decay: 0.001
@@ -19,10 +19,10 @@ resolution_slap:
   - 512
 save_model_based_on: JI_16
 JI_metrics_from_epoch: 1
-output_threshold: .0001
+output_threshold: .1
 
 # ================ General settings ===============
-input_dir: simulated_data_multi_1  # This output directory will be the input directory of the model
+input_dir: simulated_data_multi_variable  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
 device: cuda:0
@@ -40,7 +40,7 @@ multi_emitter_threshold: 140
 # ================ Inferences ===============
 # weights path that will be used
 point_extractor_weight_path:  '/data/golam/dnam_nn/trained_weights/point_extractor_weight.tar'
-upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight.tar'
+upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight_variable_std.tar'
 point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso, nn
 
 
@@ -50,7 +50,7 @@ point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso, nn
 # Origami won't be present in the border regions
 frame_padding: 3
 Camera: Simulation
-total_frames: 1000  # Total Number of frames
+total_frames: 3000  # Total Number of frames
 split_into: 2 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.

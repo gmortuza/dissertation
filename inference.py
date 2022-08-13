@@ -85,13 +85,14 @@ def save_points_for_picasso(points, config):
 def main(config):
     # Get the model
     model = config.upsample_model
-    test_data_loader = fetch_data_loader(config, type_='test')
+    # test_data_loader = fetch_data_loader(config, type_='test')
+    train_data_loader, valid_data_loader = fetch_data_loader(config, type_='train')
     output = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
     gt = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
     #
     predicted_points = []
     target_points = []
-    for data_batch, gt_batch in tqdm(test_data_loader, total=len(test_data_loader)):
+    for data_batch, gt_batch in tqdm(train_data_loader, total=len(train_data_loader)):
         data_batch = utils.convert_device(data_batch, config.device)
         output_batch = model(data_batch, data_batch)
         predicted_point, target_point = export_predictions(output_batch[-1], gt_batch, config)
