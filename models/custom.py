@@ -10,7 +10,7 @@ class Custom(nn.Module):
         super(Custom, self).__init__()
         self.config = config
         self.model_1 = nn.Sequential(
-            UNet(self.config, in_channel=1, out_channel=128),
+            UNet(self.config, in_channel=3, out_channel=128),
             nn.Conv2d(128, 128, 3, 1, 1),
             nn.PReLU(),
             nn.PixelShuffle(2),
@@ -38,14 +38,15 @@ class Custom(nn.Module):
         outputs.append(output)
         # resolution 64 --> 128
         # inputs = torch.cat((x[1], output), dim=1)
-        output = self.model_1(output)
+        inputs = torch.cat((x[1][:, [0], :, :], output, x[1][:, [2], :, :]), dim=1)
+        output = self.model_1(inputs)
         outputs.append(output)
         # resolution 128 --> 256
-        inputs = torch.cat((x[2], output), dim=1)
+        inputs = torch.cat((x[2][:, [1], :, :], output), dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
         # resolution 256 --> 512
-        inputs = torch.cat((x[3], output), dim=1)
+        inputs = torch.cat((x[3][:, [1], :, :], output), dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
 

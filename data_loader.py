@@ -97,23 +97,23 @@ class SMLMDataset(Dataset):
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
 
-        # pre_f_name = f"{self.dataset_dir}/db_{index - 1}.pl"
-        # next_f_name = f"{self.dataset_dir}/db_{index + 1}.pl"
-        # try:
-        #     with open(pre_f_name, 'rb') as handle:
-        #         x_prev, _ = pickle.load(handle)
-        # except FileNotFoundError:
-        #     x_prev = [torch.zeros_like(x_) for x_ in x]
-        #
-        # try:
-        #     with open(next_f_name, 'rb') as handle:
-        #         x_next, _ = pickle.load(handle)
-        # except FileNotFoundError:
-        #     x_next = [torch.zeros_like(x_) for x_ in x]
-        #
-        # x_data = []
-        # for x_p, x_, x_n in zip(x_prev, x, x_next):
-        #     x_data.append(torch.cat((x_p, x_, x_n), dim=0))
+        pre_f_name = f"{self.dataset_dir}/db_{index - 1}.pl"
+        next_f_name = f"{self.dataset_dir}/db_{index + 1}.pl"
+        try:
+            with open(pre_f_name, 'rb') as handle:
+                x_prev, _ = pickle.load(handle)
+        except FileNotFoundError:
+            x_prev = [torch.zeros_like(x_) for x_ in x]
+
+        try:
+            with open(next_f_name, 'rb') as handle:
+                x_next, _ = pickle.load(handle)
+        except FileNotFoundError:
+            x_next = [torch.zeros_like(x_) for x_ in x]
+
+        x_data = []
+        for x_p, x_, x_n in zip(x_prev, x, x_next):
+            x_data.append(torch.cat((x_p, x_, x_n), dim=0))
 
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
@@ -127,7 +127,7 @@ class SMLMDataset(Dataset):
         # for i in range(2):
         #     y[i] *= 255.0
         #     x[i] *= 255.0
-        return x, y
+        return x_data, y
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
