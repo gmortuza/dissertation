@@ -109,9 +109,10 @@ def get_points(frame, config, frame_number=None, method='scipy'):
 def get_points_from_gt(gt, config):
     points = []
     for point in gt:
-        points.append(
-            [int(point[0]), float(point[2] * config.Camera_Pixelsize), float(point[1] * config.Camera_Pixelsize), 0, 0,
-             float(point[7])])
+        if point[7] > 0:
+            points.append(
+                [int(point[0]), float(point[2] * config.Camera_Pixelsize), float(point[1] * config.Camera_Pixelsize),
+                 0, 0, float(point[7])])
     return points
 
 

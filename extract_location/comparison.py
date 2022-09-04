@@ -49,8 +49,8 @@ if __name__ == '__main__':
     methods_ = {
         # 'nn': point_extractor.get_point_nn,
         'picasso': point_extractor.get_point_picasso,
-        # 'weighted_mean': point_extractor.get_point_weighted_mean,
-        # 'scipy': point_extractor.get_point_scipy
+        'weighted_mean': point_extractor.get_point_weighted_mean,
+        'scipy': point_extractor.get_point_scipy
     }
     config = Config("../config.yaml")
     comparison(methods_, config)

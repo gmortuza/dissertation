@@ -31,8 +31,8 @@ def export_predictions(predictions, targets, config):
     frames_numbers = targets[:, 0, 0]
     predicted_points = []
     gt_points = []
-    if config.point_extraction_method == 'nn':
-        predicted_points = point_extractor.get_points(predictions, config, frames_numbers, method='nn').tolist()
+    # if config.point_extraction_method == 'nn':
+    #     predicted_points = point_extractor.get_points(predictions, config, frames_numbers, method='nn').tolist()
     for frame_number, frame in zip(frames_numbers, predictions):
         frame_target = targets[targets[:, 0, 0] == frame_number][0]
         frame_target = frame_target[frame_target[:, 0] == frame_number]
@@ -95,7 +95,7 @@ def main(config):
     for data_batch, gt_batch in tqdm(train_data_loader, total=len(train_data_loader)):
         data_batch = utils.convert_device(data_batch, config.device)
         output_batch = model(data_batch, data_batch)
-        predicted_point, target_point = export_predictions(output_batch[-1], gt_batch, config)
+        predicted_point, target_point = export_predictions(output_batch[-2], gt_batch, config)
         predicted_points.extend(predicted_point)
         target_points.extend(target_point)
         # output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)

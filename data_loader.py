@@ -124,9 +124,9 @@ class SMLMDataset(Dataset):
         # del y[3]
         # del y[1]
         del y[0]
-        # for i in range(2):
-        #     y[i] *= 255.0
-        #     x[i] *= 255.0
+        for i in range(5):
+            y[i] *= 255.0
+            x_data[i] *= 255.0
         return x_data, y
 
 

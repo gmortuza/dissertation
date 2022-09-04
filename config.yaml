@@ -19,7 +19,7 @@ resolution_slap:
   - 512
 save_model_based_on: JI_16
 JI_metrics_from_epoch: 1
-output_threshold: .1
+output_threshold: 1
 
 # ================ General settings ===============
 input_dir: simulated_data_multi_variable  # This output directory will be the input directory of the model
@@ -40,7 +40,8 @@ multi_emitter_threshold: 140
 # ================ Inferences ===============
 # weights path that will be used
 point_extractor_weight_path:  '/data/golam/dnam_nn/trained_weights/point_extractor_weight.tar'
-upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight_variable_std.tar'
+#upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight_variable_std.tar'
+upsample_weight_path: '/data/golam/dnam_nn/trained_weights/adjacent_frame/best.pth.tar'
 point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso, nn
 
 
