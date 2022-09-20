@@ -146,19 +146,54 @@ def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_po
     # gt_points = torch.Tensor(gt_points)
     true_positive = 0
     distances_from_points = []
+    low_signal = []
+    nearby_emitters = []
+    unrecognized_frame_number = []
+    false_positive = 0
+    # gt_points = gt_points[gt_points[:, -1] > 1000]
     for frame_number in torch.unique(gt_points[:, 0]):
         f_predicted_points = predicted_points[predicted_points[:, 0] == frame_number][:, [1, 2]]
         f_gt_points = gt_points[gt_points[:, 0] == frame_number][:, [1, 2]]
+        # f_gt_points = f_gt_points[f_gt_points[:, -1] > 1000][:, [1, 2]]
+        f_gt_points_signal = gt_points[gt_points[:, 0] == frame_number][:, 5]
         # Get pairwise distance
         if len(f_predicted_points) and len(f_gt_points):
             distances = pairwise_distances(f_predicted_points.cpu().detach(), f_gt_points.cpu())
             rec_ind, gt_ind = linear_sum_assignment(distances)
             assigned_distance = distances[rec_ind, gt_ind]
             true_positive += np.sum(assigned_distance <= radius)
+            false_positive += np.sum(assigned_distance > radius)
+            unrecognized_emitter = np.asarray(list(set(range(len(f_gt_points))) - set(gt_ind)))
+
+            if len(unrecognized_emitter) > 0:
+                # False negative error
+                # unrecognized_emitter = np.asarray(list(set(range(len(f_gt_points))) - set(gt_ind)))
+                unrecognized_frame_number.extend([frame_number] * len(unrecognized_emitter))
+                low_signal.extend(f_gt_points_signal[unrecognized_emitter].numpy().tolist())
+                distances_on_gt = pairwise_distances(f_gt_points.cpu().numpy(), f_gt_points.cpu().numpy())
+                # get the closest unrecognized emitter
+                try:
+                    nearby_emitters.extend(np.sort(distances_on_gt[:-1, unrecognized_emitter], axis=0)[1, :].tolist())
+                except IndexError:
+                    nearby_emitters.extend(np.sort(distances_on_gt[:-1, unrecognized_emitter], axis=0)[0, :].tolist())
+            elif len(f_gt_points) < np.sum(assigned_distance <= radius):
+                # False positive error
+                print("False positive error")
+                unrecogniazed_emitter = set(range(len(f_predicted_points))) - set(rec_ind)
             # Calculate the RMSE
             distances_from_points.extend(assigned_distance[assigned_distance <= radius].tolist())
             # distances_from_points = np.append(distances_from_points, assigned_distance)
+        elif len(f_gt_points) > 0:
+            unrecognized_frame_number.extend([frame_number] * len(f_gt_points))
+            low_signal.extend(f_gt_points_signal.numpy().tolist())
+            nearby_emitters.extend([0] * len(f_gt_points))
+
     rmse = 0
+    nearby_emitters = np.asarray(nearby_emitters).reshape(-1, 1)
+    low_signal = np.asarray(low_signal).reshape(-1, 1)
+    unrecognized_frame_number = np.asarray(unrecognized_frame_number).reshape(-1, 1)
+    unrecogniazed_emitter_details = np.concatenate([unrecognized_frame_number, nearby_emitters, low_signal, np.logical_or(nearby_emitters < 250, low_signal < 2000)] , axis=1)
+
     if len(distances_from_points) > 0:
         distances_from_points = np.asarray(distances_from_points)
         rmse = np.sqrt(np.sum(distances_from_points ** 2) / len(distances_from_points))

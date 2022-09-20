@@ -3,14 +3,16 @@ import os
 import pickle
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+import imageio
 
 from read_config import Config
 import utils
+import numpy as np
 
 
 class SMLMDataset(Dataset):
@@ -19,7 +21,8 @@ class SMLMDataset(Dataset):
         self.config = config
         self.type_ = type_
         self.dataset_dir = dataset_dir
-        self.total_data = self._upsample_images()
+        if type_ != 'inference':
+            self.total_data = self._upsample_images()
 
     def _upsample_images(self):
         file_names = glob.glob(f"{self.dataset_dir}/data_*_gt.pl")
@@ -35,7 +38,7 @@ class SMLMDataset(Dataset):
                 input_ = utils.normalize(input_)
                 all_label = []
                 total_frames = self.config.resolution_slap[
-                                     :-1] if self.config.data_gen_type == 'single_distribute' else \
+                               :-1] if self.config.data_gen_type == 'single_distribute' else \
                     self.config.resolution_slap
                 for image_sizes in total_frames:
                     all_label.append(utils.normalize(
@@ -89,10 +92,47 @@ class SMLMDataset(Dataset):
         return high_res_images
 
     def __len__(self):
+        if self.type_ == 'inference':
+            return len(glob.glob(self.dataset_dir + "/*.tif"))
         return self.total_data if self.config.total_training_example == -1 else self.config.total_training_example
         # return self.total_data
 
+    def _get_inference_data(self, idx):
+        idx += 1
+        # get previous frame
+        frame_id = format(idx, '05d')
+        current_frame_name = f"{self.dataset_dir}/" + frame_id + ".tif"
+        current_frame = imageio.imread(current_frame_name)
+        current_frame = torch.tensor(current_frame.astype('float32'))
+        current_frame = current_frame / current_frame.max()
+        current_frames = self._get_upsample_input(current_frame)
+        if idx - 1 == 0:
+            previous_frame = torch.zeros_like(current_frame)
+        else:
+            previous_frame_id = format(idx - 1, '05d')
+            previous_frame_name = f"{self.dataset_dir}/" + previous_frame_id + ".tif"
+            previous_frame = imageio.imread(previous_frame_name)
+            previous_frame = torch.tensor(previous_frame.astype('float32'))
+            previous_frame = previous_frame / previous_frame.max()
+        previous_frames = self._get_upsample_input(previous_frame)
+        # get the next frame
+        if idx > len(self):
+            next_frame = torch.zeros_like(current_frame)
+        else:
+            next_frame_id = format(idx + 1, '05d')
+            next_frame_name = f"{self.dataset_dir}/" + next_frame_id + ".tif"
+            next_frame = imageio.imread(next_frame_name)
+            next_frame = torch.tensor(next_frame.astype('float32'))
+            next_frame = next_frame / next_frame.max()
+        next_frames = self._get_upsample_input(next_frame)
+        x_data = []
+        for x_p, x_, x_n in zip(previous_frames, current_frames, next_frames):
+            x_data.append(torch.cat((x_p, x_, x_n), dim=0) * 255.)
+        return x_data, idx
+
     def __getitem__(self, index: int):
+        if self.type_ == 'inference':
+            return self._get_inference_data(index)
         f_name = f"{self.dataset_dir}/db_{index}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
@@ -101,13 +141,13 @@ class SMLMDataset(Dataset):
         next_f_name = f"{self.dataset_dir}/db_{index + 1}.pl"
         try:
             with open(pre_f_name, 'rb') as handle:
-                x_prev, _ = pickle.load(handle)
+                x_prev, y_prev = pickle.load(handle)
         except FileNotFoundError:
             x_prev = [torch.zeros_like(x_) for x_ in x]
 
         try:
             with open(next_f_name, 'rb') as handle:
-                x_next, _ = pickle.load(handle)
+                x_next, y_next = pickle.load(handle)
         except FileNotFoundError:
             x_next = [torch.zeros_like(x_) for x_ in x]
 
@@ -127,7 +167,7 @@ class SMLMDataset(Dataset):
         for i in range(5):
             y[i] *= 255.0
             x_data[i] *= 255.0
-        return x_data, y
+        return x_data, y, index
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
@@ -141,21 +181,31 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
     if type_ == 'train':
         train_dataset = SMLMDataset(config.train_dir, config)
         val_dataset = SMLMDataset(config.val_dir, config)
+        train_dataset = Subset(train_dataset, [3, 6, 13, 23, 24, 30, 37, 39, 40, 43, 55, 56, 61, 65, 66, 72, 91])
         config.log_param("num_training", len(train_dataset))
         config.log_param("num_validation", len(val_dataset))
-        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
-        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0,
+                                  pin_memory=True)
+        valid_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0,
+                                  pin_memory=True)
 
         return train_loader, valid_loader
-    else:
+    elif type_ == 'test':
         test_dir = os.path.join(config.input_dir, "test")
         test_dataset = SMLMDataset(test_dir, config, "test")
         test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=shuffle)
 
         return test_loader
+    elif type_ == 'inference':
+        inference_dir = os.path.join(config.input_dir, "inference")
+        inference_dir = '/data/golam/dnam_nn/microtuble'
+        inference_dataset = SMLMDataset(inference_dir, config, "inference")
+        inference_loader = DataLoader(inference_dataset, batch_size=config.batch_size, shuffle=shuffle)
+
+        return inference_loader
 
 
 if __name__ == '__main__':
     config_ = Config('config.yaml')
-    dl = fetch_data_loader(config_)
-    x_, y_ = next(iter(dl[0]))
+    dl = fetch_data_loader(config_, type_='inference')
+    x_, y_ = next(iter(dl))
