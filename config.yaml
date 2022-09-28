@@ -2,7 +2,7 @@
 output_dir: outputs_1_l1_three
 validation_split: .15
 test_split: .1
-batch_size: 16
+batch_size: 4
 num_epochs: 10000
 learning_rate: 0.0001
 weight_decay: 0.00
@@ -26,7 +26,7 @@ output_threshold: 1
 input_dir: simulated_data_multi_variable  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cuda:1
+device: cuda:0
 log_level: info  # info, debug, warning, error
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
@@ -34,16 +34,21 @@ progress_bar_disable: False
 save_for_picasso: True  # This will save both the raw file and ground truth compatible with picasso
 
 # ================ Point extraction ===============
+extract_point_from_resolution: -1
 location_multiplier: 100
 extracted_patch_size: 30
 multi_emitter_threshold: 140
+point_extraction_adjacent_emitters: False
+point_extraction_minimum_distance: 100
+point_extraction_minimum_intensity: .005
+average_of_all_upsampled_image: True
 
 # ================ Inferences ===============
 # weights path that will be used
-point_extractor_weight_path:  '/data/golam/dnam_nn/trained_weights/point_extractor_weight.tar'
+point_extractor_weight_path:  '/data/golam/dnam_nn/outputs_1_l1_three/checkpoint/pointsbest.pth.tar'
 #upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight_variable_std.tar'
 upsample_weight_path: '/data/golam/dnam_nn/trained_weights/adjacent_frame/best.pth.tar'
-point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso, nn
+point_extraction_method: 'nn'  # weighted_mean, scipy, picasso, nn
 
 
 

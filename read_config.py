@@ -102,6 +102,9 @@ class Config:
         else:
             raise ValueError('data_gen_type must be either single_distribute or multiple_distribute')
 
+        self.point_extraction_pixel_size = self.Camera_Pixelsize * self.resolution_slap[0] / \
+                                                 self.resolution_slap[self.extract_point_from_resolution]
+
         # self.frame_padding = self.frame_padding * self.resolution_slap[-1] / self.resolution_slap[0]
 
     def _make_absolute_directory(self):
@@ -170,7 +173,7 @@ class Config:
             capture_stderr=False,
             capture_hardware_metrics=False
         )
-        # Setup the hyper-parameters
+        # Set up the hyper parameters
         neptune_run['parameters'] = {
             "learning_rate": self.learning_rate,
             "epochs": self.num_epochs,

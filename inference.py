@@ -14,6 +14,7 @@ from data_loader import fetch_data_loader
 from read_config import Config
 from models.get_model import get_model
 from tqdm import tqdm
+import pandas as pd
 
 plt.grid(False)
 
@@ -32,12 +33,12 @@ def show(data, output, target, index, predicted_point):
     ax[2].set_title("Target")
     for gt_row in target[-1][index][target[-1][index][:, 0] != 0].numpy():
         ax[0].plot(gt_row[1], gt_row[2], marker='x', color="red")
-        ax[2].plot(gt_row[1]*2, gt_row[2]*2, marker='x', color="red")
+        ax[2].plot(gt_row[1] * 2, gt_row[2] * 2, marker='x', color="red")
     # put marker on the predicted point
     predicted_point = np.asarray(predicted_point)
     predicted_point = predicted_point[predicted_point[:, 0] == frame_number]
     for single_point in predicted_point:
-        ax[1].plot(single_point[2]/50, single_point[1]/50, marker='x', color="red")
+        ax[1].plot(single_point[2] / 50, single_point[1] / 50, marker='x', color="red")
 
     plt.suptitle("Frame number -- " + str(frame_number))
     # plt.grid(None)
@@ -55,13 +56,23 @@ def read_args():
     return args
 
 
+def export_predictions_without_target(frames, frame_numbers, config):
+    predicted_points = []
+    for frame_number, frame in zip(frame_numbers, frames):
+        predicted_point = point_extractor.get_points(frame, config, int(frame_number),
+                                                     method=config.point_extraction_method)
+        if len(predicted_point):
+            predicted_points.extend(predicted_point)
+    return predicted_points
+
+
 def export_predictions(predictions, targets, config):
     targets = targets[-1].cpu().numpy()
     frames_numbers = targets[:, 0, 0]
     predicted_points = []
     gt_points = []
-    # if config.point_extraction_method == 'nn':
-    #     predicted_points = point_extractor.get_points(predictions, config, frames_numbers, method='nn').tolist()
+    if config.point_extraction_method == 'nn':
+        predicted_points = point_extractor.get_points(predictions, config, frames_numbers, method='nn').tolist()
     for frame_number, frame in zip(frames_numbers, predictions):
         frame_target = targets[targets[:, 0, 0] == frame_number][0]
         frame_target = frame_target[frame_target[:, 0] == frame_number]
@@ -76,14 +87,14 @@ def export_predictions(predictions, targets, config):
     return predicted_points, gt_points
 
 
-def save_points_for_picasso(points, config):
+def save_points_for_picasso(points, config, image_resolution):
     points = np.asarray(points)
     points = points[np.argsort(points[:, 0])]
     predicted_points = np.rec.array(
         (
             points[:, 0],  # frames
-            points[:, 2] / 107,  # x
-            points[:, 1] / 107,  # y
+            points[:, 2] / config.Camera_Pixelsize,  # x
+            points[:, 1] / config.Camera_Pixelsize,  # y
             points[:, 5] * 1000,  # photons
             np.full(points[:, 0].shape, .85),  # s_x
             np.full(points[:, 0].shape, .85),  # s_y
@@ -105,34 +116,52 @@ def save_points_for_picasso(points, config):
                             f"\nFrames: {config.total_training_example}\n" \
                             f"Height: {config.image_size}\n" \
                             f"Width: {config.image_size}"
-    with h5py.File("predictions_picasso.hdf5",
-                   "w") as locs_file:
+    with h5py.File(config_.output_dir + '/' + "output_picasso_" + str(image_resolution) + ".hdf5", "w") as locs_file:
         locs_file.create_dataset("locs", data=predicted_points)
-        with open("predictions_picasso.yaml",
-                  "w") as yaml_file:
+        with open(config_.output_dir + '/' + "output_picasso_" + str(image_resolution) + ".yaml", "w") as yaml_file:
             yaml_file.write(content_for_yaml_file)
 
 
-def main(config):
+def inference_without_gt(config):
+    model = config.upsample_model
+    inference_data_loader = fetch_data_loader(config, type_="inference")
+    outputs = []
+    predicted_points = {}
+    for scale in config.resolution_slap[1:]:
+        outputs.append(torch.zeros(scale, scale, device=config.device))
+        predicted_points[scale] = []
+    for data_batch, frame_numbers in tqdm(inference_data_loader):
+        data_batch = utils.convert_device(data_batch, config.device)
+        output_batch = model(data_batch, data_batch)
+        for index, output in enumerate(output_batch):
+            outputs[index] += output.squeeze(1).sum(dim=0).detach()
+            predicted_points[output.shape[-1]].extend(export_predictions_without_target(output, frame_numbers, config))
+    return predicted_points, outputs
+
+
+def inference_with_gt(config):
     # Get the model
     model = config.upsample_model
     # test_data_loader = fetch_data_loader(config, type_='test')
     train_data_loader, valid_data_loader = fetch_data_loader(config, type_='train')
-    output = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
-    gt = torch.zeros((config.resolution_slap[-1], config.resolution_slap[-1]), device=config.device)
+    output = torch.zeros((config.resolution_slap[config.extract_point_from_resolution],
+                          config.resolution_slap[config.extract_point_from_resolution]), device=config.device)
+    gt = torch.zeros((config.resolution_slap[config.extract_point_from_resolution],
+                      config.resolution_slap[config.extract_point_from_resolution]), device=config.device)
     #
     predicted_points = []
     target_points = []
     for data_batch, gt_batch, frame_numbers in tqdm(train_data_loader, total=len(train_data_loader)):
         data_batch = utils.convert_device(data_batch, config.device)
         output_batch = model(data_batch, data_batch)
-        predicted_point, target_point = export_predictions(output_batch[-1], gt_batch, config)
-        for i in range(data_batch[0].shape[0]):
-            show(data_batch, output_batch, gt_batch, i, predicted_point)
+        predicted_point, target_point = export_predictions(output_batch[config.extract_point_from_resolution],
+                                                           gt_batch, config)
+        # for i in range(data_batch[0].shape[0]):
+        #     show(data_batch, output_batch, gt_batch, i, predicted_point)
         predicted_points.extend(predicted_point)
         target_points.extend(target_point)
         # output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)
-        gt += torch.squeeze(gt_batch[3].detach().to(config.device), axis=1).sum(axis=0)
+        # gt += torch.squeeze(gt_batch[3].detach().to(config.device), axis=1).sum(axis=0)
     # TODO: extract points from each of these frames
     # save the final output image
     # save_points_for_picasso(predicted_points, config)
@@ -141,7 +170,7 @@ def main(config):
     target_points = torch.tensor(target_points)
     jaccard_index, rmse, efficiency = metrics.get_ji_rmse_efficiency_from_formatted_points(predicted_points,
                                                                                            target_points, radius=250)
-    print("Jaccard Index: ", jaccard_index)
+    print(config.extract_point_from_resolution, "Jaccard Index: ", jaccard_index)
     plt.rcParams['figure.dpi'] = 600
     plt.rcParams['savefig.dpi'] = 600
     # plt.imsave(config.output_dir+"/gt_output_1.tiff", output.cpu().numpy(), cmap='gray')
@@ -154,14 +183,27 @@ def main(config):
 if __name__ == '__main__':
     args = read_args()
     config_ = Config(args.config_file, from_terminal=args.terminal, purpose='inference')
-    main(config_)
-    # config = Config('config.yaml')
-    # images_1 = generate_target_from_path('simulated_data/train/data_1_8000_gt.pl', config, target='images').squeeze(1).sum(axis=0)
-    # images_2 = generate_target_from_path('simulated_data/train/data_8001_16000_gt.pl', config, target='images').squeeze(1).sum(axis=0)
-    # image = images_1 + images_2
-    # plt.rcParams['figure.dpi'] = 300
-    # plt.rcParams['savefig.dpi'] = 300
-    # image = image.detach().cpu()
-    # plt.imshow(image.detach().cpu(), cmap='gray')
-    # plt.imsave("inference.tiff", image, cmap='gray')
-    # plt.show()
+    methods = ['weighted_mean', 'nn']
+    resolutions = [-1, -2, -3, -4]
+    for method in methods:
+        print("Method: ", method)
+        print("==" * 20)
+        for resolution in resolutions:
+            config_.extract_point_from_resolution = resolution
+            config_.point_extraction_method = method
+            config_.point_extraction_pixel_size = config_.Camera_Pixelsize * config_.resolution_slap[0] / \
+                                               config_.resolution_slap[config_.extract_point_from_resolution]
+            inference_with_gt(config_)
+    # main(config_)
+    # scaled_points, output_image = inference_without_gt(config_)
+    # for image_resolution, image in zip(scaled_points, output_image):
+    #     plt.rcParams['figure.dpi'] = 600
+    #     plt.rcParams['savefig.dpi'] = 600
+    #     plt.imsave(config_.output_dir + '/' + 'output_' + str(image_resolution) + '.tiff', image.cpu().numpy(), cmap='gray', dpi=600)
+    #     points = scaled_points[image_resolution]
+    #     points = pd.DataFrame(points, columns=['frame', 'x', 'y', 'sx', 'sy', 'photons'])
+    #     points.to_csv(config_.output_dir + '/' + 'output_' + str(image_resolution) + '.csv', index=False)
+    #     # save for picasso
+    #     save_points_for_picasso(points, config_, image_resolution)
+    #     # points_picasso.to_csv(config_.output_dir + '/' + 'output_' + str(point) + '_picasso.csv', index=False)
+    # print("here")

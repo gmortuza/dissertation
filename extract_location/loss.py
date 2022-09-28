@@ -27,7 +27,7 @@ class Loss(nn.Module):
         if two_emitters.any():
             # If there are multiple emitters in the patch
             multi_emitter_localization_loss = self.locations_loss(
-                predictions[:, [1, 2, 3, 7, 8, 9]][two_emitters], targets[:, [1, 2, 3, 7, 8, 9]][two_emitters]
+                predictions[:, [1, 2, 3, 4, 5, 7, 8, 9, 10, 11]][two_emitters], targets[:, [1, 2, 3, 4, 5, 7, 8, 9, 10, 11]][two_emitters]
             )
             # it's binary loss
             multi_emitter_loss = self.bce(
@@ -36,7 +36,7 @@ class Loss(nn.Module):
         if one_emitters.any():  # this is a rare case that all training example in a batch have two emitters
             # if there is a single emitter in the patch
             single_emitter_localization_loss = self.locations_loss(
-                predictions[:, [1, 2, 3]][one_emitters], targets[:, [1, 2, 3]][one_emitters]
+                predictions[:, [1, 2, 3, 4, 5]][one_emitters], targets[:, [1, 2, 3, 4, 5]][one_emitters]
             )
             single_emitter_loss = self.bce(
                 predictions[:, [0, 6]][one_emitters], targets[:, [0, 6]][one_emitters]

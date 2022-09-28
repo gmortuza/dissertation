@@ -31,7 +31,7 @@ def comparison(methods: list, config):
     frames = []
     frame_numbers = []
     # Read data
-    for frame_number in range(10):
+    for frame_number in range(100):
         f_name = os.path.join(config.train_dir, f"db_{frame_number}.pl")
         # f_name = f"simulated_data_multi/validation/db_{frame_number}.pl"
         with open(f_name, 'rb') as handle:
@@ -39,7 +39,7 @@ def comparison(methods: list, config):
         y_gt, frame = y[-1], y[-3]
         y_gt = point_extractor.get_points_from_gt(y_gt, config)
         gt_points.extend(y_gt)
-        frames.append(frame)
+        frames.append(frame * 255)
         frame_numbers.append(frame_number)
     for method_name, method in methods.items():
         print_results(frames, frame_numbers, gt_points, method_name, method, config)
@@ -47,10 +47,10 @@ def comparison(methods: list, config):
 
 if __name__ == '__main__':
     methods_ = {
-        # 'nn': point_extractor.get_point_nn,
-        'picasso': point_extractor.get_point_picasso,
+        'nn': point_extractor.get_point_nn,
+        # 'picasso': point_extractor.get_point_picasso,
         'weighted_mean': point_extractor.get_point_weighted_mean,
-        'scipy': point_extractor.get_point_scipy
+        # 'scipy': point_extractor.get_point_scipy
     }
     config = Config("../config.yaml")
     comparison(methods_, config)

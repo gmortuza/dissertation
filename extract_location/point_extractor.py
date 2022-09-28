@@ -50,8 +50,7 @@ def get_formatted_points(raw_points, config, start_pos=None):
     # raw_points_frame_start[:, [1, 2]] *= config.Camera_Pixelsize
     raw_points_frame_start[:, [4, 5, 10, 11]] *= config.extracted_patch_size / config.location_multiplier
     raw_points_frame_start[:, [4, 5, 10, 11]] += raw_points_frame_start[:, [1, 2, 1, 2]]
-    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.Camera_Pixelsize * config.resolution_slap[0] / \
-                                                 config.resolution_slap[-1]
+    raw_points_frame_start[:, [4, 5, 10, 11]] *= config.point_extraction_pixel_size
 
     # extract points for first emitter
     first_emitter_loc = torch.where((raw_points_frame_start[:, 3] > .999))[0]
@@ -192,8 +191,8 @@ def get_point_weighted_mean(frame, config, frame_number) -> list:
         image_patch = frame[:, x_start: x_end, y_start: y_end]
         patches.append(image_patch)
         photon_count = torch.sum(image_patch)
-        x_nm = x_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
-        y_nm = y_mean * config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+        x_nm = x_mean * config.point_extraction_pixel_size
+        y_nm = y_mean * config.point_extraction_pixel_size
         points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_count)])
     return patches, points
 

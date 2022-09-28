@@ -21,6 +21,7 @@ class ExtractPoints(Dataset):
         file_name = self.file_names[idx]
         with open(file_name, "rb") as f:
             data, label = pickle.load(f)
+            data *= 255.
             # data = data[[1], :, :]
             label = label.nan_to_num(0)
         return data, label

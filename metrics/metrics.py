@@ -169,7 +169,7 @@ def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_po
                 # False negative error
                 # unrecognized_emitter = np.asarray(list(set(range(len(f_gt_points))) - set(gt_ind)))
                 unrecognized_frame_number.extend([frame_number] * len(unrecognized_emitter))
-                low_signal.extend(f_gt_points_signal[unrecognized_emitter].numpy().tolist())
+                low_signal.extend(f_gt_points_signal[unrecognized_emitter].cpu().numpy().tolist())
                 distances_on_gt = pairwise_distances(f_gt_points.cpu().numpy(), f_gt_points.cpu().numpy())
                 # get the closest unrecognized emitter
                 try:
@@ -185,7 +185,7 @@ def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_po
             # distances_from_points = np.append(distances_from_points, assigned_distance)
         elif len(f_gt_points) > 0:
             unrecognized_frame_number.extend([frame_number] * len(f_gt_points))
-            low_signal.extend(f_gt_points_signal.numpy().tolist())
+            low_signal.extend(f_gt_points_signal.cpu().numpy().tolist())
             nearby_emitters.extend([0] * len(f_gt_points))
 
     rmse = 0

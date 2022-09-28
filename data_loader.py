@@ -116,7 +116,7 @@ class SMLMDataset(Dataset):
             previous_frame = previous_frame / previous_frame.max()
         previous_frames = self._get_upsample_input(previous_frame)
         # get the next frame
-        if idx > len(self):
+        if idx + 1 > len(self):
             next_frame = torch.zeros_like(current_frame)
         else:
             next_frame_id = format(idx + 1, '05d')
@@ -181,7 +181,7 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
     if type_ == 'train':
         train_dataset = SMLMDataset(config.train_dir, config)
         val_dataset = SMLMDataset(config.val_dir, config)
-        train_dataset = Subset(train_dataset, [3, 6, 13, 23, 24, 30, 37, 39, 40, 43, 55, 56, 61, 65, 66, 72, 91])
+        # train_dataset = Subset(train_dataset, [3, 6, 13, 23, 24, 30, 37, 39, 40, 43, 55, 56, 61, 65, 66, 72, 91])
         config.log_param("num_training", len(train_dataset))
         config.log_param("num_validation", len(val_dataset))
         train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=shuffle, num_workers=0,

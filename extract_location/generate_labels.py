@@ -25,7 +25,7 @@ def pad_on_single_patch(patch: torch.Tensor, config: Config) -> torch.Tensor:
     width_padding = config.extracted_patch_size - patch.shape[1]
     height_padding = config.extracted_patch_size - patch.shape[0]
     if width_padding < 0:
-       left_padding = width_padding // 2
+        left_padding = width_padding // 2
     else:
         left_padding = random.randint(0, width_padding)
 
@@ -36,6 +36,7 @@ def pad_on_single_patch(patch: torch.Tensor, config: Config) -> torch.Tensor:
     pad = (left_padding, width_padding - left_padding, top_padding, height_padding - top_padding)
     patch = F.pad(patch, pad, mode='constant', value=0)
     return patch, pad
+
 
 # Performs a breadth-first search to find the connected pixels for each emitter
 def get_emitter_start_end_pos(frame, point) -> tuple:
@@ -130,8 +131,11 @@ def extract_label_from_single_frame(frame, gts):
     #                    [photon_count, std_x, std_y, x_mean, y_mean, x_start, y_start]
     return patches, patches_gt
 
+
 def get_patch_from_locations(frame: Tensor, location, config):
-    return frame[location[0]: location[0] + config.extracted_patch_size, location[1]: location[1] + config.extracted_patch_size]
+    return frame[location[0]: location[0] + config.extracted_patch_size, location[1]: location[1] +
+                                                                                      config.extracted_patch_size]
+
 
 def extract_label_from_folder(folder, config):
     file_names = glob.glob(f"{folder}/data_*_gt.pl")
@@ -146,25 +150,27 @@ def extract_label_from_folder(folder, config):
         # for each frame extract it's labels
         for frame_id, frame in enumerate(data, start=start):
             # get previous frame
-            try:
-                previous_frame = data[frame_id - start - 1]
-            except IndexError:
-                previous_frame = torch.zeros_like(frame)
-            try:
-                next_frame = data[frame_id - start + 1]
-            except IndexError:
-                next_frame = data[frame_id - start - 1]
+            if config.point_extraction_adjacent_emitters:
+                try:
+                    previous_frame = data[frame_id - start - 1]
+                except IndexError:
+                    previous_frame = torch.zeros_like(frame)
+                try:
+                    next_frame = data[frame_id - start + 1]
+                except IndexError:
+                    next_frame = data[frame_id - start - 1]
 
+                if previous_frame.max() > 0:
+                    previous_frame = (previous_frame - previous_frame.min()) / (previous_frame.max() - frame.min())
+                if next_frame.max() > 0:
+                    next_frame = (next_frame - next_frame.min()) / (next_frame.max() - frame.min())
             # Get next frame
             # get gt
             gt = gts[gts[:, 0] == frame_id]
             # normalize the frame between 0 and 1
             if frame.max() > 0:
                 frame = (frame - frame.min()) / (frame.max() - frame.min())
-            if previous_frame.max() > 0:
-                previous_frame = (previous_frame - previous_frame.min()) / (previous_frame.max() - frame.min())
-            if next_frame.max() > 0:
-                next_frame = (next_frame - next_frame.min()) / (next_frame.max() - frame.min())
+
             patch, location = extract_label_from_single_frame(frame, gt)
             # previous_patches = get_patch_from_locations(previous_frame, gt)
             # next_patches = get_patch_from_locations(next_frame, gt)
@@ -187,8 +193,9 @@ def extract_label_from_folder(folder, config):
                 x_per = (loc[0][4] - x_start) / config.extracted_patch_size
                 y_per = (loc[0][3] - y_start) / config.extracted_patch_size
                 # Get adjacent frame information
-                previous_patch = get_patch_from_locations(previous_frame, (y_start, x_start), config)
-                next_patch = get_patch_from_locations(next_frame, (y_start, x_start), config)
+                if config.point_extraction_adjacent_emitters:
+                    previous_patch = get_patch_from_locations(previous_frame, (y_start, x_start), config)
+                    next_patch = get_patch_from_locations(next_frame, (y_start, x_start), config)
                 # total photon in the patch for this specific label
                 photons = total_photon_in_patch * loc[0][0] / total_photon_in_gt
                 labels.extend([1, y_per * config.location_multiplier, x_per * config.location_multiplier, photons,
@@ -198,7 +205,7 @@ def extract_label_from_folder(folder, config):
                     distance = euclidean_distance((loc[0][3], loc[0][4]), (loc[1][3], loc[1][4]))
                     # if second emitter have very low emitters then we will ignore it
                     photons_2 = total_photon_in_patch * loc[1][0] / total_photon_in_gt
-                    if distance > 15 or photons_2 > .005:
+                    if distance > config.point_extraction_minimum_distance or photons_2 > config.point_extraction_minimum_intensity:
                         x_per_2 = (loc[1][4] - (loc[1][6] - pad[0])) / config.extracted_patch_size
                         y_per_2 = (loc[1][3] - (loc[1][5] - pad[2])) / config.extracted_patch_size
                         # total photon in the patch for this specific label
@@ -209,7 +216,10 @@ def extract_label_from_folder(folder, config):
                 label = torch.Tensor(labels[:12])
 
                 file_name = os.path.join(save_folder, f"p_{frame_id}_{idx}.pl")
-                single_patch = torch.stack([previous_patch, single_patch, next_patch])
+                if config.point_extraction_adjacent_emitters:
+                    single_patch = torch.stack([previous_patch, single_patch, next_patch])
+                else:
+                    single_patch = single_patch.unsqueeze(0)
                 with open(file_name, 'wb') as f:
                     pickle.dump([single_patch, label], f)
     print(f"Max size is {max_}")
