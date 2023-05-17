@@ -138,7 +138,7 @@ def get_ji_rmse_nn(config, predictions, targets):
     return ji, rmse, efficiency
 
 
-def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_points: Tensor, radius=10):
+def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_points: Tensor, radius=250):
 
     if not len(predicted_points) or not len(gt_points):
         return 0., 0., 0.
