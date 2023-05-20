@@ -20,7 +20,7 @@ def train(model, data_loader, criterion, optimizer, metrics, config, epoch=100) 
     loss_avg = utils.RunningAverage()
     # train_batch, labels_batch = next(iter(train_data_loader))
     with tqdm(total=len(data_loader), disable=config.progress_bar_disable) as progress_bar:
-        for i, (inputs, labels) in enumerate(data_loader):
+        for i, (inputs, labels, frame_id) in enumerate(data_loader):
             inputs = utils.convert_device(inputs, config.device)
             labels = utils.convert_device(labels, config.device)
 

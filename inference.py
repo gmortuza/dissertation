@@ -151,7 +151,7 @@ def inference_with_gt(config):
     #
     predicted_points = []
     target_points = []
-    for data_batch, gt_batch, frame_numbers in tqdm(train_data_loader, total=len(train_data_loader)):
+    for data_batch, gt_batch, frame_numbers in tqdm(valid_data_loader, total=len(valid_data_loader)):
         data_batch = utils.convert_device(data_batch, config.device)
         output_batch = model(data_batch, data_batch)
         predicted_point, target_point = export_predictions(output_batch[config.extract_point_from_resolution],
@@ -180,9 +180,7 @@ def inference_with_gt(config):
                cmap='gray')
 
 
-if __name__ == '__main__':
-    args = read_args()
-    config_ = Config(args.config_file, from_terminal=args.terminal, purpose='inference')
+def compare_method_resolution(config):
     methods = ['weighted_mean', 'nn']
     resolutions = [-1, -2, -3, -4]
     for method in methods:
@@ -192,18 +190,13 @@ if __name__ == '__main__':
             config_.extract_point_from_resolution = resolution
             config_.point_extraction_method = method
             config_.point_extraction_pixel_size = config_.Camera_Pixelsize * config_.resolution_slap[0] / \
-                                               config_.resolution_slap[config_.extract_point_from_resolution]
+                                                  config_.resolution_slap[config_.extract_point_from_resolution]
             inference_with_gt(config_)
-    # main(config_)
-    # scaled_points, output_image = inference_without_gt(config_)
-    # for image_resolution, image in zip(scaled_points, output_image):
-    #     plt.rcParams['figure.dpi'] = 600
-    #     plt.rcParams['savefig.dpi'] = 600
-    #     plt.imsave(config_.output_dir + '/' + 'output_' + str(image_resolution) + '.tiff', image.cpu().numpy(), cmap='gray', dpi=600)
-    #     points = scaled_points[image_resolution]
-    #     points = pd.DataFrame(points, columns=['frame', 'x', 'y', 'sx', 'sy', 'photons'])
-    #     points.to_csv(config_.output_dir + '/' + 'output_' + str(image_resolution) + '.csv', index=False)
-    #     # save for picasso
-    #     save_points_for_picasso(points, config_, image_resolution)
-    #     # points_picasso.to_csv(config_.output_dir + '/' + 'output_' + str(point) + '_picasso.csv', index=False)
-    # print("here")
+
+
+if __name__ == '__main__':
+    args = read_args()
+    config_ = Config(args.config_file, from_terminal=args.terminal, purpose='inference')
+    # compare_method_resolution(config_)
+
+    inference_without_gt(config_)
