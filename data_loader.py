@@ -197,8 +197,9 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
 
         return test_loader
     elif type_ == 'inference':
-        inference_dir = os.path.join(config.input_dir, "inference")
-        inference_dir = '/data/golam/dnam_nn/microtuble'
+        # inference_dir = os.path.join(config.input_dir, "inference")
+        # TODO: Take it from config file
+        inference_dir = '/data/golam/dnam_microtuble_data/sequence-MT0.N1.LD-2D-Exp-as-list'
         inference_dataset = SMLMDataset(inference_dir, config, "inference")
         inference_loader = DataLoader(inference_dataset, batch_size=config.batch_size, shuffle=shuffle)
 

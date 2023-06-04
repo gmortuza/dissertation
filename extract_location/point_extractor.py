@@ -191,8 +191,10 @@ def get_point_weighted_mean(frame, config, frame_number) -> list:
         image_patch = frame[:, x_start: x_end, y_start: y_end]
         patches.append(image_patch)
         photon_count = torch.sum(image_patch)
-        x_nm = x_mean * config.point_extraction_pixel_size
-        y_nm = y_mean * config.point_extraction_pixel_size
+        pixel_to_nm = config.Camera_Pixelsize * config.resolution_slap[0] / frame.shape[-1]
+
+        x_nm = x_mean * pixel_to_nm
+        y_nm = y_mean * pixel_to_nm
         points.append([frame_number, float(x_nm), float(y_nm), 0, 0, float(photon_count)])
     return patches, points
 
@@ -234,9 +236,43 @@ def get_point_scipy(frame, config, frame_number) -> list:
 
 
 def get_point_nn(frames, config, frame_numbers) -> list:
+    # if frame and frame numbers are not list convert them to list
+    frames = frames if isinstance(frames, list) else [frames]
+    frame_numbers = frame_numbers if isinstance(frame_numbers, list) else [frame_numbers]
     patches, start_position = point_extractor_nn.get_inputs_from_frames(frames, config, frame_numbers)
     formatted_output = point_extractor_nn.extract_points_from_inputs(patches, start_position, config)
     return None, formatted_output
+
+
+def combine_points_from_multiple_frames(points_with_res: list, config) -> list:
+    threshold = 40
+    # first add all the points into one list
+    all_points = []
+    combined_points = []
+    for res, points in points_with_res.items():
+        all_points += points
+    # convert the list into numpy array
+    all_points = np.asarray(all_points)
+    # loop through the frame number
+    for frame_number in np.unique(all_points[:, 0]):
+        # get the points for this frame
+        points = all_points[all_points[:, 0] == frame_number]
+        # get their distance matrix
+        distance_matrix = pairwise_distances(points[:, 1:3], points[:, 1:3])
+        for col_idx in range(distance_matrix.shape[0]):
+            if distance_matrix[0, col_idx] == -1:
+                continue
+            col = distance_matrix[:, col_idx]
+            # get the index of the points that are close to this point
+            close_points_idx = (np.where(col < threshold))[0]
+            # take the lowest 4 points based on the distance
+            close_points_idx = sorted(close_points_idx, key=lambda x: col[x])[:4]
+            if len(close_points_idx) > 1:
+                combined_points.append(np.average(points[close_points_idx], axis=0).tolist())
+            # set all value of this close points to -1 in the distance matrix
+            distance_matrix[close_points_idx, :] = float('inf')
+            distance_matrix[:, close_points_idx] = float('inf')
+    return combined_points
 
 
 def main():

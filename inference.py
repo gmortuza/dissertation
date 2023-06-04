@@ -88,13 +88,14 @@ def export_predictions(predictions, targets, config):
 
 
 def save_points_for_picasso(points, config, image_resolution):
+    nm_to_pixel = config.Camera_Pixelsize
     points = np.asarray(points)
     points = points[np.argsort(points[:, 0])]
     predicted_points = np.rec.array(
         (
             points[:, 0],  # frames
-            points[:, 2] / config.Camera_Pixelsize,  # x
-            points[:, 1] / config.Camera_Pixelsize,  # y
+            points[:, 2] / nm_to_pixel,  # x
+            points[:, 1] / nm_to_pixel,  # y
             points[:, 5] * 1000,  # photons
             np.full(points[:, 0].shape, .85),  # s_x
             np.full(points[:, 0].shape, .85),  # s_y
@@ -122,6 +123,12 @@ def save_points_for_picasso(points, config, image_resolution):
             yaml_file.write(content_for_yaml_file)
 
 
+def save_points_for_picasso_multi_resolution(points_with_res: dict, config: Config):
+    combine_points = point_extractor.combine_points_from_multiple_frames(points_with_res, config)
+    save_points_for_picasso(combine_points, config, config.resolution_slap[0])
+    for resolution, points in points_with_res.items():
+        save_points_for_picasso(points, config, resolution)
+
 def inference_without_gt(config):
     model = config.upsample_model
     inference_data_loader = fetch_data_loader(config, type_="inference")
@@ -136,6 +143,8 @@ def inference_without_gt(config):
         for index, output in enumerate(output_batch):
             outputs[index] += output.squeeze(1).sum(dim=0).detach()
             predicted_points[output.shape[-1]].extend(export_predictions_without_target(output, frame_numbers, config))
+    save_points_for_picasso_multi_resolution(predicted_points, config)
+    config.logger.info("Inference is done")
     return predicted_points, outputs
 
 

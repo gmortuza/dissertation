@@ -1,5 +1,5 @@
 # ================ Configuration for Model ===============
-output_dir: outputs_1_l1_three
+output_dir: MT0_N1_LD_2D
 validation_split: .15
 test_split: .1
 batch_size: 4
@@ -12,12 +12,12 @@ load_checkpoint: True
 save_model_after_each_epoch: 100
 total_training_example: 100  # -1 means all the training examples
 resolution_slap:
-  - 32
+#  - 32
   - 64
   - 128
   - 256
   - 512
-#  - 1024
+  - 1024
 save_model_based_on: JI_16
 JI_metrics_from_epoch: 1
 output_threshold: 1
@@ -48,7 +48,7 @@ average_of_all_upsampled_image: True
 point_extractor_weight_path:  '/data/golam/dnam_nn/outputs_1_l1_three/checkpoint/pointsbest.pth.tar'
 #upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight_variable_std.tar'
 upsample_weight_path: '/data/golam/dnam_nn/trained_weights/adjacent_frame/best.pth.tar'
-point_extraction_method: 'nn'  # weighted_mean, scipy, picasso, nn
+point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso, nn
 
 
 
