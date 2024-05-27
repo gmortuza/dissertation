@@ -214,9 +214,9 @@ def get_point_scipy(frame, config, frame_number) -> list:
         weights = frame[0][x, y]
         x_mean = np.sum(x * weights) / np.sum(weights)
         y_mean = np.sum(y * weights) / np.sum(weights)
-        x_start, x_end = int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2, int(
+        x_start, x_end = max(0, int(x_mean.round()) - SINGLE_EMITTER_WIDTH // 2), int(
             x_mean.round()) + SINGLE_EMITTER_WIDTH // 2
-        y_start, y_end = int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2, int(
+        y_start, y_end = max(0, int(y_mean.round()) - SINGLE_EMITTER_HEIGHT // 2), int(
             y_mean.round()) + SINGLE_EMITTER_HEIGHT // 2
         image_patch = frame[:, x_start: x_end, y_start: y_end]
         patches.append(image_patch)
@@ -237,8 +237,8 @@ def get_point_scipy(frame, config, frame_number) -> list:
 
 def get_point_nn(frames, config, frame_numbers) -> list:
     # if frame and frame numbers are not list convert them to list
-    frames = frames if isinstance(frames, list) else [frames]
-    frame_numbers = frame_numbers if isinstance(frame_numbers, list) else [frame_numbers]
+    # frames = frames if isinstance(frames, list) else [frames]
+    # frame_numbers = frame_numbers if isinstance(frame_numbers, list) else [frame_numbers]
     patches, start_position = point_extractor_nn.get_inputs_from_frames(frames, config, frame_numbers)
     formatted_output = point_extractor_nn.extract_points_from_inputs(patches, start_position, config)
     return None, formatted_output

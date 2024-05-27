@@ -123,8 +123,8 @@ def get_ji_rmse_efficiency_from_predictions(level, config):
                 predicted_points.extend(predicted_point)
             if len(gt_point):
                 gt_points.extend(gt_point)
-        jaccard_index, rmse, efficiency = get_ji_rmse_efficiency_from_formatted_points(torch.tensor(predicted_points), torch.tensor(gt_points))
-        return jaccard_index, rmse, efficiency
+        jaccard_index, rmse, efficiency, unrecognized_emitters = get_ji_rmse_efficiency_from_formatted_points(torch.tensor(predicted_points), torch.tensor(gt_points))
+        return jaccard_index, rmse, efficiency, unrecognized_emitters
 
     return ji_rmse_efficiency
 
@@ -141,7 +141,7 @@ def get_ji_rmse_nn(config, predictions, targets):
 def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_points: Tensor, radius=250):
 
     if not len(predicted_points) or not len(gt_points):
-        return 0., 0., 0.
+        return 0., 0., 0., .0
     # predicted_points = torch.Tensor(predicted_points)
     # gt_points = torch.Tensor(gt_points)
     true_positive = 0
@@ -199,7 +199,7 @@ def get_ji_rmse_efficiency_from_formatted_points(predicted_points: Tensor, gt_po
         rmse = np.sqrt(np.sum(distances_from_points ** 2) / len(distances_from_points))
     ji = true_positive * 100 / (len(predicted_points) + len(gt_points) - true_positive)
     efficiency = get_efficiency(ji, rmse)
-    return ji, rmse, efficiency
+    return ji, rmse, efficiency, unrecogniazed_emitter_details
 
 
 def get_efficiency(jaccard_index, rmse, alpha=1.0):

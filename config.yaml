@@ -1,32 +1,32 @@
 # ================ Configuration for Model ===============
-output_dir: MT0_N1_LD_2D
+output_dir: output_test
 validation_split: .15
-test_split: .1
+test_split: .5
 batch_size: 4
-num_epochs: 10000
+num_epochs: 10
 learning_rate: 0.0001
 weight_decay: 0.00
 model_type: custom_model
 save_summary_steps: 40 # batch
 load_checkpoint: True
-save_model_after_each_epoch: 100
-total_training_example: 100  # -1 means all the training examples
+save_model_after_each_epoch: 1
+total_training_example: -1  # -1 means all the training examples
 resolution_slap:
-#  - 32
+  - 32
   - 64
   - 128
   - 256
   - 512
-  - 1024
+#  - 1024
 save_model_based_on: JI_16
 JI_metrics_from_epoch: 1
-output_threshold: 1
+output_threshold: .001
 
 # ================ General settings ===============
-input_dir: simulated_data_multi_variable  # This output directory will be the input directory of the model
+input_dir: final_testing  # This output directory will be the input directory of the model
 simulated_file_name: data
 log_to: console  # console
-device: cuda:0
+device: cuda:1
 log_level: info  # info, debug, warning, error
 num_of_process: 1
 use_seed: True  # Get the same result all the time. For debugging purpose
@@ -37,7 +37,7 @@ save_for_picasso: True  # This will save both the raw file and ground truth comp
 extract_point_from_resolution: -1
 location_multiplier: 100
 extracted_patch_size: 30
-multi_emitter_threshold: 140
+multi_emitter_threshold: 100
 point_extraction_adjacent_emitters: False
 point_extraction_minimum_distance: 100
 point_extraction_minimum_intensity: .005
@@ -47,7 +47,7 @@ average_of_all_upsampled_image: True
 # weights path that will be used
 point_extractor_weight_path:  '/data/golam/dnam_nn/outputs_1_l1_three/checkpoint/pointsbest.pth.tar'
 #upsample_weight_path: '/data/golam/dnam_nn/trained_weights/upsample_weight_variable_std.tar'
-upsample_weight_path: '/data/golam/dnam_nn/trained_weights/adjacent_frame/best.pth.tar'
+upsample_weight_path: '/data/golam/dnam_nn/outputs_07_07_01_34_16/checkpoint/best.pth.tar'
 point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso, nn
 
 
@@ -55,16 +55,16 @@ point_extraction_method: 'weighted_mean'  # weighted_mean, scipy, picasso, nn
 # ================ Camera Settings ===============
 # Padding in each framed
 # Origami won't be present in the border regions
-frame_padding: 3
+frame_padding: 6
 Camera: Simulation
-total_frames: 3000  # Total Number of frames
-split_into: 2 # Total number of frames will be splitted into this amount of files
+total_frames: 40000  # Total Number of frames
+split_into: 4 # Total number of frames will be splitted into this amount of files
 image_size: 32  # height and width will be the same
 # This is the maximum number of emitter in a single that the neural network will predict.
 # Depending on the probability distribution a frame might have more than this amount of emitter
 max_number_of_emitter_per_frame: 30
 Camera_integration_time: 300  # (ms)
-Camera_Pixelsize: 100  # (nm)
+Camera_Pixelsize: 107  # (nm)
 data_gen_type: 'multiple_distribute'  # 'multiple_distribute' or 'single_distribute'
 # create image of 64 times resolution then crop the emitters put in different resolution images
 single_distribute_max_resolution: 64
@@ -112,8 +112,8 @@ noise_type: poisson
 Imager_Constant Photonrate Std: 0  # Constant detection rate(select box)
 Imager_Laserpower: 1.5  # Power density (kwCm-2)
 Imager_PSF:
-  - 0.9
-  - 1.5 # point spread function (px) # 1.32
+  - .82
+  - .82 # point spread function (px) # 1.32
 Imager_Photonbudget: 1500000.0  #
 Imager_Photonslope: 35  # Photon detection rate
 # From the file

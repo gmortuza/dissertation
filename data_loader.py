@@ -21,8 +21,7 @@ class SMLMDataset(Dataset):
         self.config = config
         self.type_ = type_
         self.dataset_dir = dataset_dir
-        if type_ != 'inference':
-            self.total_data = self._upsample_images()
+        self.total_data = self._upsample_images()
 
     def _upsample_images(self):
         file_names = glob.glob(f"{self.dataset_dir}/data_*_gt.pl")
@@ -38,7 +37,7 @@ class SMLMDataset(Dataset):
                 input_ = utils.normalize(input_)
                 all_label = []
                 total_frames = self.config.resolution_slap[
-                               :-1] if self.config.data_gen_type == 'single_distribute' else \
+                                     :-1] if self.config.data_gen_type == 'single_distribute' else \
                     self.config.resolution_slap
                 for image_sizes in total_frames:
                     all_label.append(utils.normalize(
@@ -92,8 +91,11 @@ class SMLMDataset(Dataset):
         return high_res_images
 
     def __len__(self):
+        return 100
         if self.type_ == 'inference':
             return len(glob.glob(self.dataset_dir + "/*.tif"))
+        # if self.type_ == 'test':
+        #     return len(glob.glob(self.dataset_dir + "/*.pl"))
         return self.total_data if self.config.total_training_example == -1 else self.config.total_training_example
         # return self.total_data
 
@@ -128,7 +130,7 @@ class SMLMDataset(Dataset):
         x_data = []
         for x_p, x_, x_n in zip(previous_frames, current_frames, next_frames):
             x_data.append(torch.cat((x_p, x_, x_n), dim=0) * 255.)
-        return x_data, idx
+        return x_, idx
 
     def __getitem__(self, index: int):
         if self.type_ == 'inference':
@@ -136,24 +138,6 @@ class SMLMDataset(Dataset):
         f_name = f"{self.dataset_dir}/db_{index}.pl"
         with open(f_name, 'rb') as handle:
             x, y = pickle.load(handle)
-
-        pre_f_name = f"{self.dataset_dir}/db_{index - 1}.pl"
-        next_f_name = f"{self.dataset_dir}/db_{index + 1}.pl"
-        try:
-            with open(pre_f_name, 'rb') as handle:
-                x_prev, y_prev = pickle.load(handle)
-        except FileNotFoundError:
-            x_prev = [torch.zeros_like(x_) for x_ in x]
-
-        try:
-            with open(next_f_name, 'rb') as handle:
-                x_next, y_next = pickle.load(handle)
-        except FileNotFoundError:
-            x_next = [torch.zeros_like(x_) for x_ in x]
-
-        x_data = []
-        for x_p, x_, x_n in zip(x_prev, x, x_next):
-            x_data.append(torch.cat((x_p, x_, x_n), dim=0))
 
         # Reshape last dimension to be (30, 11)
         y[6] = F.pad(y[6], (0, 0, 0, 30 - y[6].shape[0]))
@@ -164,10 +148,10 @@ class SMLMDataset(Dataset):
         # del y[3]
         # del y[1]
         del y[0]
-        for i in range(5):
+        for i in range(2):
             y[i] *= 255.0
-            x_data[i] *= 255.0
-        return x_data, y, index
+            x[i] *= 255.0
+        return x, y, index
 
 
 def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'):
@@ -179,7 +163,8 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
         shuffle (object):
     """
     if type_ == 'train':
-        train_dataset = SMLMDataset(config.train_dir, config)
+        test_dir = os.path.join(config.input_dir, "train")
+        train_dataset = SMLMDataset(test_dir, config)
         val_dataset = SMLMDataset(config.val_dir, config)
         # train_dataset = Subset(train_dataset, [3, 6, 13, 23, 24, 30, 37, 39, 40, 43, 55, 56, 61, 65, 66, 72, 91])
         config.log_param("num_training", len(train_dataset))
@@ -208,5 +193,5 @@ def fetch_data_loader(config: Config, shuffle: bool = True, type_: str = 'train'
 
 if __name__ == '__main__':
     config_ = Config('config.yaml')
-    dl = fetch_data_loader(config_, type_='inference')
-    x_, y_ = next(iter(dl))
+    dl = fetch_data_loader(config_)
+    x_, y_ = next(iter(dl[0]))

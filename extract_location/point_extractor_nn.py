@@ -45,7 +45,8 @@ def add_padding_on_patches(patches: List[Tensor], start_positions: List[List], c
 
 
 def extract_path_using_cc(frame: torch.Tensor, frame_number: int, config: Config) -> List[Tensor]:
-    binary_frame = (frame[0] > config.output_threshold).cpu().numpy().astype(np.int8)
+    frame = frame[0]
+    binary_frame = (frame > config.output_threshold).cpu().numpy().astype(np.int8)
     *_, stats, centroid = cv2.connectedComponentsWithStats(binary_frame, 4, cv2.CV_32S)
     # stats --> [x_start, y_start, width, height, num_element]
     patches = []
@@ -53,7 +54,7 @@ def extract_path_using_cc(frame: torch.Tensor, frame_number: int, config: Config
     for stat in stats[1:]:
         if stat[-1] < 3:  # Ignore patch that have less than 3 connected component
             continue
-        patch = frame[0][stat[1]: stat[1] + stat[3], stat[0]: stat[0] + stat[2]]
+        patch = frame[stat[1]: stat[1] + stat[3], stat[0]: stat[0] + stat[2]]
         patch = patch.unsqueeze(0)
         patches.append(patch)
         # Extract start position
@@ -122,7 +123,7 @@ def main(config):
     # get the model
     formatted_output = extract_points_from_inputs(inputs, start_pos_of_inputs, config)
     gt_points = torch.tensor(gt_points)
-    nn_ji, nn_rmse, nn_efficiency = metrics.get_ji_rmse_efficiency(formatted_output, gt_points)
+    nn_ji, nn_rmse, nn_efficiency, unrecognized_emitters = metrics.get_ji_rmse_efficiency_from_formatted_points(formatted_output, gt_points)
     print(f"NN ji: {nn_ji} \t nn rmse: {nn_rmse} \t efficiency: {nn_efficiency}")
 
 

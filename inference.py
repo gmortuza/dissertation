@@ -1,4 +1,5 @@
 import argparse
+import collections
 
 import h5py
 import numpy as np
@@ -17,6 +18,34 @@ from tqdm import tqdm
 import pandas as pd
 
 plt.grid(False)
+
+
+def show_separability(input_batch, output_batch, gt_batch, predicted_points, idx):
+    # save the input figure
+    frame_number = int(gt_batch[-1][idx][0][0].tolist())
+    fig, ax = plt.subplots()
+    ax.imshow(input_batch[0][idx][0].detach().cpu(), cmap='gray')
+    ax.grid(False)
+    for gt_row in gt_batch[-1][idx][gt_batch[-1][idx][:, 0] != 0].numpy():
+        ax.plot(gt_row[1], gt_row[2], marker='x', color="red")
+    fig.show()
+    fig.savefig(f"/data/golam/dnam_nn/separability/input_{frame_number}.png", dpi=300, bbox_inches='tight')
+    # Save the output from different resolution
+    for i in range(len(output_batch)):
+        shape = output_batch[i].shape[-1]
+        frame_gt_points = np.asarray(predicted_points[shape])
+        frame_gt_points = frame_gt_points[frame_gt_points[:, 0] == frame_number]
+
+
+        fig, ax = plt.subplots()
+        ax.imshow(output_batch[i][idx][0].detach().cpu(), cmap='gray')
+        ax.grid(False)
+        for gt_row in frame_gt_points:
+            x, y = gt_row[1] * (shape // 32) / 107, gt_row[2] * (shape // 32) / 107
+            # if x == 0 or y == 0: break
+            ax.plot(y, x, marker='x', color="red")
+        fig.show()
+        fig.savefig(f"/data/golam/dnam_nn/separability/output_{frame_number}_{shape}.png", dpi=300, bbox_inches='tight')
 
 
 def show(data, output, target, index, predicted_point):
@@ -152,7 +181,7 @@ def inference_with_gt(config):
     # Get the model
     model = config.upsample_model
     # test_data_loader = fetch_data_loader(config, type_='test')
-    train_data_loader, valid_data_loader = fetch_data_loader(config, type_='train')
+    valid_data_loader = fetch_data_loader(config, type_='test')
     output = torch.zeros((config.resolution_slap[config.extract_point_from_resolution],
                           config.resolution_slap[config.extract_point_from_resolution]), device=config.device)
     gt = torch.zeros((config.resolution_slap[config.extract_point_from_resolution],
@@ -160,14 +189,19 @@ def inference_with_gt(config):
     #
     predicted_points = []
     target_points = []
+    predicted_points = collections.defaultdict(list)
     for data_batch, gt_batch, frame_numbers in tqdm(valid_data_loader, total=len(valid_data_loader)):
         data_batch = utils.convert_device(data_batch, config.device)
-        output_batch = model(data_batch, data_batch)
-        predicted_point, target_point = export_predictions(output_batch[config.extract_point_from_resolution],
-                                                           gt_batch, config)
-        # for i in range(data_batch[0].shape[0]):
-        #     show(data_batch, output_batch, gt_batch, i, predicted_point)
-        predicted_points.extend(predicted_point)
+        with torch.no_grad():
+            output_batch = model(data_batch, data_batch)
+        # export predictions for each resolution slap
+        output_batch[0] /= 255
+        output_batch[1] /= 255
+        for output in output_batch:
+            config.point_extraction_pixel_size = config.Camera_Pixelsize * config.resolution_slap[0] / \
+                                                 output.shape[-1]
+            predicted_point, target_point = export_predictions(output, gt_batch, config)
+            predicted_points[output.shape[-1]].extend(predicted_point)
         target_points.extend(target_point)
         # output += torch.squeeze(output_batch.detach(), axis=1).sum(axis=0)
         # gt += torch.squeeze(gt_batch[3].detach().to(config.device), axis=1).sum(axis=0)
@@ -175,37 +209,47 @@ def inference_with_gt(config):
     # save the final output image
     # save_points_for_picasso(predicted_points, config)
     # Get JI
-    predicted_points = torch.tensor(predicted_points)
     target_points = torch.tensor(target_points)
-    jaccard_index, rmse, efficiency = metrics.get_ji_rmse_efficiency_from_formatted_points(predicted_points,
-                                                                                           target_points, radius=250)
-    print(config.extract_point_from_resolution, "Jaccard Index: ", jaccard_index)
-    plt.rcParams['figure.dpi'] = 600
-    plt.rcParams['savefig.dpi'] = 600
+    for resolution, predictions in predicted_points.items():
+        predictions = torch.tensor(predictions)
+        radius = 10
+        jaccard_index, rmse, efficiency, unrecognized_emitters = metrics.get_ji_rmse_efficiency_from_formatted_points(predictions,
+                                                                                               target_points,
+                                                                                               radius=radius)
+        unrecognized_emitters = unrecognized_emitters.astype('int')
+        np.savetxt(config.output_dir + '/' + str(resolution) + '_unrecognized_emitters.csv', unrecognized_emitters.astype('int'),
+                   delimiter=',', header='Frame,distance,photons,explainable')
+        print(config.point_extraction_method, resolution, radius, "Jaccard Index: ", jaccard_index)
+    # predicted_points = torch.tensor(predicted_points)
+
+    save_points_for_picasso_multi_resolution(predicted_points, config)
+    # plt.rcParams['figure.dpi'] = 600
+    # plt.rcParams['savefig.dpi'] = 600
     # plt.imsave(config.output_dir+"/gt_output_1.tiff", output.cpu().numpy(), cmap='gray')
     # TODO: remove this section later
     # save the ground truth data as well for comparison
-    plt.imsave(config.output_dir + '/' + str(config.resolution_slap[-1]) + '_gt_output.tiff', gt.cpu().numpy(),
-               cmap='gray')
+    # plt.imsave(config.output_dir + '/' + str(config.resolution_slap[-1]) + '_gt_output.tiff', gt.cpu().numpy(),
+    #            cmap='gray')
 
 
 def compare_method_resolution(config):
-    methods = ['weighted_mean', 'nn']
-    resolutions = [-1, -2, -3, -4]
+    # methods = ['picasso', 'scipy', 'weighted_mean']
+    methods = ['weighted_mean', 'picasso']
     for method in methods:
         print("Method: ", method)
         print("==" * 20)
-        for resolution in resolutions:
-            config_.extract_point_from_resolution = resolution
-            config_.point_extraction_method = method
-            config_.point_extraction_pixel_size = config_.Camera_Pixelsize * config_.resolution_slap[0] / \
-                                                  config_.resolution_slap[config_.extract_point_from_resolution]
-            inference_with_gt(config_)
+        # for resolution in resolutions:
+        # config_.extract_point_from_resolution = resolution
+        config_.point_extraction_method = method
+        # config_.point_extraction_pixel_size = config_.Camera_Pixelsize * config_.resolution_slap[0] / \
+        #                                       config_.resolution_slap[config_.extract_point_from_resolution]
+        inference_with_gt(config_)
+    print("Inference is done")
 
 
 if __name__ == '__main__':
     args = read_args()
     config_ = Config(args.config_file, from_terminal=args.terminal, purpose='inference')
-    # compare_method_resolution(config_)
+    compare_method_resolution(config_)
 
-    inference_without_gt(config_)
+    # inference_without_gt(config_)

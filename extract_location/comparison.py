@@ -19,7 +19,7 @@ def print_results(frames, frame_numbers, gt_points, method_name: str, method, co
             predicted_points.extend(predicted_point)
     predicted_points = torch.tensor(predicted_points)
     gt_points = torch.tensor(gt_points)
-    ji, rmse, efficiency = metrics.get_ji_rmse_efficiency_from_formatted_points(predicted_points, gt_points)
+    ji, rmse, efficiency, unrecognized_emitters = metrics.get_ji_rmse_efficiency_from_formatted_points(predicted_points, gt_points)
     total_time = time.time() - start_time
     print("==" * 10, f" {method_name} (", round(total_time, 2), 'second)', "==" * 10)
     print(f"JI: {ji}\t, RMSE: {rmse}\t, Efficiency: {efficiency}")

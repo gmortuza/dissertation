@@ -7,7 +7,7 @@ import utils
 def validation(model, data_loader, criterion, metrics, config) -> dict:
     model.eval()
     summary = []
-    for inputs, labels, frame_id in data_loader:
+    for inputs, labels in data_loader:
         inputs = utils.convert_device(inputs, config.device)
         labels = utils.convert_device(labels, config.device)
         # compute model output

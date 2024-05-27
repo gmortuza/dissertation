@@ -5,12 +5,23 @@ from models.unet import UNet
 # from models.multi_res_unet import MultiResUNet as UNet
 
 
+class ResBlock(nn.Module):
+    def __init__(self, in_channel, out_channel):
+        super(ResBlock, self).__init__()
+        self.conv = nn.Sequential(
+
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.conv(x)
+
+
 class Custom(nn.Module):
     def __init__(self, config):
         super(Custom, self).__init__()
         self.config = config
         self.model_1 = nn.Sequential(
-            UNet(self.config, in_channel=3, out_channel=128),
+            UNet(self.config, in_channel=1, out_channel=128),
             nn.Conv2d(128, 128, 3, 1, 1),
             nn.PReLU(),
             nn.PixelShuffle(2),
@@ -23,38 +34,56 @@ class Custom(nn.Module):
             nn.PixelShuffle(2),
             nn.Conv2d(32, 1, 9, 1, 4)
         )
+        # self.model_3 = nn.Sequential(
+        #     UNet(self.config, in_channel=2, out_channel=64),
+        #     nn.Conv2d(64, 64, 3, 1, 1),
+        #     nn.BatchNorm2d(64),
+        #     nn.PixelShuffle(2),
+        #     nn.PReLU(),
+        #     nn.Conv2d(16, 1, 9, 1, 4)
+        # )
+        # self.model_4 = nn.Sequential(
+        #     UNet(self.config, in_channel=2, out_channel=64),
+        #     nn.Conv2d(64, 64, 3, 1, 1),
+        #     nn.BatchNorm2d(64),
+        #     nn.PixelShuffle(2),
+        #     nn.PReLU(),
+        #     nn.Conv2d(16, 1, 9, 1, 4)
+        # )
 
-    def upsample_overlapped_emitter(self, x):
-        inputs = torch.cat((x, x), dim=1)
-        x_2x = self.model_2(inputs)
-        return x_2x
-
-    # for validation, we will use the previous output rather than the labels so we put default epochs value higher
+    # for validations we will use the previous output rather than the labels so we put default epochs value higher
     def forward(self, x: Tensor, y, epochs=100) -> Tensor:
         outputs = []
-        # resolution 32 --> 64
-        # inputs = torch.cat((x[0], x[0]), dim=1)
+        # resolution 32 --> 128
         output = self.model_1(x[0])
         outputs.append(output)
-        # resolution 64 --> 128
-        # inputs = torch.cat((x[1], output), dim=1)
-        inputs = torch.cat((x[1][:, [0], :, :], output, x[1][:, [2], :, :]), dim=1)
-        output = self.model_1(inputs)
+
+        output = self.model_1(output)
         outputs.append(output)
+
         # resolution 128 --> 256
-        inputs = torch.cat((x[2][:, [1], :, :], output), dim=1)
+        inputs = torch.cat((x[2], output), dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
-        # resolution 256 --> 512
-        inputs = torch.cat((x[3][:, [1], :, :], output), dim=1)
+        #
+        inputs = torch.cat((x[3], output), dim=1)
         output = self.model_2(inputs)
         outputs.append(output)
+
+        # # resolution 256 --> 512
+        # inputs = torch.cat((x[2], output), dim=1)
+        # output = self.model_3(inputs)
+        # outputs.append(output)
+        #
+        # #
+        # inputs = torch.cat((x[3], output), dim=1)
+        # output = self.model_4(inputs)
+        # outputs.append(output)
 
         return outputs
 
 
 def test():
-    from read_config import Config
     config_ = Config('../config.yaml')
     model = Custom(config_)
     # [32, 63, 125, 249]
@@ -75,6 +104,7 @@ def test():
 
 
 if __name__ == '__main__':
+    from read_config import Config
     test()
     import sys
 

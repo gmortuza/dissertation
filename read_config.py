@@ -129,7 +129,7 @@ class Config:
 
     def prepare_point_extractor_nn_model(self):
         model = None
-        if self.point_extraction_method == 'nn' and self.point_extractor_weight_path is not None:
+        if self.point_extractor_weight_path is not None:
             model = ExtractLocationModel(self).to(self.device)
             if os.path.exists(self.point_extractor_weight_path):
                 checkpoint = torch.load(self.point_extractor_weight_path, map_location=self.device)
